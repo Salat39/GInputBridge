@@ -1,0 +1,8 @@
+/build
+/release
+/src/emuRelease/generated
+/src/prodRelease
+/src/release
+/src/internal
+/src/car
+secure.signing.gradle

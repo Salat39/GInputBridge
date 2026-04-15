@@ -1,0 +1,25 @@
+package com.geely.lib.oneosapi.navi.entitys;
+
+/* loaded from: classes.dex */
+public enum TurnInfoIcon {
+    VEHICLE_SELF,
+    TURN_LEFT,
+    TURN_RIGHT,
+    LEFT_FRONT,
+    RIGHT_FRONT,
+    LEFT_REAR,
+    RIGHT_REAR,
+    TURN_LEFT_TO_TURN_AROUND,
+    FORWARD,
+    THE_WAYPOINT_IS_REACHED,
+    INTO_THE_ROUNDABOUT,
+    OUT_OF_THE_ISLAND,
+    REACH_THE_SERVICE_AREA,
+    REACH_THE_TOLL_STATION,
+    REACH_THE_DESTINATION,
+    ENTER_THE_TUNNEL,
+    INTO_THE_LEFT_ROUNDABOUT,
+    OUT_OF_THE_LEFT_ISLAND,
+    TURN_RIGHT_TO_TURN_AROUND,
+    KEEP_DIRECTION_AROUND
+}

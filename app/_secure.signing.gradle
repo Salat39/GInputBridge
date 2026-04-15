@@ -1,0 +1,25 @@
+android {
+    signingConfigs {
+        release {
+            storeFile file("")
+            storePassword ""
+            keyAlias ""
+            keyPassword ""
+        }
+        nonMinifiedRelease {
+            storeFile file("")
+            storePassword ""
+            keyAlias ""
+            keyPassword ""
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+        }
+        nonMinifiedRelease {
+            signingConfig signingConfigs.release
+        }
+    }
+}

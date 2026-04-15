@@ -1,0 +1,180 @@
+package com.geely.lib.oneosapi.smart;
+
+import android.os.Binder;
+import android.os.IBinder;
+import android.os.IInterface;
+import android.os.Parcel;
+import android.os.RemoteException;
+
+/* loaded from: classes.dex */
+public interface ISweepingRobotInfo extends IInterface {
+
+    public static class Default implements ISweepingRobotInfo {
+        @Override // android.os.IInterface
+        public IBinder asBinder() {
+            return null;
+        }
+
+        @Override // com.geely.lib.oneosapi.smart.ISweepingRobotInfo
+        public int getEnergyValue() throws RemoteException {
+            return 0;
+        }
+
+        @Override // com.geely.lib.oneosapi.smart.ISweepingRobotInfo
+        public String getId() throws RemoteException {
+            return null;
+        }
+
+        @Override // com.geely.lib.oneosapi.smart.ISweepingRobotInfo
+        public int getSwitchOpen() throws RemoteException {
+            return 0;
+        }
+    }
+
+    int getEnergyValue() throws RemoteException;
+
+    String getId() throws RemoteException;
+
+    int getSwitchOpen() throws RemoteException;
+
+    public static abstract class Stub extends Binder implements ISweepingRobotInfo {
+        private static final String DESCRIPTOR = "com.geely.lib.oneosapi.smart.ISweepingRobotInfo";
+        static final int TRANSACTION_getEnergyValue = 2;
+        static final int TRANSACTION_getId = 3;
+        static final int TRANSACTION_getSwitchOpen = 1;
+
+        @Override // android.os.IInterface
+        public IBinder asBinder() {
+            return this;
+        }
+
+        public Stub() {
+            attachInterface(this, DESCRIPTOR);
+        }
+
+        public static ISweepingRobotInfo asInterface(IBinder obj) {
+            if (obj == null) {
+                return null;
+            }
+            IInterface queryLocalInterface = obj.queryLocalInterface(DESCRIPTOR);
+            if (queryLocalInterface != null && (queryLocalInterface instanceof ISweepingRobotInfo)) {
+                return (ISweepingRobotInfo) queryLocalInterface;
+            }
+            return new Proxy(obj);
+        }
+
+        @Override // android.os.Binder
+        public boolean onTransact(int code, Parcel data, Parcel reply, int flags) throws RemoteException {
+            if (code == 1) {
+                data.enforceInterface(DESCRIPTOR);
+                int switchOpen = getSwitchOpen();
+                reply.writeNoException();
+                reply.writeInt(switchOpen);
+                return true;
+            }
+            if (code == 2) {
+                data.enforceInterface(DESCRIPTOR);
+                int energyValue = getEnergyValue();
+                reply.writeNoException();
+                reply.writeInt(energyValue);
+                return true;
+            }
+            if (code != 3) {
+                if (code == 1598968902) {
+                    reply.writeString(DESCRIPTOR);
+                    return true;
+                }
+                return super.onTransact(code, data, reply, flags);
+            }
+            data.enforceInterface(DESCRIPTOR);
+            String id = getId();
+            reply.writeNoException();
+            reply.writeString(id);
+            return true;
+        }
+
+        private static class Proxy implements ISweepingRobotInfo {
+            public static ISweepingRobotInfo sDefaultImpl;
+            private IBinder mRemote;
+
+            public String getInterfaceDescriptor() {
+                return Stub.DESCRIPTOR;
+            }
+
+            Proxy(IBinder remote) {
+                this.mRemote = remote;
+            }
+
+            @Override // android.os.IInterface
+            public IBinder asBinder() {
+                return this.mRemote;
+            }
+
+            @Override // com.geely.lib.oneosapi.smart.ISweepingRobotInfo
+            public int getSwitchOpen() throws RemoteException {
+                Parcel obtain = Parcel.obtain();
+                Parcel obtain2 = Parcel.obtain();
+                try {
+                    obtain.writeInterfaceToken(Stub.DESCRIPTOR);
+                    if (!this.mRemote.transact(1, obtain, obtain2, 0) && Stub.getDefaultImpl() != null) {
+                        return Stub.getDefaultImpl().getSwitchOpen();
+                    }
+                    obtain2.readException();
+                    return obtain2.readInt();
+                } finally {
+                    obtain2.recycle();
+                    obtain.recycle();
+                }
+            }
+
+            @Override // com.geely.lib.oneosapi.smart.ISweepingRobotInfo
+            public int getEnergyValue() throws RemoteException {
+                Parcel obtain = Parcel.obtain();
+                Parcel obtain2 = Parcel.obtain();
+                try {
+                    obtain.writeInterfaceToken(Stub.DESCRIPTOR);
+                    if (!this.mRemote.transact(2, obtain, obtain2, 0) && Stub.getDefaultImpl() != null) {
+                        return Stub.getDefaultImpl().getEnergyValue();
+                    }
+                    obtain2.readException();
+                    return obtain2.readInt();
+                } finally {
+                    obtain2.recycle();
+                    obtain.recycle();
+                }
+            }
+
+            @Override // com.geely.lib.oneosapi.smart.ISweepingRobotInfo
+            public String getId() throws RemoteException {
+                Parcel obtain = Parcel.obtain();
+                Parcel obtain2 = Parcel.obtain();
+                try {
+                    obtain.writeInterfaceToken(Stub.DESCRIPTOR);
+                    if (!this.mRemote.transact(3, obtain, obtain2, 0) && Stub.getDefaultImpl() != null) {
+                        return Stub.getDefaultImpl().getId();
+                    }
+                    obtain2.readException();
+                    return obtain2.readString();
+                } finally {
+                    obtain2.recycle();
+                    obtain.recycle();
+                }
+            }
+        }
+
+        public static boolean setDefaultImpl(ISweepingRobotInfo impl) {
+            if (Proxy.sDefaultImpl != null) {
+                throw new IllegalStateException("setDefaultImpl() called twice");
+            }
+            if (impl == null) {
+                return false;
+            }
+            Proxy.sDefaultImpl = impl;
+            return true;
+        }
+
+        public static ISweepingRobotInfo getDefaultImpl() {
+            return Proxy.sDefaultImpl;
+        }
+    }
+}

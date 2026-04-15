@@ -1,0 +1,605 @@
+<resources>
+    <string name="app_name">GInputBridge</string>
+    <string name="launcher_name">GLauncher</string>
+    <string name="tracking">Трекинг</string>
+    <string name="device">Устройство</string>
+    <string name="data_collection">Сбор данных</string>
+    <string name="settings_shortcuts">Шорткаты настроек</string>
+    <string name="about_device">О устройстве</string>
+    <string name="developer_options">Опции разработчика</string>
+    <string name="battery_optimization">Оптимизация батареи</string>
+    <string name="device_information">Информация об устройстве</string>
+    <string name="show_all">Показать всё</string>
+    <string name="car_function">Функции автомобиля</string>
+    <string name="sensor">Датчики</string>
+    <string name="last_action">Последнее действие:</string>
+    <string name="all_applications">Все приложения</string>
+    <string name="filter">Фильтры</string>
+    <string name="sort_by_recent_changes">Сортировать по последним изменениям</string>
+    <string name="show_the_unknowns">Показвать неизвестные</string>
+
+    <string name="enable_accessibility">Для работы приложения активируйте специальные возможности</string>
+    <string name="grant_notification_access">Для корректной работы предоставьте приложению «доступ к уведомлениям»</string>
+    <string name="accessibility_features">Спец. возможности</string>
+    <string name="settings">Настройки</string>
+    <string name="binder_active">Слушатель активен</string>
+    <string name="binder_disabled">Слушатель отключен</string>
+    <string name="enable">Включить</string>
+    <string name="key_binder_sync">Слушатель нажатий</string>
+    <string name="refresh_rate">Частота синхронизации</string>
+
+    <string name="media_source">Медиаисточник</string>
+    <string name="car_media_source_assumption">Устройство будет считать что музыка воспроизводится из этого источника</string>
+
+    <string name="subtitle_placeholder">Заглушка подзаголовка</string>
+    <string name="remove_unknown_artist">Убирает системную надпись \"Unknown Artist\" когда не указан автор музыки</string>
+
+    <string name="es_explorer_warning">У вас установлен \"ES проводник\". Эта программа может некорректно работать в сочетании с ним. Перед использованием, рекомендуется его удалить. Для удобства можно использовать \"Файловый менеджер+\".</string>
+    <string name="uninstall">Удалить</string>
+    <string name="ok">Ок</string>
+    <string name="notification_volume">Громкость уведомлений</string>
+
+    <string name="grant_file_access">Нажмите здесь, чтобы предоставить приложению дополнительный доступ для управления файлами. Это необходимо, поскольку система может заблокировать доступ к кэшу обложек в публичном каталоге. Без этого приложение может перестать самостоятельно очищать свои файлы и освобождать место на диске.</string>
+
+    <string name="force_update">Принудительное обновление</string>
+    <string name="update_all_media_data">Обновлять все медиаданные при каждой синхронизации, включая те, которые могли не измениться с последнего обновления</string>
+
+    <string name="debug_mode">Режим отладки</string>
+    <string name="show_touch_logs">Показывать логи нажатий</string>
+    <string name="broadcast_intents">Широковещательные события</string>
+    <string name="broadcast_intents_desc">Если выкл, отправляет события нажатия только в MacroDroid</string>
+    <string name="track_keycode_event">Отслеживать KeyEvent</string>
+    <string name="low_level_key_events">Низкоуровневые события нажатий</string>
+    <string name="custom_long_press_timing">Кастомный тайминг долгого нажатия</string>
+    <string name="custom_long_press_timing_desc">Вызов события долгого нажатия через заданное время. Работает для кнопок, которые посылают KeyEvent. Если кнопка не отправляет KeyEvent, сработает стандартный обработчик долгих нажатий</string>
+    <string name="long_press_trigger_timing">Тайминг долгого нажатия</string>
+    <string name="alt_long_press_trigger_timing">Тайминг альт. долгого нажатия</string>
+    <!--    <string name="detect_double_tap">Определять мультишорт</string>-->
+    <!--    <string name="double_click_description">Если во временное окно тайминга было сделано 2 коротких нажатия, произойдёт событие мультишорта. Если нет - произойдёт обычное короткое нажатие. Для даблкликов по одной кнопке необходимо установить тайминг ~0,3 секунды из-за аппаратного тайм-аута. Тайминг не должен превышать длительность кастомного долгого нажатия</string>-->
+    <string name="detect_double_tap">Определять двойные нажатия</string>
+    <string name="double_click_description">После одиночного короткого нажатия следует небольшая пауза ожидания второго нажатия. Если в это временное окно происходит повторное нажатие, активируется событие двойного нажатия. Слишком быстрое повторное нажатие может не засчитаться из-за аппаратных ограничений кнопок</string>
+    <string name="double_tap_window_timing">Тайминг двойного нажатия</string>
+    <string name="custom_short_press_timing">Короткие нажатия через KeyEvent</string>
+    <string name="custom_short_press_timing_desc">Немного более быстрые срабатывания, и исключает параллельный вызов короткого нажатия при кастомных длинных нажатиях</string>
+    <string name="scanning_installed_apps">Сканирование установленных приложений</string>
+
+    <string name="detect_multi_long">Определять мультилонг</string>
+    <string name="multi_long_trigger">Если во время срабатывания события лонга удерживается больше одной кнопки, активируется событие мультилонга вместо обычного лонга</string>
+    <string name="suppression_mode">Подавления действий</string>
+    <string name="suppression_mode_desc">Блокирует отправку интентов, только логи. Чтобы тестировать нажатия не вызывая реальных действий кнопок</string>
+    <string name="select_default_media_app">Выберите медиаприложение по умолчанию</string>
+    <string name="next">Далее</string>
+    <string name="default_">По умолчанию</string>
+    <string name="back">Назад</string>
+
+    <string name="show_documentation">Показать API</string>
+    <string name="hide_documentation">Скрыть API</string>
+    <string name="media_control">Управление медиа</string>
+    <string name="media_control_desc">Активируйте эту функцию, чтобы использовать кнопки руля для переключения треков, паузы и воспроизведения. Когда медиаприложение показывается на экране, управление автоматически переходит к нему</string>
+    <string name="media_apps">Медиаприложения</string>
+    <string name="media_apps_desc">Выберите приложения которые должны перехватывать управление медиа, и приложение по умолчанию</string>
+    <string name="disable_on_climate">Отключать, когда открыт климат</string>
+    <string name="disable_on_climate_desc">Автоматически отключать медиауправление, когда на экране появляется системное окно настройки климата</string>
+    <string name="configure_media_apps">Настройте медиаприложения</string>
+    <string name="audio_source_control">Управление аудио источниками</string>
+    <string name="audio_source_control_desc">Если активна медиасессия Android, переключает источник аудио головного устройства на ONLINE. Если воспроизводится Bluetooth, радио или CarPlay, отключает действия кнопок, чтобы избежать конфликтов с кнопками воспроизведения</string>
+    <string name="hide_media_widget">Скрытие медиавиджета на главном экране</string>
+    <string name="hide_media_widget_desc">Скрывает виджет на главном экране, используя возможности системных API. На главном экране появляется возможность свайпа влево для перехода в стандартное меню приложений</string>
+    <string name="send_media_session_data">Отправка данных медиасессии</string>
+    <string name="send_media_session_data_desc">Отправляет интенты с информацией о проигрываемом треке и состоянии воспроизведения</string>
+    <string name="state_logs">Глубокие логи</string>
+    <string name="state_logs_desc">Показывать подробные логи инициализации и изменения состояний</string>
+    <string name="confirm_delete_title">Удалить</string>
+    <string name="confirm_delete_message">Вы уверены, что хотите удалить привязку кнопок?</string>
+    <string name="add_keybind_button">Добавить привязку кнопок</string>
+    <string name="kbd_title_keys">Кнопки</string>
+    <string name="kbd_title_action">Действие</string>
+    <string name="kbd_title_app">Приложение</string>
+
+    <string name="kbd_desc_bind_keys">Нажмите кнопку или комбинацию кнопок тем способом, которым вы хотите привязать их к действию</string>
+    <string name="kbd_desc_select_action">Выберите действие, которое вы хотите выполнить при срабатывании</string>
+    <string name="kbd_desc_select_app">Выберите приложение, которое нужно запускать</string>
+    <string name="kbd_hint_press_buttons">Нажмите кнопки</string>
+    <string name="kbd_pattern_double">Двойное нажатие</string>
+    <string name="kbd_pattern_long">Долгое нажатие</string>
+    <string name="kbd_pattern_multi">Мультилонг</string>
+    <string name="kbd_pattern_short">Короткое нажатие</string>
+    <string name="kbd_pattern_double2">двойное</string>
+    <string name="kbd_pattern_long2">долгое</string>
+    <string name="kbd_pattern_multi2">мультилонг</string>
+    <string name="kbd_pattern_short2">короткое</string>
+    <string name="kbd_action_launch_title">Запуск приложения</string>
+    <string name="kbd_action_launch_desc">При срабатывании будет запускать указанное приложение</string>
+    <string name="key_service_operation">Работа службы клавиш</string>
+    <string name="key_listener_active">Слушатель клавиш активен</string>
+    <string name="launch_delay">Задержка запуска</string>
+    <string name="launch_shortcut">Запуск ярлыка</string>
+    <string name="launch_shortcut_desc">При срабатывании будет запускать выбранный ярлык</string>
+    <string name="press_buttons">Нажмите кнопки</string>
+    <string name="shortcut">Ярлык</string>
+    <string name="shortcut_desc">Выберите ярлык другого приложения который будет запускаться при срабатывании бинда</string>
+    <string name="selected_shortcut">Выбранный ярлык</string>
+    <string name="selected_shortcut_desc">Этот ярлык будет запускаться при срабатывании кнопок</string>
+    <string name="_import">Импорт</string>
+    <string name="import_data_prompt">Вы хотите импортировать эти данные?</string>
+    <string name="not_found">Не найдено</string>
+    <string name="no_such_app">У вас нет такого приложения</string>
+    <string name="no_such_shortcut">У вас нет такого ярлыка</string>
+    <string name="disable_during_calls">Отключать во время звонков</string>
+    <string name="disable_during_calls_desc">Автоматически отключать медиауправление при входящем или исходящем вызове</string>
+    <string name="assign_action_star">Назначить штатное действие ✱</string>
+
+    <string name="warning_disclaimer">Все что вы делаете в этом разделе, вы делаете на свой страх и риск. Неизбирательное изменение параметров и значений может нанести вред вашему авто. Тут есть команды которые могут перевести ваше ГУ в Recovery мод. Будьте внимательны, и думайте прежде чем что-то менять.</string>
+    <string name="im_scared_but_ready">Мне страшно, но я готов</string>
+    <string name="not_that_interested">Не так уж и хотелось</string>
+    <string name="configurator">Конфигуратор</string>
+    <string name="search">Поиск</string>
+    <string name="favorites_display">Функции, добавленные в «Избранное», появятся здесь</string>
+    <string name="nothing_found">Ничего не найдено</string>
+
+    <string name="driving_mode">Режимы вождения</string>
+    <string name="driving_mode_change">Смена режимов вождения</string>
+    <string name="driving_mode_switch">Переключение между выбранными режимами вождения</string>
+    <string name="driving_mode_order_desc">Перетащите вверх режимы, между которыми вы хотите переключаться. Порядок также учитывается.</string>
+    <string name="confirm_block_button_actions">Вы уверены что хотите заблокировать действия кнопок?</string>
+
+    <string name="remember_driving_mode">Восстанавливать режим вождения</string>
+    <string name="remember_driving_mode_desc">Последний используемый режим вождения (или тот, который вы выберете) сохраняется и автоматически восстанавливается при следующем запуске автомобиля</string>
+
+    <string name="restore_mode">Режим для восстановления</string>
+    <string name="restore_mode_desc">Выберите режим вождения, который будет автоматически восстанавливаться при запуске автомобиля</string>
+    <string name="driving_mode_persistence">Активный на момент выключения зажигания автомобиля</string>
+
+    <string name="supported">Поддерживается</string>
+    <string name="possibly_supported">Возможно поддерживается</string>
+    <string name="driving_mode_change_sound">Звук смены режима вождения</string>
+    <string name="driving_mode_change_sound_desc">Небольшой звуковой сигнал в подголовник при смене режима вождения. Позволяет убедиться в переключении режима, не отвлекаясь от дороги</string>
+    <string name="loading">Загрузка</string>
+    <string name="select_driving_mode_sound">Выберите режим вождения при переключении на который должен воспроизводиться звук уведомления</string>
+    <string name="no">Нет</string>
+    <string name="select_switch_sound">Звук переключения</string>
+    <string name="additional">Дополнительные</string>
+    <string name="switching">Переключение</string>
+    <string name="switching_desc">Устанавливает выбранный режим вождения, повторная активация возвращает предыдущий режим</string>
+    <string name="carousel">Карусель</string>
+    <string name="carousel_desc">Последовательно переключает выбранные режимы вождения</string>
+    <string name="driving_mode_switch_type">Тип переключения режимов</string>
+    <string name="switch_to_mode_and_back">Переключение в %s режим и обратно</string>
+    <string name="turn_on_ignition">Включите зажигание</string>
+    <string name="driving_mode_switch_error">Ошибка переключения режимов вождения</string>
+    <string name="drag_modes_to_switch">Перетащите вверх те режимы которые вы хотите последовательно переключать</string>
+    <string name="active_modes">Активные режимы</string>
+    <string name="drag_up">Перетащите выше</string>
+    <string name="driving_mode_switching">Переключение режимов вождения: %s</string>
+    <string name="export_settings">Экспорт настроек</string>
+    <string name="export_settings_desc">Создать резервную копию настроек, за исключением выбранных медиаприложений и плеера по умолчанию</string>
+    <string name="import_settings_prompt">Вы хотите импортировать полный бэкап настроек? Ваши текущие настройки будут потеряны. Перед применением вам нужно будет подтвердить необходимые разрешения</string>
+    <string name="display_driving_mode">Показывать переключение режима вождения</string>
+    <string name="display_driving_mode_desc">Отображать на планшете ГУ оверлей с названием режима при переключении, включая нестандартные режимы</string>
+
+    <!-- On-road baseline profiles -->
+    <string name="drive_mode_normal_desc">Сбалансированные настройки для повседневной езды: нормальная тяга и комфортный руль.</string>
+    <string name="drive_mode_comfort_desc">Мягкая тяга и лёгкий руль для спокойных поездок и максимального комфорта.</string>
+    <string name="drive_mode_eco_desc">Экономия топлива: сглаженный отклик на газ и ранние переключения передач.</string>
+    <string name="drive_mode_dynamic_desc">Спортивный отклик: более резкая педаль газа, дольше держит передачи, руль тяжелее.</string>
+    <string name="drive_mode_sport_plus_desc">Усиленная спортивная калибровка: максимально быстрый отклик и удержание пониженных передач.</string>
+    <string name="drive_mode_power_desc">Максимальная производительность: силовая установка отдаёт пиковую тягу (в гибридах — совместная работа ДВС и электромотора).</string>
+    <string name="drive_mode_adaptive_desc">Адаптивный режим: сам выбирает экономичный/комфортный/спортивный профиль по стилю и дороге.</string>
+    <string name="drive_mode_custom_desc">Пользовательский профиль: сохраните свои предпочтения по тяге, рулю и подвеске (если доступно).</string>
+
+    <!-- Electrified (HEV/PHEV) profiles -->
+    <string name="drive_mode_pure_desc">Чисто электрический ход: ДВС включается только при высокой нагрузке или низком заряде.</string>
+    <string name="drive_mode_hybrid_desc">Гибрид по умолчанию: система сама комбинирует ДВС и электромотор для баланса тяги и расхода.</string>
+    <string name="drive_mode_save_desc">Сохранение заряда: удерживает уровень батареи на заданном уровне (режим «hold» для PHEV).</string>
+    <string name="drive_mode_eco_hev_phev_desc">Эко для гибридов: приоритет электротяги, мягкий отклик и умеренная мощность климата ради минимального расхода.</string>
+    <string name="drive_mode_phev_desc">Режим работы как подключаемый гибрид: акцент на гибридной логике (поддержание/разряд батареи); на части моделей совпадает с «Hybrid».</string>
+
+    <!-- Driveline / traction -->
+    <string name="drive_mode_awd_desc">Постоянный полный привод/преднатяг муфты для устойчивости и тяги на скользких покрытиях.</string>
+    <string name="drive_mode_eawd_desc">Electric AWD: подключение задней оси электромотором для мгновенной тяги и стабилизации.</string>
+
+    <!-- Off-road & low-μ surfaces -->
+    <string name="drive_mode_offroad_desc">Вне дороги: перенастраивает тягу, коробку и системы стабилизации для неровных покрытий.</string>
+    <string name="drive_mode_snow_desc">Снег/лед: мягкий газ, аккуратные трогания и усиленный контроль пробуксовки.</string>
+    <string name="drive_mode_sand_desc">Песок: поддерживает скорость и допускает проскальзывание, чтобы не зарываться.</string>
+    <string name="drive_mode_mud_desc">Грязь: больше тяги на низах и допускаемое проскальзывание для сохранения хода.</string>
+    <string name="drive_mode_rock_desc">Камни/скалы: сверхплавная подача тяги на малой скорости для «ползания».</string>
+
+    <!-- Assist function -->
+    <string name="drive_mode_hdc_desc">Hill Descent Control: держит малую скорость на крутых спусках, подтормаживая по колёсам.</string>
+
+    <!-- Special / unclear in public docs -->
+    <string name="drive_mode_start_type_desc">Служебный стартовый пресет (калибровка/диагностика); не пользовательский режим.</string>
+    <string name="drive_mode_xc_desc">Внутреннее обозначение (публичного описания нет); вероятно внедорожная/междугородняя калибровка.</string>
+
+    <string name="function_status_disclaimer">Даже если функция имеет негативный статус, она может оставаться работоспособной и поддерживаемой. Аналогично, позитивный статус не всегда гарантирует корректную работу функции. Статус отражает, как система классифицирует данную функцию. Реальная работоспособность функции определяется опытным путём.</string>
+    <string name="attention">Внимание</string>
+    <string name="delegated_to_debugm">Работает через DebugM</string>
+    <string name="custom_driving_modes_warning">Использование нестандартных режимов вождения и их влияние на узлы и агрегаты автомобиля недостаточно изучено. Применяйте их на свой страх и риск и соблюдайте осторожность.</string>
+    <string name="driving_mode_restore_warning">Если вы уже используете восстановление режимов через DebugM или MConfig, используйте что-то одно. GIB может выполнять восстановление быстрее, что потенциально может нарушить логику восстановления режимов DebugM.</string>
+    <string name="overlay_size">Размер оверлея</string>
+    <string name="vertical_offset">Отступ сверху</string>
+    <string name="steering_wheel_buttons">Кнопки руля</string>
+    <string name="playback_control">Управление воспроизведением</string>
+    <string name="audio_control">Аудиоуправление</string>
+    <string name="general">Общее</string>
+
+    <string name="public_notes">Публичные заметки</string>
+    <string name="changes_saved">Изменения сохранены</string>
+    <string name="save_failed">Не удаётся сохранить</string>
+    <string name="public_notes_desc">Здесь вы можете оставить полезную информацию о функции: какие значения она принимает, её особенности, что работает корректно, а что нет и т.п.</string>
+    <string name="data_fetch_failed">Не удалось получить данные. Проверьте интернет</string>
+    <string name="public_notes_info">Заметки отображаются для всех, и редактировать их может любой желающий. Пожалуйста, будьте лапочками.</string>
+    <string name="create_int_macro">Создать макрос получения INT</string>
+    <string name="create_float_macro">Создать макрос получения FLOAT</string>
+    <string name="create_int_listener">Создать INT-слушатель</string>
+    <string name="create_float_listener">Создать FLOAT-слушатель</string>
+    <string name="system_values">Системные значения</string>
+    <string name="current_values">Текущие значения</string>
+    <string name="assumed_values">Предполагаемые значения</string>
+    <string name="set_value">Установка значения</string>
+    <string name="unknown">неизвестно</string>
+    <string name="status">Статус</string>
+    <string name="type">Тип</string>
+    <string name="function">Функция</string>
+    <string name="single_sensor">Сенсор</string>
+    <string name="info">Инфо</string>
+    <string name="set_int">Задать INT</string>
+    <string name="set_float">Задать Float</string>
+    <string name="in_md">в MD</string>
+    <string name="active">Активно</string>
+    <string name="inactive">Неактивно</string>
+    <string name="not_available">Недоступно</string>
+    <string name="error">Ошибка</string>
+    <string name="value">Значение</string>
+    <string name="sensor_listeners_disclaimer">Слушатели работают не для всех сенсоров, работоспособность выясняется опытным путём.</string>
+    <string name="new_version_available">Доступна новая версия</string>
+    <string name="link">Отправить ссылку</string>
+    <string name="details">Подробнее</string>
+    <string name="download">Скачать</string>
+    <string name="call">Позвонить</string>
+    <string name="call_number_desc">Совершить звонок по указанному номеру. Должно быть сопряженное по Bluetooth устройство</string>
+    <string name="enter_phone_number">Введите номер телефона на который должен быть совершен вызов</string>
+    <string name="enter_number">Введите номер</string>
+    <string name="last">Последний</string>
+    <string name="import_settings">Импорт настроек</string>
+    <string name="import_settings_desc">Выберите файл для импорта настроек. Вы также можете открыть файл непосредственно в системе, выбрав программу GIB. Обратите внимание: после импорта все текущие настройки будут заменены</string>
+    <string name="import_export_settings">Импорт и экспорт настроек</string>
+    <string name="free_button_action_title">Освободить действие кнопки для своих привязок:</string>
+    <string name="standard_system_actions">Стандартные системные действия:</string>
+    <string name="cut_system_actions">Вырезанные системные действия:</string>
+    <string name="standard">Стандартные</string>
+    <string name="circle_cameras">Камеры 360</string>
+    <string name="circle_cameras_desc">Включение и выключение камер кругового обзора</string>
+    <string name="headlight_mode">Смена режимов света фар</string>
+    <string name="headlight_mode_desc">Последовательное переключение выбранных режимов наружного света</string>
+    <string name="headlight_off">Выкл.</string>
+    <string name="headlight_parking">Габариты</string>
+    <string name="headlight_low_beam">Ближний</string>
+    <string name="headlight_auto">Auto</string>
+    <string name="headlight_off_desc">Фары полностью выключены.</string>
+    <string name="headlight_parking_desc">Включены только габаритные огни.</string>
+    <string name="headlight_low_beam_desc">Включен ближний свет фар.</string>
+    <string name="headlight_auto_desc">Автоматический режим управления светом.</string>
+    <string name="headlight_mode_switching">Переключение режимов света фар: %s</string>
+    <string name="headlight">Свет фар</string>
+    <string name="headlight_settings">Управление фарами</string>
+    <string name="system_parameters">Системные параметры</string>
+    <string name="free_button_action_custom">Чтобы освободить действие кнопки для пользовательских привязок, выберите одно из зелёных (Custom) действий. После этого действие кнопки станет доступным в GIB. Для Atlas требуются дополнительные шаги для отключения.</string>
+    <string name="turn_signal_volume">Громкость звука поворотников</string>
+    <string name="low">Низкая</string>
+    <string name="medium">Средняя</string>
+    <string name="high">Высокая</string>
+    <string name="cannot_open_file">Не могу открыть файл</string>
+    <string name="launcher_title">Лаунчер приложений</string>
+    <string name="app_launcher_toggle_desc">Открывает встроенный лаунчер приложений. Повторная активация закрывает лаунчер.</string>
+    <string name="my_apps">Мои приложения</string>
+    <string name="all">Все</string>
+    <string name="all_apps">Установленные</string>
+    <string name="about_app">О приложении</string>
+    <string name="notifications">Уведомления</string>
+    <string name="icons_and_grid">Иконки и сетка</string>
+    <string name="icon_quality">Качество иконок</string>
+    <string name="icon_quality_performance_desc">Чем выше качество изображений иконок, тем больше памяти они требуют и тем медленнее загружаются. Но красивее же ;) Если не видите разницу между двумя позициями - выбирайте меньшую.</string>
+    <string name="window_edge_padding">Отступ от краёв окна до иконок</string>
+    <string name="icon_spacing">Отступ между иконками</string>
+    <string name="icon_size">Размер иконок</string>
+    <string name="icon_corner_radius">Закругление углов иконок</string>
+    <string name="show_app_names">Отображение названий приложений</string>
+    <string name="app_name_text_size">Размер текста названий</string>
+    <string name="icon_name_spacing">Отступ между иконкой и названием</string>
+    <string name="add">Добавить</string>
+    <string name="empty_grid_message">Здесь пока ничего нет. Нажмите кнопку «Добавить» на верхней панели.\n\nКнопка «Замок» переключает режим свободного перемещения, в котором можно перетаскивать иконки и располагать их в нужном порядке.</string>
+    <string name="default_tab">Вкладка по умолчанию</string>
+    <string name="launcher_and_app_window">Окно приложений</string>
+    <string name="launcher_format">Форма лаунчера</string>
+    <string name="icon_view_preview">Выши иконки сейчас выглядят так</string>
+    <string name="app_icon_preview">Превью иконок приложений</string>
+    <string name="apps">Приложения</string>
+    <string name="divider">Разделитель</string>
+    <string name="display_mode">Режим отображения</string>
+    <string name="window">Окно</string>
+    <string name="fullscreen">Весь экран</string>
+    <string name="window_border">Показывать рамку вокруг окна</string>
+    <string name="horizontal_padding">Горизонтальный отступ</string>
+    <string name="vertical_padding">Вертикальный отступ</string>
+    <string name="other">Другое</string>
+    <string name="show_available_activities">Показать доступные активити</string>
+    <string name="hide_available_activities">Скрыть доступные активити</string>
+    <string name="select_apps">Выберите приложения</string>
+    <string name="save">Сохранить</string>
+    <string name="other_activities">Другие активити</string>
+    <string name="my">Мои</string>
+    <string name="window_transparency">Непрозрачность окна</string>
+    <string name="open_optimization_settings">Открыть меню настроек оптимизации</string>
+    <string name="optimization_settings_desc">Скрытое меню настроек системы, где можно включить или выключить очистку системы (на Preface будут сохраняться загруженные карты и музыка).</string>
+    <string name="appearance">Внешний вид</string>
+    <string name="theme">Тема</string>
+    <string name="light_theme">Светлая</string>
+    <string name="dark_theme">Тёмная</string>
+    <string name="create_divider">Создать разделитель</string>
+    <string name="divider_description">Это заголовок, который отображается среди иконок лаунчера и логически разделяет подгруппы приложений, активностей и ярлыков.</string>
+    <string name="enter_title">Введите название</string>
+    <string name="rename">Переименовать</string>
+    <string name="show_shortcut_type_icons">Показывать значки типов ярлыков</string>
+    <string name="shortcut_type_icon_size">Размер значков типов ярлыков</string>
+    <string name="attention_warning">Внимание!</string>
+    <string name="system_dialog_warning_desc">После открытия этого системного диалога, в стандартных настройках (чёрные с машиной) может разблокироваться дополнительная кнопка. Убрать её можно будет только сбросом настроек до заводских. Также, если вы отключаете автоматическую очистку, следите за тем, чтобы память устройства не переполнялась, иначе планшет может перестать загружаться.</string>
+    <string name="add_to_my_apps">Добавить в мои приложения</string>
+    <string name="enter_new_title_my_apps">Введите новый заголовок, который будет отображаться во вкладке «Мои приложения».</string>
+    <string name="change_icon">Изменить иконку</string>
+    <string name="divider_current_view">Ваши разделители сейчас выглядят так</string>
+    <string name="divider_title_preview">Превью заголовка раздела</string>
+    <string name="divider_text_size">Размер текста разделителя</string>
+    <string name="bold_font">Жирный шрифт</string>
+    <string name="allow_app_name_wrapping">Разрешить перенос строк названий приложений</string>
+    <string name="select_action">Выберите действие</string>
+    <string name="toggle_glauncher">Открыть GLauncher</string>
+    <string name="select_settings_to_import">Выберите разделы настроек для импорта. Перед применением потребуется подтвердить соответствующие разрешения.</string>
+    <string name="general_settings">Общие настройки</string>
+    <string name="select_settings_to_export">Выберите разделы настроек для экспорта. При импорте вы сможете указать, какие из них нужно восстановить.</string>
+    <string name="show_recent_apps">Показывать недавние приложения</string>
+    <string name="show_recent_apps_desc">В нижней части лаунчера будет отображаться раздел с историей приложений, которые были запущены ранее. Функция не работает без включения сервиса специальных возможностей.</string>
+    <string name="recent_apps">Недавние приложения</string>
+    <string name="accessibility_service_disabled">Сервис специальных возможностей не работает</string>
+    <string name="close">Закрыть</string>
+    <string name="no_recent_apps">Нет недавних приложений</string>
+    <string name="app_not_installed">Похоже приложение %s не установлено</string>
+    <string name="select">Выбрать</string>
+    <string name="clear">Очистить</string>
+    <string name="change">Изменить</string>
+    <string name="light_theme_schedule">Светлая тема с %1$s до %2$s</string>
+    <string name="auto">Авто</string>
+    <string name="interface_scale">Масштаб интерфейса</string>
+
+    <string name="connection_port">Порт подключения</string>
+    <string name="enter_your_port">Введите свой номер порта</string>
+    <string name="off">Выкл.</string>
+    <string name="connected">Подключено</string>
+    <string name="connecting">Подключение…</string>
+    <string name="disconnected">Отключено</string>
+    <string name="launcher_extra_features_desc">Открывает дополнительные возможности в лаунчере: закрытие приложений, определение статуса приложения в системе (запущено/не запущено) и другие функции.</string>
+    <string name="stop_dim_interaction_on_boot_title">Останавливать DIM interaction при запуске системы</string>
+    <string name="stop_dim_interaction_on_boot_desc">Автоматическая остановка DIM interaction службы (блокирует логин и работу некоторых приложений) при каждом запуске системы.</string>
+    <string name="open">Открыть</string>
+    <string name="stop">Остановить</string>
+
+    <string name="back_action_simulation">Симуляция системного действия \"Назад\"</string>
+    <string name="home">Домой</string>
+    <string name="home_action_simulation">Симуляция системного действия \"Домой\"</string>
+    <string name="recents">Переключатель задач</string>
+    <string name="recents_action_description">Смесь Alt+Tab меню как в Windows + Recents в Android. При активации несколько раз переключает между приложениями + руками можно закрывать запущенные процессы смахивая вверх или нажимая закрыть.</string>
+    <string name="adb_required_title">Для работы этой функции необходимо включить ADB</string>
+    <string name="additional_press_processing">Доп. обработка нажатий</string>
+    <string name="alternative_menu_detection">Альт. определение \"Menu\"</string>
+    <string name="alternative_menu_detection_desc">Если у вас не определяются долгие нажатия кнопки \"Menu\", попробуйте включить альтернативный способ определения нажатий для этой кнопки</string>
+    <string name="alternative_mute_detection">Альт. определение \"Mute\"</string>
+    <string name="alternative_mute_detection_desc">Если у вас не определяются долгие нажатия кнопки \"Mute\", попробуйте включить альтернативный способ определения нажатий для этой кнопки</string>
+    <string name="return_to_previous_app">Возврат в прошлое приложение</string>
+    <string name="return_to_previous_app_desc">Разворачивает предыдущее открытое приложение</string>
+
+    <string name="api_text_launcher"><![CDATA[<strong>Управление лаунчером</strong>
+<br>
+<br>
+Показать/скрыть лаунчер:
+<br>
+В MacroDroid: Действия -> Отправить интент
+<br>
+<strong>Цель</strong>: Broadcast<br>
+<strong>Действие:</strong> com.salat.gbinder.TOGGLE_LAUNCHER<br>
+<strong>Пакет</strong>: com.salat.gbinder
+]]></string>
+    <string name="api_text"><![CDATA[<strong>Получение событий нажатий</strong>
+<br>
+В MacroDroid: Триггеры -> Интент получен
+<br>
+<br>
+<strong>Действия</strong>:
+<br>\"com.salat.gbinder.SHORT_CLICK\"
+<br>\"com.salat.gbinder.LONG_PRESS\"
+<br>\"com.salat.gbinder.MULTI_LONG_PRESS\"
+<br>\"com.salat.gbinder.DOUBLE_CLICK\"
+<br>\"com.salat.gbinder.HOLD_START\"
+<br>\"com.salat.gbinder.HOLD_STOP\"
+<br>\"com.salat.gbinder.KEY_EVENT\"
+<br>
+<br>
+<strong>Дополнение</strong>:
+<br>\"code\" -> keyCode клавиши.
+<br>для KEY_EVENT дополнительно: \"event\" -> [0|1|3] где 0 = DONW, 1 = UP, 3 = CANCEL <br>и \"func\" -> системный код функции
+<br>
+<br>для MULTI_LONG_PRESS параметр \"code\" приходит в формате -> 119+200087 с кодами клавиш, код формируется от меньшего числа к большему
+]]></string>
+
+    <string name="api_text2"><![CDATA[<strong>Работа с аудио источниками</strong>
+<br>
+<br>
+Чтобы слушать изменения аудио источников ГУ:
+<br>
+В MacroDroid: Триггеры -> Интент получен
+<br>
+<strong>Действие</strong>: com.salat.gbinder.AUDIO_SOURCE_CHANGED<br>
+<strong>Дополнение</strong>: source=[USB|BT|RADIO|CPAA|ONLINE|OTHER|YUNTING|UNKNOWN]
+<br>
+<br>
+Чтобы изменять текущий аудио источник ГУ:
+<br>
+В MacroDroid: Действия -> Отправить интент
+<br>
+<strong>Цель</strong>: Broadcast<br>
+<strong>Действие</strong>: com.salat.gbinder.SET_AUDIO_SOURCE<br>
+<strong>Пакет</strong>: com.salat.gbinder<br>
+<strong>Дополнение 1</strong>: target=[USB|BT|RADIO|CPAA|ONLINE|OTHER|YUNTING|UNKNOWN]<br>
+<strong>Дополнение 2</strong>: опционально source=[UNKNOWN|WECARFLOW|KUWO|KUGOU|NETEASE_CLOUD|SOHU|JINRI|QYS|OTHER|FANDENG|TENCENT_VIDEO|XMLY|GC|HUOSHAN|BILIBILI|THUNDER_VOICE|CMVIDEO_VOICE]
+]]></string>
+
+    <string name="api_text3"><![CDATA[<strong>Управление медиа</strong>
+<br>
+<br>
+Включение и отключение медиауправления:
+<br>
+В MacroDroid: Действия -> Отправить интент
+<br>
+<strong>Цель</strong>: Broadcast<br><br>
+<strong>Действие:</strong> com.salat.gbinder.TEMPORARY_DISABLE_MEDIA_CONTROL<br>
+<strong>Дополнение:</strong> duration -> Время отключения в секундах<br><br>
+<strong>Другие действия:</strong>
+<br>com.salat.gbinder.ENABLE_MEDIA_CONTROL
+<br>com.salat.gbinder.SMART_ENABLE_MEDIA_CONTROL
+<br>com.salat.gbinder.DISABLE_MEDIA_CONTROL<br><br>
+<strong>Пакет</strong>: com.salat.gbinder<br>
+"SMART" - Включает только если ранее было включено вручную
+]]></string>
+
+    <string name="api_text4"><![CDATA[<strong>Получение данных активной медсессии</strong>
+<br>
+<br>
+Информация о статусе воспроизведения:<br>
+<strong>Действие:</strong> com.salat.gbinder.PLAYBACK_STATE<br>
+<strong>Дополнение:</strong> isPlaying=[0|1] -> 1 воспроизведение активно, 0 ничего не играет
+<br>
+<br>
+Данные текущего трека:<br>
+<strong>Действие:</strong> com.salat.gbinder.PLAYBACK_METADATA
+<br><strong>Дополнение 1:</strong> id -> уникальный идентификатор трека
+<br><strong>Дополнение 2:</strong> packageName -> имя пакета который воспроизводит медиасессию
+<br><strong>Дополнение 3:</strong> appName -> имя приложения которое воспроизводит медиасессию
+<br><strong>Дополнение 4:</strong> title -> заголовок
+<br><strong>Дополнение 5:</strong> artist -> исполнитель
+<br><strong>Дополнение 6:</strong> album -> название альбома
+<br><strong>Дополнение 7:</strong> uri -> uri трека
+<br><strong>Дополнение 8:</strong> coverUri -> uri обложки
+<br>
+<br>
+Интенты приходят только когда медиаданные поменялись, вы можете вручную их запросить через исходящий бродкаст:<br>
+<strong>Действие:</strong> com.salat.gbinder.REQUEST_PLAYBACK_INFO
+]]></string>
+
+    <string name="api_text5"><![CDATA[<strong>Работа с телефонными звонками</strong>
+<br>
+<br>
+В MacroDroid: Действия -> Отправить интент<br>
+<strong>Цель</strong>: Broadcast
+<br>
+<br>
+Позвонить по номеру<br>
+<strong>Действие 1:</strong> com.salat.gbinder.PHONE_CALL
+<br><strong>Дополнение:</strong> number -> номер телефона (указывайте тип переменной - \"строка\", иначе \"+\" в номере потеряется)
+<br>
+<br>
+Ответить на звонок<br>
+<strong>Действие 2:</strong> com.salat.gbinder.ANSWER_CALL
+<br>
+<br>
+Сбросить вызов<br>
+<strong>Действие 3:</strong> com.salat.gbinder.REJECT_CALL
+<br>
+<br>
+Завершить вызов<br>
+<strong>Действие 4:</strong> com.salat.gbinder.DISCONNECT_CALL
+]]></string>
+
+    <string name="api_text6"><![CDATA[<strong>Управление камерами</strong>
+<br>
+<br>
+Показать/скрыть камеры 360:
+<br>
+В MacroDroid: Действия -> Отправить интент
+<br>
+<strong>Цель</strong>: Broadcast<br>
+<strong>Действие:</strong> com.salat.gbinder.TOGGLE_CAMERA<br>
+<strong>Пакет</strong>: com.salat.gbinder
+]]></string>
+
+    <string name="api_text7"><![CDATA[<strong>Установка значения конфигуратора</strong>
+<br>
+<br>
+В MacroDroid: Действия -> Отправить интент
+<br>
+<strong>Цель</strong>: Broadcast<br>
+<strong>Действие1:</strong> com.salat.gbinder.SET_INT_PROPERTY<br>
+<strong>Действие2:</strong> com.salat.gbinder.SET_FLOAT_PROPERTY<br>
+<strong>Пакет</strong>: com.salat.gbinder<br><br>
+<strong>Дополнение1:</strong> id -> идентификатор параметра<br>
+<strong>Дополнение2:</strong> value -> новое значение<br>
+<strong>Дополнение3:</strong> area -> область применения (необязательно)
+]]></string>
+    <string name="api_text8"><![CDATA[<strong>Получение значений и подписка на изменение значений функции</strong>
+<br>
+<br>
+В MacroDroid: Действия -> Отправить интент
+<br>
+<strong>Цель</strong>: Broadcast<br>
+<strong>Пакет</strong>: com.salat.gbinder<br><br>
+<strong>Действие1:</strong> com.salat.gbinder.GET_INT_PROPERTY<br>
+<strong>Действие2:</strong> com.salat.gbinder.GET_FLOAT_PROPERTY<br>
+<strong>Действие3:</strong> com.salat.gbinder.LISTEN_PROPERTY_CHANGES<br>
+ - один раз подписываетесь, после этого при каждом изменении функции будет приходить действие<br>
+<strong>Дополнение1:</strong> id -> идентификатор параметра<br>
+<strong>Дополнение2:</strong> area -> область применения (необязательно)<br><br>
+
+В ответ на GET_*_PROPERTY приходит действие com.salat.gbinder.PROPERTY_VALUE_RESULT для всех типов<br>
++ com.salat.gbinder.PROPERTY_INT_RESULT и com.salat.gbinder.PROPERTY_FLOAT_RESULT отдельно<br><br>
+В ответ на LISTEN_PROPERTY_* приходит действие com.salat.gbinder.PROPERTY_VALUE_CHANGED для всех типов<br>
++ com.salat.gbinder.PROPERTY_INT_CHANGED и com.salat.gbinder.PROPERTY_FLOAT_CHANGED отдельно<br><br>
+<strong>Дополнение1</strong>: id = идентификатор функции<br>
+<strong>Дополнение2</strong>: area = область применения<br>
+<strong>Дополнение3</strong>: value = текущее значение
+]]></string>
+    <string name="api_text9"><![CDATA[<strong>Получение значений и подписка на изменение значений сенсоров</strong>
+<br>
+<br>
+В MacroDroid: Действия -> Отправить интент
+<br>
+<strong>Цель</strong>: Broadcast<br>
+<strong>Пакет</strong>: com.salat.gbinder<br><br>
+
+<strong>Действие1:</strong> com.salat.gbinder.GET_INT_SENSOR<br>
+<strong>Действие2:</strong> com.salat.gbinder.GET_FLOAT_SENSOR<br>
+<strong>Действие3:</strong> com.salat.gbinder.LISTEN_SENSOR_CHANGES<br>
+ - один раз подписываетесь, после этого при каждом изменении сенсора будет приходить действие. Работает не для всех сенсоров, работоспособность выясняется опытным путём.<br>
+<strong>Дополнение:</strong> id -> идентификатор параметра<br><br>
+
+В ответ на GET_INT_SENSOR приходит действие com.salat.gbinder.SENSOR_INT_RESULT<br>
+В ответ на GET_FLOAT_SENSOR приходит действие com.salat.gbinder.SENSOR_FLOAT_RESULT<br>
+В ответ на LISTEN_SENSOR_* приходит действие com.salat.gbinder.SENSOR_FLOAT_CHANGED и com.salat.gbinder.SENSOR_INT_CHANGED<br>
+<strong>Дополнение1</strong>: id = идентификатор сенсора<br>
+<strong>Дополнение2</strong>: value = текущее значение
+]]></string>
+    <string name="api_text10"><![CDATA[<strong>Получение значений Info параметров</strong>
+<br>
+<br>
+В MacroDroid: Действия -> Отправить интент
+<br>
+<strong>Цель</strong>: Broadcast<br>
+<strong>Пакет</strong>: com.salat.gbinder<br><br>
+
+<strong>Действие1:</strong> com.salat.gbinder.GET_INT_INFO<br>
+<strong>Действие2:</strong> com.salat.gbinder.GET_FLOAT_INFO<br>
+<strong>Действие3:</strong> com.salat.gbinder.GET_STRING_INFO<br><br>
+
+В ответ на GET_*_INFO приходит действие com.salat.gbinder.INFO_VALUE_RESULT<br>
+<strong>Дополнение1</strong>: id = идентификатор параметра<br>
+<strong>Дополнение2</strong>: value = текущее значение
+]]></string>
+</resources>

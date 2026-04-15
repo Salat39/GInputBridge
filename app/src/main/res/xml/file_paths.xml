@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <cache-path
+        name="shared_gibb"
+        path="." />
+    <external-files-path
+        name="downloads"
+        path="Download/" />
+    <external-path
+        name="public_downloads"
+        path="Download/" />
+    <files-path
+        name="apk"
+        path="apk/" />
+    <files-path
+        name="icons"
+        path="icons/" />
+</paths>

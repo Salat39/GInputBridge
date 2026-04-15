@@ -1,0 +1,603 @@
+<resources>
+    <string name="app_name">GInputBridge</string>
+    <string name="launcher_name">GLauncher</string>
+
+    <string name="dpi_low" translatable="false">LOW</string>
+    <string name="dpi_medium" translatable="false">MEDIUM</string>
+    <string name="dpi_tv" translatable="false">TV</string>
+    <string name="dpi_high" translatable="false">HIGH</string>
+    <string name="dpi_xhigh" translatable="false">XHIGH</string>
+    <string name="dpi_xxhigh" translatable="false">XXHIGH</string>
+    <string name="dpi_xxxhigh" translatable="false">XXXHIGH</string>
+
+    <string name="tracking">Tracking</string>
+    <string name="device">Device</string>
+    <string name="data_collection">Data collection</string>
+    <string name="settings_shortcuts">Settings shortcuts</string>
+    <string name="about_device">About device</string>
+    <string name="developer_options">Developer options</string>
+    <string name="battery_optimization">Battery optimization</string>
+    <string name="device_information">Device Information</string>
+    <string name="show_all">Show all</string>
+    <string name="car_function">Car Functions</string>
+    <string name="sensor">Sensors</string>
+    <string name="last_action">Last action:</string>
+    <string name="all_applications">All applications</string>
+    <string name="filter">Filter</string>
+    <string name="sort_by_recent_changes">Sort by recent changes</string>
+    <string name="show_the_unknowns">Show the unknowns</string>
+
+    <string name="enable_accessibility">To use the app, enable accessibility features</string>
+    <string name="grant_notification_access">For proper operation, grant the app \"notification access\"</string>
+    <string name="accessibility_features">Accessibility features</string>
+    <string name="settings">Settings</string>
+    <string name="binder_active">Key listener is active</string>
+    <string name="binder_disabled">Key listener is disabled</string>
+    <string name="enable">Enable</string>
+    <string name="key_binder_sync">Keystroke listener</string>
+    <string name="refresh_rate">Refresh rate</string>
+
+    <string name="media_source">Media source</string>
+    <string name="car_media_source_assumption">The car will assume that music is being played from this source</string>
+
+    <string name="subtitle_placeholder">Subtitle placeholder</string>
+    <string name="remove_unknown_artist">Removes the system label \"Unknown Artist\" when the music author is not specified</string>
+
+    <string name="es_explorer_warning">You have "ES File Explorer" installed. This program may not work correctly with it. It is recommended to uninstall it before use. Instead, you can conveniently use "File Manager+"</string>
+    <string name="uninstall">Uninstall</string>
+    <string name="ok">OK</string>
+    <string name="notification_volume">Notification volume</string>
+
+    <string name="grant_file_access">Tap here to grant the app additional file management permissions. This is necessary because the system may block access to the cover art cache in the public directory. As a result, the app won\'t be able to clear files and free up disk space on its own.</string>
+
+    <string name="force_update">Force update</string>
+    <string name="update_all_media_data">Update all media data with each synchronization, including those that may not have changed since the last update</string>
+
+    <string name="debug_mode">Debug mode</string>
+    <string name="show_touch_logs">Show touch logs</string>
+    <string name="broadcast_intents">Broadcast intents</string>
+    <string name="broadcast_intents_desc">If disabled, sends tap events only to MacroDroid</string>
+    <string name="track_keycode_event">Track KeyEvent</string>
+    <string name="low_level_key_events">Low-level key events</string>
+    <string name="custom_long_press_timing">Custom long press timing</string>
+    <string name="custom_long_press_timing_desc">Triggers a long press event after a specified time. Works for buttons that send KeyEvent. If a button does not send KeyEvent, the standard long press handler will be used</string>
+    <string name="long_press_trigger_timing">Long press trigger timing</string>
+    <string name="alt_long_press_trigger_timing">Alt long press trigger timing</string>
+    <!--    <string name="detect_double_tap">Detect double taps</string>-->
+    <!--    <string name="double_click_description">If enabled, a short pause follows a single tap to wait for a second tap. If no second tap occurs within this pause, a single click is triggered. If a second tap is performed, a double click is triggered. With non-blocking double click, there is no pause, and both events (single and double click, if performed) are registered in parallel.</string>-->
+    <string name="detect_double_tap">Detect double taps</string>
+    <string name="double_click_description">After a single short tap, a brief pause follows to wait for a second tap. If a second tap occurs within the time window, a double tap event is triggered</string>
+    <string name="double_tap_window_timing">Double tap window timing</string>
+    <string name="custom_short_press_timing">Custom short press timing</string>
+    <string name="custom_short_press_timing_desc">Prevents triggering a parallel short press during custom long presses.</string>
+    <string name="scanning_installed_apps">Scanning installed apps</string>
+    <string name="select_default_media_app">Select default media app</string>
+    <string name="next">Next</string>
+    <string name="default_">Default</string>
+    <string name="back">Back</string>
+
+    <string name="show_documentation">Show API</string>
+    <string name="hide_documentation">Hide API</string>
+    <string name="detect_multi_long">Detect multi-long</string>
+    <string name="multi_long_trigger">If other buttons are held during a long press event, a multi-long event is triggered instead of a regular long press</string>
+    <string name="suppression_mode">Suppression mode</string>
+    <string name="suppression_mode_desc">Blocks sending intents, only logs. For testing key presses without triggering actual button actions</string>
+    <string name="media_control">Media control</string>
+    <string name="media_control_desc">Enable this feature to use steering wheel buttons for track switching, pausing, and playing. When another media app is opened, control automatically switches to it.</string>
+    <string name="media_apps">Media apps</string>
+    <string name="media_apps_desc">Select apps that should take over media control when they appear on the screen</string>
+    <string name="disable_on_climate">Disable when climate is open</string>
+    <string name="disable_on_climate_desc">Automatically disable media control when the system climate settings window appears on the screen.</string>
+    <string name="configure_media_apps">Configure media apps</string>
+    <string name="audio_source_control">Audio source control</string>
+    <string name="audio_source_control_desc">If a media session is playing, switches the head unit\'s audio source to ONLINE. If BT|Radio|Carplay is playing, disables button actions to prevent playback button conflicts</string>
+    <string name="hide_media_widget">Hide media widget on home screen</string>
+    <string name="hide_media_widget_desc">Hides the widget on the home screen using system API capabilities. Allows swiping left on the home screen to access the standard app menu</string>
+    <string name="send_media_session_data">Send media session data</string>
+    <string name="send_media_session_data_desc">Sends intents with information about the currently playing track and playback state</string>
+    <string name="state_logs">State logs</string>
+    <string name="state_logs_desc">Show detailed logs of initialization and state changes</string>
+    <string name="confirm_delete_title">Delete</string>
+    <string name="confirm_delete_message">Are you sure you want to delete the key binding?</string>
+    <string name="add_keybind_button">Add key binding</string>
+
+    <string name="kbd_title_keys">Buttons</string>
+    <string name="kbd_title_action">Action</string>
+    <string name="kbd_title_app">Application</string>
+    <string name="kbd_desc_bind_keys">Press the button or combination of buttons in the way you want to bind them to the action</string>
+    <string name="kbd_desc_select_action">Select the action you want to perform when triggered</string>
+    <string name="kbd_desc_select_app">Select the application to launch</string>
+    <string name="kbd_hint_press_buttons">Press buttons</string>
+    <string name="kbd_pattern_double">Double click</string>
+    <string name="kbd_pattern_long">Long press</string>
+    <string name="kbd_pattern_multi">Multi-long</string>
+    <string name="kbd_pattern_short">Short click</string>
+    <string name="kbd_pattern_double2">Double click</string>
+    <string name="kbd_pattern_long2">Long press</string>
+    <string name="kbd_pattern_multi2">Multi-long</string>
+    <string name="kbd_pattern_short2">Short click</string>
+    <string name="kbd_action_launch_title">Launch application</string>
+    <string name="kbd_action_launch_desc">Will launch the selected application when triggered</string>
+    <string name="key_service_operation">Key service operation</string>
+    <string name="key_listener_active">Key listener is active</string>
+    <string name="launch_delay">Launch delay</string>
+    <string name="launch_shortcut">Launch shortcut</string>
+    <string name="launch_shortcut_desc">When triggered, it will launch the selected shortcut</string>
+    <string name="press_buttons">Press buttons</string>
+    <string name="shortcut">Shortcut</string>
+    <string name="shortcut_desc">Select a shortcut from another app that will be launched when the bind is triggered</string>
+    <string name="selected_shortcut">Selected shortcut</string>
+    <string name="selected_shortcut_desc">This shortcut will be launched when the bind is triggered</string>
+    <string name="_import">Import</string>
+    <string name="import_data_prompt">Do you want to import this data?</string>
+    <string name="not_found">Not found</string>
+    <string name="no_such_app">You don\'t have this app</string>
+    <string name="no_such_shortcut">You don\'t have this shortcut</string>
+    <string name="disable_during_calls">Disable during calls</string>
+    <string name="disable_during_calls_desc">Automatically disable media control during incoming or outgoing calls.</string>
+    <string name="assign_action_star">Assign action *</string>
+
+    <string name="warning_disclaimer">Everything you do in this section is at your own risk. Indiscriminate changes to parameters and values may cause harm to your vehicle. There are commands here that can put your head unit into Recovery mode. Be cautious and think carefully before making changes. May God help you.</string>
+    <string name="im_scared_but_ready">I\'m scared, but I\'m ready</string>
+    <string name="not_that_interested">Not that interested</string>
+    <string name="configurator">Configurator</string>
+    <string name="search">Search</string>
+    <string name="favorites_display">Functions added to \"Favorites\" will be displayed here</string>
+    <string name="nothing_found">Nothing found</string>
+
+    <string name="driving_mode">Driving mode</string>
+    <string name="driving_mode_change">Driving mode change</string>
+    <string name="driving_mode_switch">Switch between selected driving modes</string>
+    <string name="driving_mode_order_desc">Drag up the modes you want to switch between. The order is also taken into account.</string>
+    <string name="confirm_block_button_actions">Are you sure you want to block button actions?</string>
+
+    <string name="remember_driving_mode">Remember driving mode</string>
+    <string name="remember_driving_mode_desc">The last used driving mode will be restored after a system restart</string>
+
+    <string name="restore_mode">Mode for restoration</string>
+    <string name="restore_mode_desc">Select which mode should be restored after the vehicle starts</string>
+    <string name="driving_mode_persistence">The driving mode selected at the time the vehicle is turned off is saved and automatically restored on the next start.</string>
+
+    <string name="supported">Supported</string>
+    <string name="possibly_supported">Possibly supported</string>
+    <string name="driving_mode_change_sound">Driving mode change sound</string>
+    <string name="driving_mode_change_sound_desc">A short notification sound in the headrest when changing the driving mode</string>
+    <string name="loading">Loading</string>
+    <string name="select_driving_mode_sound">Select the driving mode for which a notification sound should be played upon switching</string>
+    <string name="no">No</string>
+    <string name="select_switch_sound">Select switch sound</string>
+    <string name="additional">Additional</string>
+    <string name="switching">Switching</string>
+    <string name="switching_desc">When activated, sets the selected driving mode. Activating again returns to the previous mode.</string>
+    <string name="carousel">Carousel</string>
+    <string name="carousel_desc">Sequentially switches between the selected driving modes.</string>
+    <string name="driving_mode_switch_type">Driving mode switch type</string>
+    <string name="switch_to_mode_and_back">Switch to %s mode and back</string>
+    <string name="turn_on_ignition">Turn on the ignition</string>
+    <string name="driving_mode_switch_error">Driving mode switch error</string>
+    <string name="drag_modes_to_switch">Drag up the modes you want to switch sequentially</string>
+    <string name="active_modes">Active modes</string>
+    <string name="drag_up">Drag up</string>
+    <string name="driving_mode_switching">Switching driving modes: %s</string>
+    <string name="export_settings">Export settings</string>
+    <string name="export_settings_desc">Saves a full backup of settings, excluding selected media apps</string>
+    <string name="import_settings_prompt">Do you want to import a full backup of settings? Your current settings will be lost. You will need to confirm the required permissions before applying.</string>
+    <string name="display_driving_mode">Display selected driving mode on screen</string>
+    <string name="display_driving_mode_desc">Visualize the selected driving mode on the tablet, including custom modes</string>
+
+    <!-- On-road baseline profiles -->
+    <string name="drive_mode_normal_desc">Balanced settings for everyday driving: standard traction and comfortable steering.</string>
+    <string name="drive_mode_comfort_desc">Smooth traction and light steering for relaxed trips and maximum comfort.</string>
+    <string name="drive_mode_eco_desc">Fuel/energy efficiency: smooth throttle response and early gear shifts.</string>
+    <string name="drive_mode_dynamic_desc">Sporty response: sharper throttle, longer gear holds, and heavier steering.</string>
+    <string name="drive_mode_sport_plus_desc">Enhanced sport calibration: maximum response speed and holding lower gears (availability depends on the model).</string>
+    <string name="drive_mode_power_desc">Maximum performance: powertrain delivers peak traction (in hybrids — combined operation of ICE and electric motor).</string>
+    <string name="drive_mode_adaptive_desc">Adaptive mode: automatically selects eco/comfort/sport profile based on driving style and road; in hybrids, it decides when to engage the ICE.</string>
+    <string name="drive_mode_custom_desc">Custom profile: save your preferences for traction, steering, and suspension (if available).</string>
+
+    <!-- Electrified (HEV/PHEV) profiles -->
+    <string name="drive_mode_pure_desc">Pure electric mode: ICE activates only under high load or low battery.</string>
+    <string name="drive_mode_hybrid_desc">Default hybrid: system automatically balances ICE and electric motor for traction and efficiency.</string>
+    <string name="drive_mode_save_desc">Battery preservation: maintains battery level at a set value (PHEV "hold" mode).</string>
+    <string name="drive_mode_eco_hev_phev_desc">Eco for hybrids: prioritizes electric drive, smooth response, and moderate climate power for minimal consumption.</string>
+    <string name="drive_mode_phev_desc">Plug-in hybrid mode: focuses on hybrid logic (battery maintenance/discharge); on some models, identical to "Hybrid".</string>
+
+    <!-- Driveline / traction -->
+    <string name="drive_mode_awd_desc">Permanent all-wheel drive/clutch preload for stability and traction on slippery surfaces.</string>
+    <string name="drive_mode_eawd_desc">Electric AWD: engages rear axle with electric motor for instant traction and stabilization.</string>
+
+    <!-- Off-road & low-μ surfaces -->
+    <string name="drive_mode_offroad_desc">Off-road: reconfigures traction, transmission, and stabilization systems for uneven terrain.</string>
+    <string name="drive_mode_snow_desc">Snow/ice: soft throttle, gentle starts, and enhanced traction control.</string>
+    <string name="drive_mode_sand_desc">Sand: maintains speed and allows wheel slip to avoid getting stuck.</string>
+    <string name="drive_mode_mud_desc">Mud: more low-end traction and permissible slip to maintain momentum.</string>
+    <string name="drive_mode_rock_desc">Rocks: ultra-smooth traction delivery at low speeds for crawling.</string>
+
+    <!-- Assist function -->
+    <string name="drive_mode_hdc_desc">Hill Descent Control: maintains low speed on steep descents by braking individual wheels.</string>
+
+    <!-- Special / unclear in public docs -->
+    <string name="drive_mode_start_type_desc">Service start preset (calibration/diagnostics); not a user mode.</string>
+    <string name="drive_mode_xc_desc">Internal designation (no public description); likely off-road/long-distance calibration.</string>
+
+    <string name="function_status_disclaimer">Even if a function has a negative status, it may remain operational and supported. Similarly, a positive status does not always guarantee the function\'s correct operation. The status reflects how the system classifies the current function. The actual functionality must be verified experimentally.</string>
+    <string name="attention">Attention</string>
+    <string name="delegated_to_debugm">Works via DebugM</string>
+    <string name="custom_driving_modes_warning">The use of non-standard driving modes and their impact on vehicle components and assemblies is not sufficiently studied. Use them at your own risk.</string>
+    <string name="driving_mode_restore_warning">If you are already using mode restoration via DebugM or MConfig, it’s better to stick to one. GIB may restore modes slightly faster, which can disrupt the mode restoration logic in DebugM.</string>
+    <string name="overlay_size">Overlay size</string>
+    <string name="vertical_offset">Vertical offset</string>
+    <string name="steering_wheel_buttons">Steering wheel buttons</string>
+    <string name="playback_control">Playback control</string>
+    <string name="audio_control">Audio control</string>
+    <string name="general">General</string>
+
+    <string name="public_notes">Public notes</string>
+    <string name="changes_saved">Changes saved</string>
+    <string name="save_failed">Unable to save</string>
+    <string name="public_notes_desc">Here you can leave useful information about the function: what values it accepts, its features, what works correctly, and what doesn’t, etc.</string>
+    <string name="data_fetch_failed">Failed to retrieve data. Please check your internet connection.</string>
+    <string name="public_notes_info">Notes are visible to everyone, and anyone can edit them. Please be kind.</string>
+    <string name="create_int_macro">Create INT retrieval macro</string>
+    <string name="create_float_macro">Create FLOAT retrieval macro</string>
+    <string name="create_int_listener">Create INT listener</string>
+    <string name="create_float_listener">Create FLOAT listener</string>
+    <string name="system_values">System values</string>
+    <string name="current_values">Current values</string>
+    <string name="assumed_values">Assumed values</string>
+    <string name="set_value">Set value (default zone = main)</string>
+    <string name="unknown">unknown</string>
+    <string name="status">Status</string>
+    <string name="type">Type</string>
+    <string name="function">Function</string>
+    <string name="single_sensor">Sensor</string>
+    <string name="info">Info</string>
+    <string name="set_int">Set INT</string>
+    <string name="set_float">Set Float</string>
+    <string name="in_md">in MD</string>
+    <string name="active">Active</string>
+    <string name="inactive">Inactive</string>
+    <string name="not_available">Not available</string>
+    <string name="error">Error</string>
+    <string name="value">Value</string>
+    <string name="sensor_listeners_disclaimer">Listeners do not work for all sensors; functionality is determined experimentally.</string>
+    <string name="new_version_available">New version available</string>
+    <string name="link">Link</string>
+    <string name="details">Details</string>
+    <string name="download">Download</string>
+    <string name="call">Call</string>
+    <string name="call_number_desc">Call the specified number</string>
+    <string name="enter_phone_number">Enter the phone number to be called</string>
+    <string name="enter_number">Enter number</string>
+    <string name="last">Last</string>
+    <string name="import_settings">Import settings</string>
+    <string name="import_settings_desc">Select a file to import all settings. Your current settings will be lost.</string>
+    <string name="import_export_settings">Import and export settings</string>
+    <string name="free_button_action_title">To free up a button action for binding via GIB:</string>
+    <string name="standard_system_actions">Standard system actions:</string>
+    <string name="cut_system_actions">Cut system actions:</string>
+    <string name="standard">Standard</string>
+    <string name="circle_cameras">360 cameras</string>
+    <string name="circle_cameras_desc">Enabling and disabling 360-degree surround view cameras</string>
+    <string name="headlight_mode">Headlight mode</string>
+    <string name="headlight_mode_desc">Sequential switching of selected exterior lighting modes.</string>
+    <string name="headlight_off">Off</string>
+    <string name="headlight_parking">Parking lights</string>
+    <string name="headlight_low_beam">Low beam</string>
+    <string name="headlight_auto">Auto</string>
+    <string name="headlight_off_desc">Headlights are completely off.</string>
+    <string name="headlight_parking_desc">Only parking lights are on.</string>
+    <string name="headlight_low_beam_desc">Low beam headlights are on.</string>
+    <string name="headlight_auto_desc">Automatic headlight activation mode.</string>
+    <string name="headlight_mode_switching">Switching headlight modes: %s</string>
+    <string name="headlight">Headlight</string>
+    <string name="headlight_settings">Headlight</string>
+    <string name="system_parameters">System parameters</string>
+    <string name="free_button_action_custom">To free up a button action for custom bindings, select one of the green (Custom) actions. After this, the button action will become available in GIB. For Atlas, additional steps are required to disable.</string>
+    <string name="turn_signal_volume">Turn signal sound volume</string>
+    <string name="low">Low</string>
+    <string name="medium">Medium</string>
+    <string name="high">High</string>
+    <string name="cannot_open_file">Cannot open file</string>
+    <string name="launcher_title">App Launcher</string>
+    <string name="app_launcher_toggle_desc">Opens the built-in app launcher. Repeated activation closes the launcher.</string>
+    <string name="my_apps">My apps</string>
+    <string name="all">All</string>
+    <string name="all_apps">All apps</string>
+    <string name="about_app">About the app</string>
+    <string name="notifications">Notifications</string>
+    <string name="icons_and_grid">Icons and grid</string>
+    <string name="icon_quality">Icon quality</string>
+    <string name="icon_quality_performance_desc">The higher the quality of icon images, the more memory they require and the slower they load.</string>
+    <string name="window_edge_padding">Padding from window edges to icons</string>
+    <string name="icon_spacing">Spacing between icons</string>
+    <string name="icon_size">Icon size</string>
+    <string name="icon_corner_radius">Icon corner radius</string>
+    <string name="show_app_names">Show app names</string>
+    <string name="app_name_text_size">App name text size</string>
+    <string name="icon_name_spacing">Spacing between icon and name</string>
+    <string name="add">Add</string>
+    <string name="empty_grid_message">There is nothing here yet. Press the "Add" button on the top panel.\n\nThe "Lock" button enables or disables the free movement mode, in which you can drag and arrange icons in the desired order.</string>
+    <string name="default_tab">Default tab</string>
+    <string name="launcher_and_app_window">Launcher and app window</string>
+    <string name="launcher_format">Launcher format</string>
+    <string name="icon_view_preview">This is a preview for customizing the icon appearance</string>
+    <string name="app_icon_preview">App icon preview</string>
+    <string name="apps">Apps</string>
+    <string name="divider">Divider</string>
+    <string name="display_mode">Display mode</string>
+    <string name="window">Window</string>
+    <string name="fullscreen">Fullscreen</string>
+    <string name="window_border">Window border</string>
+    <string name="horizontal_padding">Horizontal padding</string>
+    <string name="vertical_padding">Vertical padding</string>
+    <string name="other">Other</string>
+    <string name="show_available_activities">Show available activities</string>
+    <string name="hide_available_activities">Hide available activities</string>
+    <string name="select_apps">Select apps</string>
+    <string name="save">Save</string>
+    <string name="other_activities">Other activities</string>
+    <string name="my">My</string>
+    <string name="window_transparency">Window transparency</string>
+    <string name="open_optimization_settings">Open optimization settings menu</string>
+    <string name="optimization_settings_desc">Hidden system settings menu where you can enable or disable system cleanup (on Preface, downloaded maps and music will be preserved).</string>
+    <string name="appearance">Appearance</string>
+    <string name="theme">Theme</string>
+    <string name="light_theme">Light</string>
+    <string name="dark_theme">Dark</string>
+    <string name="create_divider">Create divider</string>
+    <string name="divider_description">This is a header displayed among launcher icons that logically separates subgroups of apps, activities, and shortcuts.</string>
+    <string name="enter_title">Enter title</string>
+    <string name="rename">Rename</string>
+    <string name="show_shortcut_type_icons">Show icons for shortcut types</string>
+    <string name="shortcut_type_icon_size">Size of shortcut type icons</string>
+    <string name="attention_warning">Attention!</string>
+    <string name="system_dialog_warning_desc">After opening this system dialog in the standard settings (black with a car), an additional non-localized button may appear. It can only be removed by resetting to factory settings. Also, if you disable automatic cleanup, ensure that the device\'s memory does not become full, otherwise the tablet may fail to boot.</string>
+    <string name="add_to_my_apps">Add to my apps</string>
+    <string name="enter_new_title_my_apps">Enter a new title to be displayed in the \"My apps\" tab</string>
+    <string name="change_icon">Change icon</string>
+    <string name="divider_current_view">Your dividers currently look like this</string>
+    <string name="divider_title_preview">Preview of the test section title</string>
+    <string name="divider_text_size">Divider text size</string>
+    <string name="bold_font">Bold font</string>
+    <string name="allow_app_name_wrapping">Allow app name wrapping</string>
+    <string name="select_action">Select action</string>
+    <string name="toggle_glauncher">Show/hide GLauncher</string>
+    <string name="select_settings_to_import">Select the settings sections you want to import. You will need to confirm the required permissions before applying.</string>
+    <string name="general_settings">General settings</string>
+    <string name="select_settings_to_export">Select the settings sections to export. During import, you can specify which ones to restore.</string>
+    <string name="show_recent_apps">Show recent apps</string>
+    <string name="show_recent_apps_desc">A section displaying the history of previously launched apps will appear at the bottom of the launcher. This feature requires the accessibility service to be enabled.</string>
+    <string name="recent_apps">Recent apps</string>
+    <string name="accessibility_service_disabled">The accessibility service is disabled</string>
+    <string name="close">Close</string>
+    <string name="no_recent_apps">No recent apps</string>
+    <string name="app_not_installed">It seems the %s app is not installed</string>
+    <string name="select">Select</string>
+    <string name="clear">Clear</string>
+    <string name="change">Change</string>
+    <string name="light_theme_schedule">Light theme from %1$s to %2$s</string>
+    <string name="auto">Auto</string>
+    <string name="interface_scale">Interface scale</string>
+
+    <string name="connection_port">Connection port</string>
+    <string name="enter_your_port">Enter your port number</string>
+    <string name="off">Off</string>
+    <string name="connected">Connected</string>
+    <string name="connecting">Connecting</string>
+    <string name="disconnected">Disconnected</string>
+    <string name="launcher_extra_features_desc">Opens additional capabilities in the launcher: detects application status in the system (running/not running), force-stop, and other functions.</string>
+    <string name="stop_dim_interaction_on_boot_title">Stop DIM interaction on system boot</string>
+    <string name="stop_dim_interaction_on_boot_desc">Automatically stops the DIM interaction service (which blocks login and interferes with some apps) every time the system starts.</string>
+    <string name="open">Open</string>
+    <string name="stop">Stop</string>
+
+    <string name="back_action_simulation">Simulate system "Back" action</string>
+    <string name="home">Home</string>
+    <string name="home_action_simulation">Simulate system "Home" action</string>
+    <string name="recents">Recent Apps / Task Switcher</string>
+    <string name="recents_action_description">Combines Windows-style Alt+Tab menu with Android Recents. Multiple activations cycle through apps. You can manually close running processes by swiping up or tapping the cross.</string>
+    <string name="adb_required_title">ADB must be enabled for this feature to work</string>
+    <string name="additional_press_processing">Additional press processing</string>
+    <string name="alternative_menu_detection">Alternative Menu detection</string>
+    <string name="alternative_menu_detection_desc">If long presses on the Menu button are not detected, try enabling the alternative press detection method for this button</string>
+    <string name="alternative_mute_detection">Alternative Mute detection</string>
+    <string name="alternative_mute_detection_desc">If long presses on the Mute button are not detected, try enabling the alternative press detection method for this button</string>
+    <string name="return_to_previous_app">Return to previous app</string>
+    <string name="return_to_previous_app_desc">Expands the previously opened application (if it was not closed)</string>
+
+    <string name="api_text_launcher"><![CDATA[<strong>Launcher Control</strong>
+<br>
+<br>
+Show/hide launcher:
+<br>
+In MacroDroid: Actions -> Send Intent
+<br>
+<strong>Target</strong>: Broadcast<br>
+<strong>Action:</strong> com.salat.gbinder.TOGGLE_LAUNCHER<br>
+<strong>Package</strong>: com.salat.gbinder
+]]></string>
+    <string name="api_text"><![CDATA[<strong>Receiving Key Press Events</strong>
+<br>
+In MacroDroid: Triggers -> Intent Received
+<br>
+<br>
+<strong>Actions</strong>:
+<br>\"com.salat.gbinder.SHORT_CLICK\"
+<br>\"com.salat.gbinder.LONG_PRESS\"
+<br>\"com.salat.gbinder.MULTI_LONG_PRESS\"
+<br>\"com.salat.gbinder.DOUBLE_CLICK\"
+<br>\"com.salat.gbinder.HOLD_START\"
+<br>\"com.salat.gbinder.HOLD_STOP\"
+<br>\"com.salat.gbinder.KEY_EVENT\"
+<br>
+<br>
+<strong>Additional</strong>:
+<br>\"code\" -> keyCode of the key.
+<br>for KEY_EVENT additionally: \"event\" -> [0|1|3] where 0 = DOWN, 1 = UP, 3 = CANCEL <br>and \"func\" -> system function code
+<br>
+<br>for MULTI_LONG_PRESS, the \"code\" parameter is received in the format -> 119+200087 with key codes, the code is formed from the smaller number to the larger
+]]></string>
+    <string name="api_text2"><![CDATA[<strong>Working with Audio Sources</strong>
+<br>
+<br>
+To listen for changes in audio sources on the head unit:
+<br>
+In MacroDroid: Triggers -> Intent Received
+<br>
+<strong>Action</strong>: com.salat.gbinder.AUDIO_SOURCE_CHANGED<br>
+<strong>Additional</strong>: source=[USB|BT|RADIO|CPAA|ONLINE|OTHER|YUNTING|UNKNOWN]
+<br>
+<br>
+To change the current audio source of the head unit:
+<br>
+In MacroDroid: Actions -> Send Intent
+<br>
+<strong>Target</strong>: Broadcast<br>
+<strong>Action</strong>: com.salat.gbinder.SET_AUDIO_SOURCE<br>
+<strong>Package</strong>: com.salat.gbinder<br>
+<strong>Additional 1</strong>: target=[USB|BT|RADIO|CPAA|ONLINE|OTHER|YUNTING|UNKNOWN]<br>
+<strong>Additional 2</strong>: optional source=[UNKNOWN|WECARFLOW|KUWO|KUGOU|NETEASE_CLOUD|SOHU|JINRI|QYS|OTHER|FANDENG|TENCENT_VIDEO|XMLY|GC|HUOSHAN|BILIBILI|THUNDER_VOICE|CMVIDEO_VOICE]
+]]></string>
+    <string name="api_text3"><![CDATA[<strong>Media Control</strong>
+<br>
+<br>
+Enabling and disabling media control:
+<br>
+In MacroDroid: Actions -> Send Intent
+<br>
+<strong>Target</strong>: Broadcast<br><br>
+<strong>Action:</strong> com.salat.gbinder.TEMPORARY_DISABLE_MEDIA_CONTROL<br>
+<strong>Additional:</strong> duration -> Duration of disabling in seconds<br><br>
+<strong>Other actions:</strong>
+<br>com.salat.gbinder.ENABLE_MEDIA_CONTROL
+<br>com.salat.gbinder.SMART_ENABLE_MEDIA_CONTROL
+<br>com.salat.gbinder.DISABLE_MEDIA_CONTROL<br><br>
+<strong>Package</strong>: com.salat.gbinder<br>
+"SMART" - Enables only if it was previously enabled manually
+]]></string>
+    <string name="api_text4"><![CDATA[<strong>Receiving Active Media Session Data</strong>
+<br>
+<br>
+Playback status information:<br>
+<strong>Action:</strong> com.salat.gbinder.PLAYBACK_STATE<br>
+<strong>Additional:</strong> isPlaying=[0|1] -> 1 playback is active, 0 nothing is playing
+<br>
+<br>
+Current track data:<br>
+<strong>Action:</strong> com.salat.gbinder.PLAYBACK_METADATA
+<br><strong>Additional 1:</strong> id -> unique track identifier
+<br><strong>Additional 2:</strong> packageName -> package name of the app playing the media session
+<br><strong>Additional 3:</strong> appName -> application name
+<br><strong>Additional 4:</strong> title -> title
+<br><strong>Additional 5:</strong> artist -> artist
+<br><strong>Additional 6:</strong> album -> album name
+<br><strong>Additional 7:</strong> uri -> track URI
+<br><strong>Additional 8:</strong> coverUri -> cover art URI
+<br>
+<br>
+Intents are sent only when media data changes; you can manually request them via an outgoing broadcast:<br>
+<strong>Action:</strong> com.salat.gbinder.REQUEST_PLAYBACK_INFO
+]]></string>
+    <string name="api_text5"><![CDATA[<strong>Working with Phone Calls</strong>
+<br>
+<br>
+In MacroDroid: Actions -> Send Intent
+<br>
+<br>
+Make a phone call<br>
+<strong>Action 1:</strong> com.salat.gbinder.PHONE_CALL
+<br><strong>Additional:</strong> number -> phone number (specify the variable type as "string", otherwise the "+" in the number will be lost)
+<br>
+<br>
+Answer a call<br>
+<strong>Action 2:</strong> com.salat.gbinder.ANSWER_CALL
+<br>
+<br>
+Reject a call<br>
+<strong>Action 3:</strong> com.salat.gbinder.REJECT_CALL
+<br>
+<br>
+Disconnect a call<br>
+<strong>Action 5:</strong> com.salat.gbinder.DISCONNECT_CALL
+]]></string>
+    <string name="api_text6"><![CDATA[<strong>Camera Control</strong>
+<br>
+<br>
+Show/hide 360 cameras:
+<br>
+In MacroDroid: Actions -> Send Intent
+<br>
+<strong>Target</strong>: Broadcast<br>
+<strong>Actions:</strong>
+<br>com.salat.gbinder.TOGGLE_CAMERA<br>
+<strong>Package</strong>: com.salat.gbinder
+]]></string>
+
+    <string name="api_text7"><![CDATA[<strong>Setting Configurator Value</strong>
+<br>
+<br>
+In MacroDroid: Actions -> Send Intent
+<br>
+<strong>Target</strong>: Broadcast<br>
+<strong>Action1:</strong> com.salat.gbinder.SET_INT_PROPERTY<br>
+<strong>Action2:</strong> com.salat.gbinder.SET_FLOAT_PROPERTY<br>
+<strong>Package</strong>: com.salat.gbinder<br><br>
+<strong>Additional1:</strong> id -> parameter identifier<br>
+<strong>Additional2:</strong> value -> new value<br>
+<strong>Additional3:</strong> area -> scope of application (optional)
+]]></string>
+
+    <string name="api_text8"><![CDATA[<strong>Retrieving Values and Subscribing to Value Changes</strong>
+<br>
+<br>
+In MacroDroid: Actions -> Send Intent
+<br>
+<strong>Target</strong>: Broadcast<br>
+<strong>Action1:</strong> com.salat.gbinder.GET_INT_PROPERTY<br>
+<strong>Action2:</strong> com.salat.gbinder.GET_FLOAT_PROPERTY<br>
+<strong>Action3:</strong> com.salat.gbinder.LISTEN_PROPERTY_CHANGES<br> - subscribe once, and then an action will be received for each change of the specified function
+<strong>Package</strong>: com.salat.gbinder<br><br>
+<strong>Additional1:</strong> id -> parameter identifier<br>
+<strong>Additional2:</strong> area -> scope of application (optional)
+<br><br>
+In response to GET_*, the action com.salat.gbinder.PROPERTY_VALUE_RESULT is received<br>
+In response to LISTEN_*, the action com.salat.gbinder.PROPERTY_VALUE_CHANGED is received<br>
+<strong>Additional1</strong>: id = function identifier<br>
+<strong>Additional2</strong>: area = scope of application<br>
+<strong>Additional3</strong>: value = current value
+]]></string>
+    <string name="api_text9"><![CDATA[<strong>Retrieving Sensor Values and Subscribing to Sensor Value Changes</strong>
+<br>
+<br>
+In MacroDroid: Actions -> Send Intent
+<br>
+<strong>Target</strong>: Broadcast<br>
+<strong>Package</strong>: com.salat.gbinder<br><br>
+<strong>Action1:</strong> com.salat.gbinder.GET_INT_SENSOR<br>
+<strong>Action2:</strong> com.salat.gbinder.GET_FLOAT_SENSOR<br>
+<strong>Action3:</strong> com.salat.gbinder.LISTEN_SENSOR_CHANGES<br>
+ - subscribe once, and then an action will be received for each sensor change. Not all sensors are supported; functionality is determined experimentally.<br>
+<strong>Additional:</strong> id -> parameter identifier<br><br>
+In response to GET_*_SENSOR, the action com.salat.gbinder.SENSOR_*_RESULT is received<br>
+In response to LISTEN_SENSOR_*, the action com.salat.gbinder.SENSOR_VALUE_CHANGED (for FLOAT values)<br>
+and com.salat.gbinder.SENSOR_*_CHANGED is received<br>
+<strong>Additional1</strong>: id = sensor identifier<br>
+<strong>Additional2</strong>: value = current value
+]]></string>
+
+    <string name="api_text10"><![CDATA[<strong>Retrieving Info Parameter Values</strong>
+<br>
+<br>
+In MacroDroid: Actions -> Send Intent
+<br>
+<strong>Target</strong>: Broadcast<br>
+<strong>Package</strong>: com.salat.gbinder<br><br>
+<strong>Action1:</strong> com.salat.gbinder.GET_INT_INFO<br>
+<strong>Action2:</strong> com.salat.gbinder.GET_FLOAT_INFO<br>
+<strong>Action3:</strong> com.salat.gbinder.GET_STRING_INFO<br><br>
+In response to GET_*_INFO, the action com.salat.gbinder.INFO_VALUE_RESULT is received<br>
+<strong>Additional1</strong>: id = parameter identifier<br>
+<strong>Additional2</strong>: value = current value
+]]></string>
+</resources>

@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <uses-permission android:name="com.geely.settings.permission.LDSDK_MESSAGE" />
+    <uses-permission android:name="com.geely.settings.permission.QDAS_MESSAGE" />
+    <uses-permission android:name="geely.oneos.permission.SERVICE" />
+
+    <application
+        android:name=".App"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.GBinder"
+        tools:targetApi="31">
+
+        <!--        <meta-data-->
+        <!--            android:name="eos_supports_psd"-->
+        <!--            android:value="true" />-->
+        <!--        <meta-data-->
+        <!--            android:name="eos_supports_multipages"-->
+        <!--            android:value="false" />-->
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.GBinder">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <intent-filter
+                android:priority="999"
+                tools:ignore="AppLinkUrlError,AppLinkUrlWarning">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <category android:name="android.intent.category.OPENABLE" />
+
+                <!-- <data android:host="*" />-->
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/gibb" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\.gibb" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.gibb" />
+                <data android:pathPattern=".*\\..*\\..*\\.gibb" />
+                <data android:pathPattern=".*\\..*\\.gibb" />
+                <data android:pathPattern=".*\\.gibb" />
+                <data android:scheme="content" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".features.launcher.LauncherEntryActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:finishOnTaskLaunch="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.TransparentInvisible" />
+
+        <activity-alias
+            android:name=".AppLauncher"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_app_launcher"
+            android:label="@string/launcher_name"
+            android:roundIcon="@mipmap/ic_app_launcher_round"
+            android:targetActivity=".features.launcher.LauncherEntryActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity
+            android:name=".PhoneCallActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:finishOnTaskLaunch="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:theme="@style/Theme.TransparentInvisible">
+
+            <!--            <intent-filter>-->
+            <!--                <action android:name="android.intent.action.DIAL" />-->
+            <!--                <category android:name="android.intent.category.DEFAULT" />-->
+            <!--                <data android:scheme="tel" />-->
+            <!--            </intent-filter>-->
+
+            <intent-filter android:priority="1000">
+                <action android:name="android.intent.action.CALL" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="tel" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ShortcutActivity"
+            android:documentLaunchMode="always"
+            android:enabled="true"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/launcher_name"
+            android:theme="@style/Theme.TransparentInvisible">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.intent.action.CREATE_SHORTCUT" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!--  TODO TEST TYPE systemExempted-->
+        <!--  TODO  android:process=":acc"-->
+        <service
+            android:name=".BootAccessibilityService"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <service
+            android:name=".MediaNotificationListenerService"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback"
+            android:label="Media Listener Service"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".DriveModeOverlayService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <service
+            android:name=".LampModeOverlayService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <service
+            android:name=".TaskManagerOverlayService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <service
+            android:name=".features.launcher.LauncherOverlayService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <receiver
+            android:name=".BackgroundTaskReceiver"
+            android:exported="true"
+            tools:ignore="ExportedReceiver">
+            <intent-filter>
+                <action android:name="com.salat.gbinder.SET_AUDIO_SOURCE" />
+                <action android:name="com.salat.gbinder.ENABLE_MEDIA_CONTROL" />
+                <action android:name="com.salat.gbinder.SMART_ENABLE_MEDIA_CONTROL" />
+                <action android:name="com.salat.gbinder.DISABLE_MEDIA_CONTROL" />
+                <action android:name="com.salat.gbinder.TEMPORARY_DISABLE_MEDIA_CONTROL" />
+                <action android:name="com.salat.gbinder.REQUEST_PLAYBACK_INFO" />
+                <action android:name="com.salat.gbinder.PHONE_CALL" />
+                <action android:name="com.salat.gbinder.ANSWER_CALL" />
+                <action android:name="com.salat.gbinder.REJECT_CALL" />
+                <action android:name="com.salat.gbinder.DISCONNECT_CALL" />
+                <action android:name="com.salat.gbinder.SET_VISIBLE_PACKAGE" />
+                <action android:name="com.salat.gbinder.TOGGLE_CAMERA" />
+                <action android:name="com.salat.gbinder.SET_INT_PROPERTY" />
+                <action android:name="com.salat.gbinder.SET_FLOAT_PROPERTY" />
+                <action android:name="com.salat.gbinder.GET_INT_PROPERTY" />
+                <action android:name="com.salat.gbinder.GET_FLOAT_PROPERTY" />
+                <action android:name="com.salat.gbinder.LISTEN_PROPERTY_CHANGES" />
+                <action android:name="com.salat.gbinder.GET_INT_SENSOR" />
+                <action android:name="com.salat.gbinder.GET_FLOAT_SENSOR" />
+                <action android:name="com.salat.gbinder.LISTEN_SENSOR_CHANGES" />
+                <action android:name="com.salat.gbinder.GET_INT_INFO" />
+                <action android:name="com.salat.gbinder.GET_FLOAT_INFO" />
+                <action android:name="com.salat.gbinder.GET_STRING_INFO" />
+                <action android:name="com.salat.gbinder.TOGGLE_LAUNCHER" />
+            </intent-filter>
+        </receiver>
+
+        <provider
+            android:name=".BootContentProvider"
+            android:authorities="com.salat.gbinder.bootcontentprovider"
+            android:exported="false">
+            <meta-data
+                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+                android:value="androidx.startup" />
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup" />
+            <meta-data
+                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+                android:value="androidx.startup" />
+            <meta-data
+                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+                android:value="androidx.startup" />
+        </provider>
+
+        <receiver
+            android:name=".PackageChangeReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_ADDED" />
+                <action android:name="android.intent.action.PACKAGE_REMOVED" />
+                <action android:name="android.intent.action.PACKAGE_CHANGED" />
+
+                <data android:scheme="package" />
+            </intent-filter>
+        </receiver>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+
+            <grant-uri-permission android:pathPrefix="/downloads/" />
+            <grant-uri-permission android:pathPrefix="/apk/" />
+            <grant-uri-permission android:pathPrefix="/public_downloads/" />
+            <grant-uri-permission android:pathPrefix="/shared_gibb/" />
+        </provider>
+    </application>
+
+    <queries>
+        <package android:name="com.estrongs.android.pop" />
+        <package android:name="com.arlosoft.macrodroid" />
+    </queries>
+</manifest>

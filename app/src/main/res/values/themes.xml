@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <style name="Theme.GBinder.BaseAppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="colorPrimary">@color/system_background</item>
+        <item name="colorPrimaryVariant">@color/system_background</item>
+        <item name="colorAccent">@color/colorAccent</item>
+        <item name="android:windowBackground">@color/system_background</item>
+        <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="o_mr1">default</item>
+        <!-- 21-22 specials -->
+        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
+        <item name="android:navigationBarColor">@android:color/black</item>
+    </style>
+
+    <style name="Theme.GBinder" parent="Theme.GBinder.BaseAppTheme" />
+
+    <style name="Theme.TransparentInvisible" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowDisablePreview">true</item>
+        <item name="android:activityOpenEnterAnimation">@null</item>
+        <item name="android:activityOpenExitAnimation">@null</item>
+        <item name="android:activityCloseEnterAnimation">@null</item>
+        <item name="android:activityCloseExitAnimation">@null</item>
+    </style>
+</resources>
