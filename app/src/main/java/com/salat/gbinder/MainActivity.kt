@@ -247,6 +247,7 @@ class MainActivity : ComponentActivity() {
                 var mediaControlEnabled by remember { mutableStateOf(false) }
                 var disableOnClimate by remember { mutableStateOf(false) }
                 var sourceManagement by remember { mutableStateOf(false) }
+                var radioBtControl by remember { mutableStateOf(true) }
                 var rememberDriveMode by remember { mutableStateOf(false) }
                 var targetRecoveryDriveMode by remember { mutableIntStateOf(LAST_DM_ID) }
                 var driveModeOverlay by remember { mutableStateOf(false) }
@@ -297,21 +298,22 @@ class MainActivity : ComponentActivity() {
                             suppressionMode = row[10] as Boolean
                             disableOnClimate = row[11] as Boolean
                             sourceManagement = row[12] as Boolean
-                            rememberDriveMode = row[13] as Boolean
-                            targetRecoveryDriveMode = row[14] as Int
-                            driveModeOverlay = row[15] as Boolean
-                            driveModeOverlayScale = row[16] as Float
-                            driveModeOverlayOffset = row[17] as Float
-                            configuratorWarning = row[18] as Boolean
-                            mediaDataTranslator = row[19] as Boolean
-                            deepLogs = row[20] as Boolean
-                            mediaControlEnabled = row[21] as Boolean
-                            enableAdbHelper = row[22] as Boolean
-                            adbHelperPort = row[23] as Int
-                            adbDimAutoStop = row[24] as Boolean
-                            altMenu = row[25] as Boolean
-                            altMute = row[26] as Boolean
-                            altLongTime = row[27] as Int
+                            radioBtControl = row[13] as Boolean
+                            rememberDriveMode = row[14] as Boolean
+                            targetRecoveryDriveMode = row[15] as Int
+                            driveModeOverlay = row[16] as Boolean
+                            driveModeOverlayScale = row[17] as Float
+                            driveModeOverlayOffset = row[18] as Float
+                            configuratorWarning = row[19] as Boolean
+                            mediaDataTranslator = row[20] as Boolean
+                            deepLogs = row[21] as Boolean
+                            mediaControlEnabled = row[22] as Boolean
+                            enableAdbHelper = row[23] as Boolean
+                            adbHelperPort = row[24] as Int
+                            adbDimAutoStop = row[25] as Boolean
+                            altMenu = row[26] as Boolean
+                            altMute = row[27] as Boolean
+                            altLongTime = row[28] as Int
                         }
                     }
                     launch {
@@ -825,39 +827,40 @@ class MainActivity : ComponentActivity() {
 
                                 Spacer(Modifier.height(16.dp))
 
-                                //  double clock time
-                                val sliderDCTitle =
-                                    stringResource(R.string.double_tap_window_timing)
-                                Text(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 42.dp),
-                                    textAlign = TextAlign.Left,
-                                    text = "$sliderDCTitle: " +
-                                            doubleClickTime.toDecimalSecondString(),
-                                    color = AppTheme.colors.contentPrimary
-                                )
-                                ValueSlider(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 36.dp),
-                                    value = doubleClickTime,
-                                    valueRange = 50..1500,
-                                    onValueChange = { newValue ->
-                                        doubleClickTime = newValue
-                                        scope.launch {
-                                            dataStore.saveValue(
-                                                GeneralPrefs.DOUBLE_CLICK_TIME,
-                                                newValue
-                                            )
-                                        }
-                                    },
-                                    enabled = true,
-                                    defaultMark = 300,
-                                    step = 10
-                                )
+                                if (lockDoubleClick) {
+                                    val sliderDCTitle =
+                                        stringResource(R.string.double_tap_window_timing)
+                                    Text(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 42.dp),
+                                        textAlign = TextAlign.Left,
+                                        text = "$sliderDCTitle: " +
+                                                doubleClickTime.toDecimalSecondString(),
+                                        color = AppTheme.colors.contentPrimary
+                                    )
+                                    ValueSlider(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 36.dp),
+                                        value = doubleClickTime,
+                                        valueRange = 50..1500,
+                                        onValueChange = { newValue ->
+                                            doubleClickTime = newValue
+                                            scope.launch {
+                                                dataStore.saveValue(
+                                                    GeneralPrefs.DOUBLE_CLICK_TIME,
+                                                    newValue
+                                                )
+                                            }
+                                        },
+                                        enabled = true,
+                                        defaultMark = 300,
+                                        step = 10
+                                    )
 
-                                Spacer(Modifier.height(24.dp))
+                                    Spacer(Modifier.height(24.dp))
+                                }
                                 RenderGroupDivider()
                                 Spacer(Modifier.height(24.dp))
 
@@ -1481,22 +1484,47 @@ class MainActivity : ComponentActivity() {
 
                                 Spacer(Modifier.height(12.dp))
 
-                                // toggle audio source by playing
                                 RenderSwitcher(
                                     modifier = Modifier.padding(horizontal = 20.dp),
-                                    title = stringResource(R.string.audio_source_control),
-                                    subtitle = stringResource(R.string.audio_source_control_desc),
-                                    value = sourceManagement,
+                                    title = "Управлять радио и bluetooth",
+                                    value = radioBtControl,
                                     enable = mediaControlEnabled,
                                     groupDivider = false,
                                     onChange = {
                                         scope.launch {
-                                            dataStore.saveValue(GeneralPrefs.SOURCE_MANAGEMENT, it)
+                                            dataStore.saveValue(
+                                                GeneralPrefs.RADIO_BT_CONTROL,
+                                                it
+                                            )
+                                            if (it) {
+                                                dataStore.saveValue(
+                                                    GeneralPrefs.SOURCE_MANAGEMENT,
+                                                    false
+                                                )
+                                            }
                                         }
                                     }
                                 )
 
                                 Spacer(Modifier.height(12.dp))
+
+                                if (!radioBtControl) {
+                                    RenderSwitcher(
+                                        modifier = Modifier.padding(horizontal = 20.dp),
+                                        title = stringResource(R.string.audio_source_control),
+                                        subtitle = stringResource(R.string.audio_source_control_desc),
+                                        value = sourceManagement,
+                                        enable = mediaControlEnabled,
+                                        groupDivider = false,
+                                        onChange = {
+                                            scope.launch {
+                                                dataStore.saveValue(GeneralPrefs.SOURCE_MANAGEMENT, it)
+                                            }
+                                        }
+                                    )
+
+                                    Spacer(Modifier.height(12.dp))
+                                }
 
                                 // disable when AC
                                 RenderSwitcher(
@@ -3208,6 +3236,7 @@ private object MainScreenSettingsRow {
         GeneralPrefs.SUPPRESSION_MODE,
         GeneralPrefs.DISABLE_ON_CLIMATE,
         GeneralPrefs.SOURCE_MANAGEMENT,
+        GeneralPrefs.RADIO_BT_CONTROL,
         GeneralPrefs.REMEMBER_DRIVE_MODE,
         GeneralPrefs.TARGET_RECOVERY_DRIVE_MODE,
         GeneralPrefs.DRIVE_MODE_OVERLAY,
@@ -3228,12 +3257,13 @@ private object MainScreenSettingsRow {
     val defaults: List<Any?> = listOf(
         false,
         false,
-        false,
+        true,
         false,
         false,
         1000,
         false,
         300,
+        false,
         false,
         false,
         false,
@@ -3251,8 +3281,8 @@ private object MainScreenSettingsRow {
         false,
         5555,
         false,
-        false,
-        false,
+        true,
+        true,
         ADDITIONAL_KEYS_MIN_LONG_PRESS_TIME,
     )
 }

@@ -22,6 +22,7 @@ object GeneralPrefs {
     val DISABLE_ON_CLIMATE = booleanPreferencesKey("DISABLE_ON_CLIMATE")
     val DISABLE_DURING_CALLS = booleanPreferencesKey("DISABLE_DURING_CALLS")
     val SOURCE_MANAGEMENT = booleanPreferencesKey("SOURCE_MANAGEMENT")
+    val RADIO_BT_CONTROL = booleanPreferencesKey("RADIO_BT_CONTROL")
     val HIDE_MEDIA_WIDGET = booleanPreferencesKey("HIDE_MEDIA_WIDGET")
     val MEDIA_DATA_TRANSLATOR = booleanPreferencesKey("MEDIA_DATA_TRANSLATOR")
     val DEEP_LOGS = booleanPreferencesKey("DEEP_LOGS")
@@ -60,6 +61,7 @@ object GeneralPrefs {
             DISABLE_ON_CLIMATE,
             DISABLE_DURING_CALLS,
             SOURCE_MANAGEMENT,
+            RADIO_BT_CONTROL,
             HIDE_MEDIA_WIDGET,
             MEDIA_DATA_TRANSLATOR,
             DEEP_LOGS,

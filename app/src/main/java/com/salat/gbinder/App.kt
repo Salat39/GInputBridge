@@ -4,13 +4,13 @@ import android.app.Activity
 import android.app.Application
 import android.content.ComponentName
 import android.content.Intent
-import android.content.pm.LauncherApps
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.PlaybackState
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.KeyEvent
 import androidx.annotation.RawRes
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -36,6 +36,7 @@ import com.geely.lib.oneosapi.phone.PhoneManager
 import com.geely.lib.oneosapi.phone.inter.IBluetoothServicesListener
 import com.geely.lib.oneosapi.phone.telecom.GlyCallItem
 import com.google.firebase.FirebaseApp
+import com.google.firebase.analytics.FirebaseAnalytics
 import com.salat.gbinder.adb.domain.repository.AdbRepository
 import com.salat.gbinder.car.data.CarPropertyKey
 import com.salat.gbinder.car.data.CarPropertyValue
@@ -135,6 +136,13 @@ class App : Application(), ImageLoaderFactory {
         private const val HAV_YM_PACKAGE = "yandex.auto.music"
         private const val HAV_YM_UMA_PACKAGE = "yandex.auto.uma"
         private const val DUSI_ASSISTANT_PACKAGE = "com.dusiassistant"
+        private const val KARAOKE_FOCUS_ACTION = "com.audiocn.karaoke.action.KEY_BROADCAST_FOCUS"
+        private const val KARAOKE_FOCUS_EXTRA = "KaraokeKeyFocus"
+        private val BT_RADIO_SOURCES = setOf(
+            MediaCenterConstant.AudioSource.AUDIO_SOURCE_BT,
+            MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO,
+            MediaCenterConstant.AudioSource.AUDIO_SOURCE_USB
+        )
 
         private const val RESTORE_DRIVE_MODE_TIMEOUT = 9_000L
 
@@ -147,6 +155,12 @@ class App : Application(), ImageLoaderFactory {
 
         private const val MINIMIZE_SYSTEM_DELAY = 360L
         private const val SILENT_START = 4 // in sec
+        private const val STARTUP_SECONDARY_COLLECTORS_DELAY = 4_000L
+        private const val STARTUP_ADB_HELPER_DELAY = 30_000L
+        private const val STARTUP_ANALYTICS_DELAY = 45_000L
+        private const val ONLINE_SWITCH_RETRY_INTERVAL_MS = 1200L
+        private const val KARAOKE_RETRY_COUNT = 4
+        private const val KARAOKE_RETRY_DELAY_MS = 1500L
 
         private val AUDIO_SOURCE = MediaCenterConstant.AudioSource.AUDIO_SOURCE_ONLINE
     }
@@ -217,6 +231,7 @@ class App : Application(), ImageLoaderFactory {
     private var disableOnClimate = false
     private var disableDuringCall = false
     private var sourceManagement = false
+    private var radioBtControl = true
     private var hideMediaWidget = false
     private var mediaDataTranslator = false
     private var deepLogs = false
@@ -263,6 +278,8 @@ class App : Application(), ImageLoaderFactory {
 
     private var keyEventListenerBound = false
     private var sourceStateListenerBound = false
+    private var karaokeFocusBoot = false
+    private var karaokeRetryJob: Job? = null
 
     private var globalActiveMediaController: MediaController? = null
     private var globalMediaControllers: List<MediaController>? = null
@@ -274,6 +291,8 @@ class App : Application(), ImageLoaderFactory {
         _playbackMetadataFlow.asSharedFlow()
 
     private var lastPlaybackState: Boolean = false
+    private var lastExternalPlayingState: Boolean = false
+    private var lastOnlineSwitchAttemptAt: Long = 0L
     private var lastPlaybackMetadata: PlaybackMetadata? = null
 
     private var adbIsEnabled = false
@@ -316,42 +335,47 @@ class App : Application(), ImageLoaderFactory {
             initAppScalesCollector()
             initVisibleAppCollector() // Accessibility event bridge
             handleToggleLauncher()
-            handleAdbActions()
 
             // Start API init
             initOneOSApiManager()
             carManager.create()
         }
 
-        // Launcher device packages tracker
-        monitorPackageChangesOnDevice()
-
-        FirebaseApp.initializeApp(this)
+        appScope.launch {
+            delay(STARTUP_ANALYTICS_DELAY)
+            runCatching {
+                FirebaseApp.initializeApp(this@App)
+                FirebaseAnalytics.getInstance(this@App)
+            }.onFailure { Timber.e(it) }
+        }
         Timber.d("[APP] CREATED")
     }
 
     private fun onOneOSApiConnected() = appScope.launch {
+        bindKeyInputAndMediaManagers()
+
+        delay(250L)
         initPlaybackMetadataCollector()
         initPrefsCollector()
         initSetAudioSourceCollector()
         initMediaControlToggleCollector()
         initRequestPlaybackInfoCollector()
-        initDevicePackagesChangedCollector()
-        initRequestPhoneCollector()
-
         initAccessibilityStateCollector()
         initMediaSessionsStateCollector()
-        backupVisiblePackageCollector()
-        initLauncherManagerWatchDog()
-        handleKeyBindMode()
-        collectDriveModeChanged()
-        collectIgnitionState()
-        handleNotifPlayTest()
 
-        // TODO Test delay
-        delay(250L)
-        // KeyInputManager and mediaManager binding
-        bindKeyInputAndMediaManagers()
+        launch {
+            delay(STARTUP_SECONDARY_COLLECTORS_DELAY)
+            initDevicePackagesChangedCollector()
+            initRequestPhoneCollector()
+            backupVisiblePackageCollector()
+            initLauncherManagerWatchDog()
+            delay(STARTUP_ADB_HELPER_DELAY)
+            handleAdbActions()
+            handleKeyBindMode()
+            collectDriveModeChanged()
+            collectIgnitionState()
+            handleNotifPlayTest()
+        }
 
         // Launcher manager binding flag
         stateKeeper.setLauncherManagerState(
@@ -771,12 +795,14 @@ class App : Application(), ImageLoaderFactory {
             dataStore.getValueFlow(GeneralPrefs.SOURCE_MANAGEMENT).collect {
                 sourceManagement = it ?: false
 
-                // Set online audio source
-                if (/*globalMediaControllers?.any { c -> c.playbackState?.state == PlaybackState.STATE_PLAYING } == true
-                    &&*/ sourceManagement
-                ) {
+                if (isOnlineBootSwitch()) {
                     resetIfOtherAudioSource()
                 }
+            }
+        }
+        launch {
+            dataStore.getValueFlow(GeneralPrefs.RADIO_BT_CONTROL).collect {
+                radioBtControl = it ?: true
             }
         }
         launch {
@@ -834,12 +860,12 @@ class App : Application(), ImageLoaderFactory {
         }
         launch {
             dataStore.getValueFlow(GeneralPrefs.ALT_MUTE).collect { enabled ->
-                altMute = enabled ?: false
+                altMute = enabled ?: true
             }
         }
         launch {
             dataStore.getValueFlow(GeneralPrefs.ALT_MENU).collect { enabled ->
-                altMenu = enabled ?: false
+                altMenu = enabled ?: true
             }
         }
         launch {
@@ -885,28 +911,6 @@ class App : Application(), ImageLoaderFactory {
                     }
                 },
                 cancelBlock = { cancelKeyInputManager() }
-            )
-        }
-
-        // Start retry for Phone if not already active
-        if (phoneInitJob?.isActive != true) {
-            phoneInitJob = launchDynamicRetry(
-                initBlock = {
-                    try {
-                        val isAlive = OneOSApiManager.getInstance(this@App)
-                            .phoneManager
-                            ?.takeIf { it.isAlive }
-                            ?.let { initPhoneManager(); true }
-                            ?: false
-                        debugDeepLog("[PhoneManager] ${if (isAlive) "is" else "not"} alive")
-                        isAlive
-                    } catch (e: Exception) {
-                        Timber.e(e)
-                        debugDeepLog("[PhoneManager] alive check error")
-                        false
-                    }
-                },
-                cancelBlock = { cancelPhoneManager() }
             )
         }
 
@@ -1068,24 +1072,28 @@ class App : Application(), ImageLoaderFactory {
         launch {
             GlobalState.requestPhoneCallFlow.collect { number ->
                 if (number.isEmpty()) return@collect
+                ensurePhoneManagerReady()
                 runCatching { mPhoneManager?.placeCall(number) }
                 debugDeepLog("[PHONE] call $number")
             }
         }
         launch {
             GlobalState.requestPhoneAnswerFlow.collect {
+                ensurePhoneManagerReady()
                 runCatching { mPhoneManager?.answerCall() }
                 debugDeepLog("[PHONE] answer")
             }
         }
         launch {
             GlobalState.requestPhoneRejectFlow.collect {
+                ensurePhoneManagerReady()
                 runCatching { mPhoneManager?.rejectCall() }
                 debugDeepLog("[PHONE] reject")
             }
         }
         launch {
             GlobalState.requestPhoneDisconnectFlow.collect {
+                ensurePhoneManagerReady()
                 runCatching { mPhoneManager?.disconnectCall() }
                 debugDeepLog("[PHONE] disconnect")
             }
@@ -1129,8 +1137,8 @@ class App : Application(), ImageLoaderFactory {
                     mediaPlayStateJob = launch {
                         isMediaPlayingFlow().collect { isPlaying ->
 
-                            // Set online audio source
-                            if (sourceManagement && lastPlaybackState != isPlaying && isPlaying) {
+                            // Set online audio source for any foreground external "play"
+                            if (shouldSwitchOnline(isPlaying)) {
                                 resetIfOtherAudioSource()
                             }
 
@@ -1226,6 +1234,7 @@ class App : Application(), ImageLoaderFactory {
 
             // Set current visible app
             currentVisibleApp = targetName
+            switchOnlineForFgPlayback(targetName)
 
             // Detect AC is opened
             if (targetName == GEELY_AC_PACKAGE) {
@@ -1319,6 +1328,15 @@ class App : Application(), ImageLoaderFactory {
             debugDeepLog("[PhoneManager] error")
         }
         return mPhoneManager != null && listenerResult
+    }
+
+    private fun ensurePhoneManagerReady(): Boolean {
+        if (mPhoneManager?.isAlive == true) return true
+        return runCatching { initPhoneManager() }
+            .getOrElse {
+                Timber.e(it)
+                false
+            }
     }
 
     private fun cancelPhoneManager() {
@@ -1441,9 +1459,13 @@ class App : Application(), ImageLoaderFactory {
                 sourceStateListenerBound = true
             }
 
-            // Set online audio source
-            if (sourceManagement) {
+            if (isOnlineBootSwitch()) {
+                val sourceBeforeSwitch = mMediaCenterManager?.currentAudioSource
                 resetIfOtherAudioSource()
+                if (sourceBeforeSwitch in BT_RADIO_SOURCES) {
+                    applyKaraokeFocusOnBootIfNeeded()
+                    kickKaraokeRetry()
+                }
             }
             debugDeepLog("[MediaCenterManager] ready")
         } catch (e: Exception) {
@@ -1475,6 +1497,9 @@ class App : Application(), ImageLoaderFactory {
             }
             mMediaCenterManager = null
             mSourceStateListener = null
+            karaokeFocusBoot = false
+            karaokeRetryJob?.cancel()
+            karaokeRetryJob = null
             debugDeepLog("[MediaCenterManager] Destroyed")
         } catch (e: Exception) {
             Timber.e(e)
@@ -2239,7 +2264,7 @@ class App : Application(), ImageLoaderFactory {
         if (mediaControlEnabled) {
 
             // Wrong audio source and not foreground available player
-            if (sourceManagement &&
+            if (isLegacySourceManagement() &&
                 mMediaCenterManager?.currentAudioSource != AUDIO_SOURCE &&
                 currentVisibleApp !in controlMediaApps
             ) return
@@ -2264,47 +2289,37 @@ class App : Application(), ImageLoaderFactory {
     }
 
     private suspend fun customMediaControlAction(keyCode: Int) {
+        if (radioBtControl && handleBtRadioByMediaCenter(keyCode)) return
+
         when (keyCode) {
             KeyCode.KEYCODE_R_MEDIA_PREVIOUS -> try {
                 debugDeepLog("[MEDIA_EVENT]: Previous")
-                if (currentMediaAppPackage.isEmpty()) {
+                if (globalActiveMediaController != null) {
+                    debugDeepLog("[MEDIA_EVENT]: Sending 'Previous' to active MediaSession")
+                    sendSessionSkip(globalActiveMediaController!!, isNext = false)
+                    currentMediaAppPackage = globalActiveMediaController?.packageName ?: ""
+                } else if (currentMediaAppPackage.isEmpty()) {
                     debugDeepLog("[MEDIA_EVENT]: No current player")
-                    // manage last player
-                    if (globalActiveMediaController?.packageName in controlMediaApps) {
-                        debugDeepLog("[MEDIA_EVENT]: Sending 'Previous' in last MediaSession")
-                        globalActiveMediaController?.transportControls?.skipToPrevious()
-                        currentMediaAppPackage = globalActiveMediaController?.packageName ?: ""
-                    } else {
-                        // Trying to locate the active media controller on the player
-                        val findController =
-                            globalMediaControllers?.find { it.packageName in controlMediaApps }
-                        if (findController != null) {
-                            debugDeepLog("[MEDIA_EVENT]: Sending 'Previous' to found MediaSession")
-                            findController.transportControls.skipToPrevious()
-                            currentMediaAppPackage = findController.packageName
-                        } else if (defaultMediaApps.isNotEmpty()) {
-                            debugDeepLog("[MEDIA_EVENT]: Sending 'Previous' via intent to default app")
-                            sendMediaActionToApp(defaultMediaApps, AppMediaAction.PREVIOUS)
-                        }
+                    val findController =
+                        globalMediaControllers?.find { it.packageName in controlMediaApps }
+                    if (findController != null) {
+                        debugDeepLog("[MEDIA_EVENT]: Sending 'Previous' to found MediaSession")
+                        sendSessionSkip(findController, isNext = false)
+                        currentMediaAppPackage = findController.packageName
+                    } else if (defaultMediaApps.isNotEmpty()) {
+                        debugDeepLog("[MEDIA_EVENT]: Sending 'Previous' via intent to default app")
+                        sendMediaActionToApp(defaultMediaApps, AppMediaAction.PREVIOUS)
                     }
                 } else {
                     debugDeepLog("[MEDIA_EVENT]: With current player")
-                    // manage last player
-                    if (globalActiveMediaController?.packageName == currentMediaAppPackage) {
-                        debugDeepLog("[MEDIA_EVENT]: Sending 'Previous' to current MediaSession")
-                        globalActiveMediaController?.transportControls?.skipToPrevious()
-                    } else {
-                        debugDeepLog("[MEDIA_EVENT]: Find session and sending 'Previous' to current player $currentMediaAppPackage")
-                        // Trying to locate the active media controller on the player
-                        val findController =
-                            globalMediaControllers?.find { it.packageName == currentMediaAppPackage }
-                        findController?.transportControls?.skipToPrevious() ?: run {
-                            // Sending a command via the intent
-                            sendMediaActionToApp(
-                                currentMediaAppPackage,
-                                AppMediaAction.PREVIOUS
-                            )
-                        }
+                    debugDeepLog("[MEDIA_EVENT]: Find session and sending 'Previous' to current player $currentMediaAppPackage")
+                    val findController =
+                        globalMediaControllers?.find { it.packageName == currentMediaAppPackage }
+                    findController?.let { sendSessionSkip(it, isNext = false) } ?: run {
+                        sendMediaActionToApp(
+                            currentMediaAppPackage,
+                            AppMediaAction.PREVIOUS
+                        )
                     }
                 }
             } catch (e: Exception) {
@@ -2312,115 +2327,99 @@ class App : Application(), ImageLoaderFactory {
             }
 
             KeyCode.KEYCODE_R_MEDIA_PLAY_PAUSE -> try {
-                if (currentMediaAppPackage.isEmpty()) {
+                val activeController = resolvePreferredControllerForPlayPause()
+                if (activeController != null) {
+                    if (activeController.playbackState?.state == PlaybackState.STATE_PLAYING) {
+                        debugDeepLog("[MEDIA_EVENT]: Send pause to active MediaSession")
+                        activeController.transportControls?.pause()
+                    } else {
+                        if (isLegacySourceManagement()) resetIfOtherAudioSource()
+                        debugDeepLog("[MEDIA_EVENT]: Send play to active MediaSession")
+                        activeController.transportControls?.play()
+                    }
+                    currentMediaAppPackage = activeController.packageName ?: ""
+                } else if (currentMediaAppPackage.isEmpty()) {
                     debugDeepLog("[MEDIA_EVENT]: No current player")
-                    // manage last player
-                    if (globalActiveMediaController?.packageName in controlMediaApps) {
-                        if (globalActiveMediaController?.playbackState?.state == PlaybackState.STATE_PLAYING) {
-                            debugDeepLog("[MEDIA_EVENT]: Send pause to last MediaSession")
-                            globalActiveMediaController?.transportControls?.pause()
+                    // Trying to locate the active media controller on the player
+                    val findController =
+                        globalMediaControllers?.find { it.packageName in controlMediaApps }
+                    if (findController != null) {
+                        if (findController.playbackState?.state == PlaybackState.STATE_PLAYING) {
+                            debugDeepLog("[MEDIA_EVENT]: Found MediaSession and send pause")
+                            findController.transportControls.pause()
                         } else {
                             // Switching the audio source if required
-                            if (sourceManagement) resetIfOtherAudioSource()
-                            debugDeepLog("[MEDIA_EVENT]: Send play to last MediaSession")
-                            globalActiveMediaController?.transportControls?.play()
+                            if (isLegacySourceManagement()) resetIfOtherAudioSource()
+                            debugDeepLog("[MEDIA_EVENT]: Found MediaSession and send play")
+                            findController.transportControls.play()
                         }
-                        currentMediaAppPackage = globalActiveMediaController?.packageName ?: ""
-                    } else {
-                        // Trying to locate the active media controller on the player
-                        val findController =
-                            globalMediaControllers?.find { it.packageName in controlMediaApps }
-                        if (findController != null) {
-                            if (findController.playbackState?.state == PlaybackState.STATE_PLAYING) {
-                                debugDeepLog("[MEDIA_EVENT]: Found MediaSession and send pause")
-                                findController.transportControls.pause()
+                        currentMediaAppPackage = findController.packageName
+                    } else if (defaultMediaApps.isNotEmpty()) {
+                        debugDeepLog("[MEDIA_EVENT]: With default player")
+                        // Trying to locate the default media controller on the player
+                        val findDefaultController =
+                            globalMediaControllers?.find { it.packageName == defaultMediaApps }
+                        findDefaultController?.let { controller ->
+                            if (controller.playbackState?.state == PlaybackState.STATE_PLAYING) {
+                                debugDeepLog("[MEDIA_EVENT]: Found MediaSession by default player and send pause")
+                                controller.transportControls.pause()
                             } else {
                                 // Switching the audio source if required
-                                if (sourceManagement) resetIfOtherAudioSource()
-                                debugDeepLog("[MEDIA_EVENT]: Found MediaSession and send play")
-                                findController.transportControls.play()
+                                if (isLegacySourceManagement()) resetIfOtherAudioSource()
+                                debugDeepLog("[MEDIA_EVENT]: Found MediaSession by default player and send play")
+                                controller.transportControls.play()
                             }
-                            currentMediaAppPackage = findController.packageName
-                        } else if (defaultMediaApps.isNotEmpty()) {
-                            debugDeepLog("[MEDIA_EVENT]: With default player")
-                            // Trying to locate the default media controller on the player
-                            val findDefaultController =
-                                globalMediaControllers?.find { it.packageName == defaultMediaApps }
-                            findDefaultController?.let { controller ->
-                                if (controller.playbackState?.state == PlaybackState.STATE_PLAYING) {
-                                    debugDeepLog("[MEDIA_EVENT]: Found MediaSession by default player and send pause")
-                                    controller.transportControls.pause()
-                                } else {
-                                    // Switching the audio source if required
-                                    if (sourceManagement) resetIfOtherAudioSource()
-                                    debugDeepLog("[MEDIA_EVENT]: Found MediaSession by default player and send play")
-                                    controller.transportControls.play()
-                                }
-                                currentMediaAppPackage = defaultMediaApps
-                            } ?: run {
-                                // Switching the audio source if required
-                                if (sourceManagement) resetIfOtherAudioSource()
-                                debugDeepLog("[MEDIA_EVENT]: Send default open app and play $defaultMediaApps")
-                                // launch and play default player
-                                if (defaultMediaApps == YAM_PACKAGE) {
-                                    sendYmAutoPlayCompat()
-                                } else if (defaultMediaApps == HAV_YM_PACKAGE) {
-                                    openApp(HAV_YM_UMA_PACKAGE)
-                                } else {
-                                    openApp(defaultMediaApps)
-                                    delay(OPEN_APP_TO_SEND_PLAY_PAUSE)
-                                    sendMediaActionToApp(defaultMediaApps, AppMediaAction.PLAY)
+                            currentMediaAppPackage = defaultMediaApps
+                        } ?: run {
+                            // Switching the audio source if required
+                            if (isLegacySourceManagement()) resetIfOtherAudioSource()
+                            debugDeepLog("[MEDIA_EVENT]: Send default open app and play $defaultMediaApps")
+                            // launch and play default player
+                            if (defaultMediaApps == YAM_PACKAGE) {
+                                sendYmAutoPlayCompat()
+                            } else if (defaultMediaApps == HAV_YM_PACKAGE) {
+                                openApp(HAV_YM_UMA_PACKAGE)
+                            } else {
+                                openApp(defaultMediaApps)
+                                delay(OPEN_APP_TO_SEND_PLAY_PAUSE)
+                                sendMediaActionToApp(defaultMediaApps, AppMediaAction.PLAY)
 
-                                    if (defaultMediaApps == MURGLAR_PACKAGE) {
-                                        delay(PLAYER_COMPAT_ACTION_DELAY)
-                                        sendMurglarAutoPlayCompat()
-                                    }
-
-                                    if (defaultMediaApps == VKX_PACKAGE) {
-                                        delay(PLAYER_COMPAT_ACTION_DELAY)
-                                        sendVkxAutoPlayCompat()
-                                    } else Unit
+                                if (defaultMediaApps == MURGLAR_PACKAGE) {
+                                    delay(PLAYER_COMPAT_ACTION_DELAY)
+                                    sendMurglarAutoPlayCompat()
                                 }
+
+                                if (defaultMediaApps == VKX_PACKAGE) {
+                                    delay(PLAYER_COMPAT_ACTION_DELAY)
+                                    sendVkxAutoPlayCompat()
+                                } else Unit
                             }
                         }
                     }
                 } else {
                     debugDeepLog("[MEDIA_EVENT]: With current player")
-                    // manage last player
-                    if (globalActiveMediaController?.packageName == currentMediaAppPackage) {
-                        if (globalActiveMediaController?.playbackState?.state == PlaybackState.STATE_PLAYING) {
-                            debugDeepLog("[MEDIA_EVENT]: Send pause to last active MediaSession")
-                            globalActiveMediaController?.transportControls?.pause()
+                    // Trying to locate the active media controller on the player
+                    val findController =
+                        globalMediaControllers?.find { it.packageName == currentMediaAppPackage }
+                    findController?.let { controller ->
+                        if (controller.playbackState?.state == PlaybackState.STATE_PLAYING) {
+                            debugDeepLog("[MEDIA_EVENT]: Find last MediaSession by current player and send pause")
+                            controller.transportControls.pause()
                         } else {
                             // Switching the audio source if required
-                            if (sourceManagement) resetIfOtherAudioSource()
-                            debugDeepLog("[MEDIA_EVENT]: Send play to last active MediaSession")
-                            globalActiveMediaController?.transportControls?.play()
+                            if (isLegacySourceManagement()) resetIfOtherAudioSource()
+                            debugDeepLog("[MEDIA_EVENT]: Find last MediaSession by current player and send play")
+                            controller.transportControls.play()
                         }
-                    } else {
-                        // Trying to locate the active media controller on the player
-                        val findController =
-                            globalMediaControllers?.find { it.packageName == currentMediaAppPackage }
-                        findController?.let { controller ->
-                            if (controller.playbackState?.state == PlaybackState.STATE_PLAYING) {
-                                debugDeepLog("[MEDIA_EVENT]: Find last MediaSession by current player and send pause")
-                                controller.transportControls.pause()
-                            } else {
-                                // Switching the audio source if required
-                                if (sourceManagement) resetIfOtherAudioSource()
-                                debugDeepLog("[MEDIA_EVENT]: Find last MediaSession by current player and send play")
-                                controller.transportControls.play()
-                            }
-                        } ?: run {
-                            // Switching the audio source if required
-                            if (sourceManagement) resetIfOtherAudioSource()
-                            debugDeepLog("[MEDIA_EVENT]: Sending 'Play' via intent to current player $currentMediaAppPackage")
-                            // Sending a command via the intent
-                            sendMediaActionToApp(
-                                currentMediaAppPackage,
-                                AppMediaAction.TOGGLE
-                            )
-                        }
+                    } ?: run {
+                        // Switching the audio source if required
+                        if (isLegacySourceManagement()) resetIfOtherAudioSource()
+                        debugDeepLog("[MEDIA_EVENT]: Sending 'Play' via intent to current player $currentMediaAppPackage")
+                        // Sending a command via the intent
+                        sendMediaActionToApp(
+                            currentMediaAppPackage,
+                            AppMediaAction.TOGGLE
+                        )
                     }
                 }
             } catch (e: Exception) {
@@ -2429,44 +2428,32 @@ class App : Application(), ImageLoaderFactory {
 
             KeyCode.KEYCODE_R_MEDIA_NEXT -> try {
                 debugDeepLog("[MEDIA_EVENT]: Next")
-                if (currentMediaAppPackage.isEmpty()) {
+                if (globalActiveMediaController != null) {
+                    debugDeepLog("[MEDIA_EVENT]: Sending 'Next' to active MediaSession")
+                    sendSessionSkip(globalActiveMediaController!!, isNext = true)
+                    currentMediaAppPackage = globalActiveMediaController?.packageName ?: ""
+                } else if (currentMediaAppPackage.isEmpty()) {
                     debugDeepLog("[MEDIA_EVENT]: No current player")
-                    // manage last player
-                    if (globalActiveMediaController?.packageName in controlMediaApps) {
-                        debugDeepLog("[MEDIA_EVENT]: Sending 'Next' in last MediaSession")
-                        globalActiveMediaController?.transportControls?.skipToNext()
-                        currentMediaAppPackage = globalActiveMediaController?.packageName ?: ""
-                    } else {
-                        // Trying to locate the active media controller on the player
-                        val findController =
-                            globalMediaControllers?.find { it.packageName in controlMediaApps }
-                        if (findController != null) {
-                            debugDeepLog("[MEDIA_EVENT]: Sending 'Next' to found MediaSession")
-                            findController.transportControls.skipToNext()
-                            currentMediaAppPackage = findController.packageName
-                        } else if (defaultMediaApps.isNotEmpty()) {
-                            debugDeepLog("[MEDIA_EVENT]: Sending 'Next' via intent to default app $defaultMediaApps")
-                            sendMediaActionToApp(defaultMediaApps, AppMediaAction.NEXT)
-                        }
+                    val findController =
+                        globalMediaControllers?.find { it.packageName in controlMediaApps }
+                    if (findController != null) {
+                        debugDeepLog("[MEDIA_EVENT]: Sending 'Next' to found MediaSession")
+                        sendSessionSkip(findController, isNext = true)
+                        currentMediaAppPackage = findController.packageName
+                    } else if (defaultMediaApps.isNotEmpty()) {
+                        debugDeepLog("[MEDIA_EVENT]: Sending 'Next' via intent to default app $defaultMediaApps")
+                        sendMediaActionToApp(defaultMediaApps, AppMediaAction.NEXT)
                     }
                 } else {
                     debugDeepLog("[MEDIA_EVENT]: With current player")
-                    // manage last player
-                    if (globalActiveMediaController?.packageName == currentMediaAppPackage) {
-                        debugDeepLog("[MEDIA_EVENT]: Sending 'Next' to current MediaSession")
-                        globalActiveMediaController?.transportControls?.skipToNext()
-                    } else {
-                        debugDeepLog("[MEDIA_EVENT]: Find session and sending 'Next' to current player $currentMediaAppPackage")
-                        // Trying to locate the active media controller on the player
-                        val findController =
-                            globalMediaControllers?.find { it.packageName == currentMediaAppPackage }
-                        findController?.transportControls?.skipToNext() ?: run {
-                            // Sending a command via the intent
-                            sendMediaActionToApp(
-                                currentMediaAppPackage,
-                                AppMediaAction.NEXT
-                            )
-                        }
+                    debugDeepLog("[MEDIA_EVENT]: Find session and sending 'Next' to current player $currentMediaAppPackage")
+                    val findController =
+                        globalMediaControllers?.find { it.packageName == currentMediaAppPackage }
+                    findController?.let { sendSessionSkip(it, isNext = true) } ?: run {
+                        sendMediaActionToApp(
+                            currentMediaAppPackage,
+                            AppMediaAction.NEXT
+                        )
                     }
                 }
             } catch (e: Exception) {
@@ -2474,6 +2461,132 @@ class App : Application(), ImageLoaderFactory {
             }
 
             else -> Unit
+        }
+    }
+
+    private suspend fun handleBtRadioByMediaCenter(keyCode: Int): Boolean {
+        val mediaCenter = mMediaCenterManager?.takeIf { it.isAlive } ?: return false
+        val source = mediaCenter.currentAudioSource
+        if (source !in BT_RADIO_SOURCES) return false
+        val isFgExternalPlayer = currentVisibleApp.isNotEmpty() && currentVisibleApp in controlMediaApps
+
+        return runCatching {
+            val handled = when (keyCode) {
+                KeyCode.KEYCODE_R_MEDIA_PREVIOUS -> {
+                    source == MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO
+                        && mediaCenter.radioManager?.seekAsync(1) == true ||
+                        mediaCenter.musicAdapterManager?.prev() == 1
+                }
+
+                KeyCode.KEYCODE_R_MEDIA_NEXT -> {
+                    source == MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO
+                        && mediaCenter.radioManager?.seekAsync(0) == true ||
+                        mediaCenter.musicAdapterManager?.next() == 1
+                }
+
+                KeyCode.KEYCODE_R_MEDIA_PLAY_PAUSE -> {
+                    if (isOnlineBootSwitch() && isFgExternalPlayer) {
+                        ensureOnlineAudioSourceForForegroundPlayer()
+                        false
+                    } else {
+                        val paused = if (source == MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO) {
+                            mediaCenter.radioManager?.pause() == true
+                        } else {
+                            mediaCenter.musicAdapterManager?.pause() == 1
+                        }
+
+                        if (paused) {
+                            true
+                        } else if (source == MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO) {
+                            mediaCenter.radioManager?.play() == true
+                        } else {
+                            mediaCenter.musicAdapterManager?.play() == 1
+                        }
+                    }
+                }
+
+                else -> false
+            }
+
+            if (handled) {
+                debugDeepLog("[MEDIA_EVENT]: BT/Radio routed via MediaCenter, source=$source")
+            }
+            handled
+        }.getOrElse {
+            Timber.e(it)
+            false
+        }
+    }
+
+    private fun resolvePreferredControllerForPlayPause(): MediaController? {
+        val fgPackage = currentVisibleApp
+        if (fgPackage.isNotEmpty() && fgPackage in controlMediaApps) {
+            val fgController = globalMediaControllers?.find { it.packageName == fgPackage }
+            if (fgController != null) return fgController
+        }
+        return globalActiveMediaController
+    }
+
+    private suspend fun ensureOnlineAudioSourceForForegroundPlayer() {
+        val manager = mMediaCenterManager?.takeIf { it.isAlive } ?: return
+        if (manager.currentAudioSource == AUDIO_SOURCE) return
+        resetAudioSource()
+        repeat(6) {
+            if (manager.currentAudioSource == AUDIO_SOURCE) return
+            delay(120)
+        }
+    }
+
+    private fun applyKaraokeFocusOnBootIfNeeded() {
+        if (karaokeFocusBoot) return
+
+        val manager = mMediaCenterManager?.takeIf { it.isAlive } ?: return
+        runCatching {
+            sendBroadcast(
+                Intent(KARAOKE_FOCUS_ACTION).apply {
+                    `package` = "com.geely.mediacenterservice"
+                    component = ComponentName(
+                        "com.geely.mediacenterservice",
+                        "com.geely.mediacenterservice.keyinput.KaraokeAppFocusReceiver"
+                    )
+                    putExtra(KARAOKE_FOCUS_EXTRA, true)
+                }
+            )
+            karaokeFocusBoot = true
+            debugDeepLog("[MediaCenterManager] karaoke focus enabled, source=${manager.currentAudioSource}")
+        }.onFailure {
+            Timber.e(it)
+            debugDeepLog("[MediaCenterManager] karaoke focus failed")
+        }
+    }
+
+    private fun kickKaraokeRetry() {
+        if (karaokeFocusBoot) return
+        if (karaokeRetryJob?.isActive == true) return
+
+        karaokeRetryJob = appScope.launch {
+            repeat(KARAOKE_RETRY_COUNT) {
+                if (karaokeFocusBoot) return@launch
+                delay(KARAOKE_RETRY_DELAY_MS)
+                applyKaraokeFocusOnBootIfNeeded()
+            }
+        }
+    }
+
+    private fun sendSessionSkip(controller: MediaController, isNext: Boolean) {
+        val keyCode = if (isNext) KeyEvent.KEYCODE_MEDIA_NEXT else KeyEvent.KEYCODE_MEDIA_PREVIOUS
+
+        val down = runCatching {
+            controller.dispatchMediaButtonEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
+        }.getOrDefault(false)
+        val up = runCatching {
+            controller.dispatchMediaButtonEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
+        }.getOrDefault(false)
+
+        if (down || up) return
+
+        controller.transportControls?.let {
+            if (isNext) it.skipToNext() else it.skipToPrevious()
         }
     }
 
@@ -2742,8 +2855,57 @@ class App : Application(), ImageLoaderFactory {
         if (mMediaCenterManager?.currentAudioSource != AUDIO_SOURCE) resetAudioSource()
     }.onFailure { Timber.e(it) }
 
+    private fun isLegacySourceManagement(): Boolean {
+        return sourceManagement && !radioBtControl
+    }
+
+    private fun isOnlineBootSwitch(): Boolean {
+        return sourceManagement || radioBtControl
+    }
+
+    private fun shouldSwitchToOnlineOnExternalPlayEdge(isPlaying: Boolean): Boolean {
+        val fgPackage = currentVisibleApp
+        val allowedExternalPlayerInForeground = fgPackage.isNotEmpty() && fgPackage in controlMediaApps
+        val currentExternalPlaying = isPlaying && allowedExternalPlayerInForeground
+        val isPlayEdge = !lastExternalPlayingState && currentExternalPlaying
+        lastExternalPlayingState = currentExternalPlaying
+        return isPlayEdge
+    }
+
+    private fun shouldSwitchOnline(isPlaying: Boolean): Boolean {
+        shouldSwitchToOnlineOnExternalPlayEdge(isPlaying)
+
+        if (!isOnlineBootSwitch() || !isPlaying) return false
+        val currentSource = mMediaCenterManager?.currentAudioSource ?: return false
+        if (currentSource !in BT_RADIO_SOURCES) return false
+
+        val now = System.currentTimeMillis()
+        if (now - lastOnlineSwitchAttemptAt < ONLINE_SWITCH_RETRY_INTERVAL_MS) return false
+        lastOnlineSwitchAttemptAt = now
+        return true
+    }
+
+    private fun switchOnlineForFgPlayback(fgPackage: String) {
+        if (!isOnlineBootSwitch()) return
+        if (fgPackage.isEmpty() || fgPackage !in controlMediaApps) return
+
+        val isPlaying = globalMediaControllers
+            ?.firstOrNull { it.packageName == fgPackage }
+            ?.playbackState
+            ?.state == PlaybackState.STATE_PLAYING
+        if (!isPlaying) return
+
+        val currentSource = mMediaCenterManager?.currentAudioSource ?: return
+        if (currentSource !in BT_RADIO_SOURCES) return
+
+        val now = System.currentTimeMillis()
+        if (now - lastOnlineSwitchAttemptAt < ONLINE_SWITCH_RETRY_INTERVAL_MS) return
+        lastOnlineSwitchAttemptAt = now
+        resetIfOtherAudioSource()
+    }
+
     private fun resetAudioSource() = runCatching {
-        mMediaCenterManager?.requestAudioSource(AUDIO_SOURCE, MediaCenterConstant.AppSource.OTHER)
+        mMediaCenterManager?.requestAudioSource(AUDIO_SOURCE, MediaCenterConstant.AppSource.WECARFLOW)
     }.onFailure { Timber.e(it) }
 
     private suspend fun updateAvailableMediaApps(enabledApps: Set<String>? = null) {
@@ -2937,70 +3099,6 @@ class App : Application(), ImageLoaderFactory {
                 volumeFactor = notifVolume
             )
         }
-    }
-
-    private fun monitorPackageChangesOnDevice() = appScope.launch {
-        runCatching {
-            val launcherApps = getSystemService(LAUNCHER_APPS_SERVICE) as LauncherApps
-            val mainHandler = Handler(Looper.getMainLooper())
-
-            val callback = object : LauncherApps.Callback() {
-                // Called when a package is newly installed for the current user
-                override fun onPackageAdded(packageName: String?, user: android.os.UserHandle?) {
-                    if (packageName != null) {
-                        Timber.i("LA: added %s", packageName)
-                        appScope.launch {
-                            GlobalState.devicePackagesChangedFlow.emit(
-                                PackagesChangedEvent.Added(packageName)
-                            )
-                        }
-                    }
-                }
-
-                // Called when a package is removed for the current user
-                override fun onPackageRemoved(packageName: String?, user: android.os.UserHandle?) {
-                    if (packageName != null) {
-                        Timber.i("LA: removed %s", packageName)
-                        appScope.launch {
-                            GlobalState.devicePackagesChangedFlow.emit(
-                                PackagesChangedEvent.Removed(packageName)
-                            )
-                        }
-                    }
-                }
-
-                // Called when the contents of an existing package change (enabled comps, perms, etc.)
-                override fun onPackageChanged(packageName: String?, user: android.os.UserHandle?) {
-                    if (packageName != null) {
-                        Timber.i("LA: changed %s", packageName)
-                        appScope.launch {
-                            GlobalState.devicePackagesChangedFlow.emit(
-                                PackagesChangedEvent.Changed(packageName)
-                            )
-                        }
-                    }
-                }
-
-                // Optional: when packages become available (e.g., after move to storage)
-                override fun onPackagesAvailable(
-                    packageNames: Array<out String>?,
-                    user: android.os.UserHandle?,
-                    replacing: Boolean
-                ) {
-                }
-
-                // Optional: when packages become unavailable
-                override fun onPackagesUnavailable(
-                    packageNames: Array<out String>?,
-                    user: android.os.UserHandle?,
-                    replacing: Boolean
-                ) {
-                }
-            }
-
-            // Register on main; keep a strong reference to avoid GC
-            launcherApps.registerCallback(callback, mainHandler)
-        }.onFailure { Timber.e(it) }
     }
 
     override fun newImageLoader(): ImageLoader {

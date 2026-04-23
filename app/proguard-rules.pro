@@ -58,5 +58,3 @@
 -keep class com.salat.gbinder.car.data.CustomCarFunction { public *; }
 -keepclassmembers class com.salat.gbinder.car.data.CustomCarFunction { public void registerIntFunction(...); }
 -keepattributes *Annotation*
-# На всякий: выключить агрессивный inlining этого метода
--assumenosideeffects class com.salat.gbinder.car.data.CustomCarFunction { *; }

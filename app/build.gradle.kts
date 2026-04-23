@@ -5,7 +5,6 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.baselineprofile)
     id(libs.plugins.googleServices.get().pluginId)
-    id(libs.plugins.firebase.crashlytics.get().pluginId)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
@@ -19,8 +18,8 @@ android {
 //        applicationId = "com.ecarx.hardkeytest"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1336
-        versionName = "3.5"
+        versionCode = 1440
+        versionName = "4.0"
 
         setProperty("archivesBaseName", "$versionName[$versionCode]GInputBridge")
 
@@ -45,6 +44,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -152,7 +152,6 @@ dependencies {
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
-    implementation(libs.firebase.crashlytics)
     implementation(libs.firebase.firestore)
     // implementation(libs.firebase.config)
 
@@ -181,7 +180,6 @@ afterEvaluate {
 // Create release BP and assemble release
 // -----------------------------------------------------
 
-// Step 1: Create release profiles
 tasks.register("prepareRelease") {
     dependsOn(":app:generateProdReleaseBaselineProfile")
     finalizedBy("assembleReleaseBuild")

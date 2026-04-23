@@ -20,6 +20,7 @@
     <uses-permission android:name="com.geely.settings.permission.LDSDK_MESSAGE" />
     <uses-permission android:name="com.geely.settings.permission.QDAS_MESSAGE" />
     <uses-permission android:name="geely.oneos.permission.SERVICE" />
+    <uses-permission android:name="com.audiocn.karaoke.permission.KEY_BROADCAST_FOCUS" />
 
     <application
         android:name=".App"

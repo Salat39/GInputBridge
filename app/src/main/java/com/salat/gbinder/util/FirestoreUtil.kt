@@ -1,6 +1,8 @@
 package com.salat.gbinder.util
 
+import android.content.Context
 import com.google.firebase.Firebase
+import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.Source
 import com.google.firebase.firestore.firestore
@@ -21,11 +23,19 @@ sealed interface KvResult<out T> {
 
 private const val COLLECTION = "kv"
 
+private fun ensureFirebaseInitialized(context: Context) {
+    if (FirebaseApp.getApps(context).isEmpty()) {
+        FirebaseApp.initializeApp(context)
+    }
+}
+
 suspend fun saveFirestoreValue(
+    context: Context,
     key: String,
     value: String,
     timeoutMs: Long = TimeUnit.SECONDS.toMillis(10)
 ): KvResult<Unit> {
+    ensureFirebaseInitialized(context)
     val db = Firebase.firestore
     return try {
         withTimeout(timeoutMs) {
@@ -42,10 +52,12 @@ suspend fun saveFirestoreValue(
 }
 
 suspend fun getLatestFirestoreValue(
+    context: Context,
     key: String,
     serverOnly: Boolean = false,
     timeoutMs: Long = TimeUnit.SECONDS.toMillis(10)
 ): KvResult<String> {
+    ensureFirebaseInitialized(context)
     val db = Firebase.firestore
     val source = if (serverOnly) Source.SERVER else Source.DEFAULT
     return try {

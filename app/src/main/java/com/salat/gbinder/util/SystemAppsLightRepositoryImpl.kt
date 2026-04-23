@@ -380,18 +380,6 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
         val browserServices = queryIntentServices(mediaIntent, PackageManager.GET_META_DATA)
         if (browserServices.isNotEmpty()) return true
 
-        if (packageName == YAN_PACKAGE) {
-            try {
-                val pkgInfo = getPackageInfo(packageName, PackageManager.GET_SERVICES)
-                pkgInfo.services?.forEach { svc ->
-                    if (svc.name.endsWith("MediaSessionService", ignoreCase = true)) {
-                        return true
-                    }
-                }
-            } catch (e: PackageManager.NameNotFoundException) {
-                Timber.e(e, "Yandex Navi package info not found")
-            }
-        }
         return false
     }
 

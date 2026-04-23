@@ -1624,7 +1624,7 @@ private fun EditPropertyDialog(
                     LaunchedEffect(noteUpdateRequest) {
                         noteStatus = NoteStatus.LOADING
 
-                        when (val r = getLatestFirestoreValue(noteKey, serverOnly = true)) {
+                        when (val r = getLatestFirestoreValue(context, noteKey, serverOnly = true)) {
                             is KvResult.Success -> {
                                 val text = r.value
                                 // val offline = r.fromCache && !r.hasPendingWrites
@@ -1646,7 +1646,7 @@ private fun EditPropertyDialog(
                     }
 
                     suspend fun saveNote() {
-                        when (saveFirestoreValue(noteKey, noteFieldText.text)) {
+                        when (saveFirestoreValue(context, noteKey, noteFieldText.text)) {
                             is KvResult.Success -> {
                                 loadedNote = noteFieldText.text
                                 inNoteSaving = false

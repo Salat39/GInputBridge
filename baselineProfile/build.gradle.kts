@@ -117,10 +117,20 @@ android {
 // This is the configuration block for the Baseline Profile plugin.
 // You can specify to run the generators on a managed devices or connected devices.
 baselineProfile {
-    useConnectedDevices = false
+    // Local override: use a manually started emulator/physical device:
+    // ./gradlew prepareRelease -Pbp.useConnectedDevices=true
+    val useConnected = providers
+        .gradleProperty("bp.useConnectedDevices")
+        .map(String::toBoolean)
+        .orElse(false)
+        .get()
+
+    useConnectedDevices = useConnected
 //    managedDevices += "pixel3axlapi28"
 //    managedDevices += "pixel4api29"
-    managedDevices += "mediumTablet30"
+    if (!useConnected) {
+        managedDevices += "mediumTablet30"
+    }
 //    managedDevices += "pixelcapi30"
 //    managedDevices += "pixel4aapi31"
 //    managedDevices += "pixel2api32"
