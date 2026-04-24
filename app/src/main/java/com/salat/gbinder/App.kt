@@ -2908,15 +2908,17 @@ class App : Application(), ImageLoaderFactory {
         return packageName in controlMediaApps || packageName in NATIVE_SOURCE_SESSION_PACKAGES
     }
 
-    private fun shouldSwitchToOnlineOnExternalPlayEdge(isPlaying: Boolean): Boolean {
-        val currentExternalPlaying = isPlaying
+    private fun shouldSwitchToOnlineOnExternal(isPlaying: Boolean): Boolean {
+        val fgPackage = currentVisibleApp
+        val allowedExternalPlayerInForeground = fgPackage.isNotEmpty() && fgPackage in controlMediaApps
+        val currentExternalPlaying = isPlaying && allowedExternalPlayerInForeground
         val isPlayEdge = !lastExternalPlayingState && currentExternalPlaying
         lastExternalPlayingState = currentExternalPlaying
         return isPlayEdge
     }
 
     private fun shouldSwitchOnline(isPlaying: Boolean): Boolean {
-        if (!shouldSwitchToOnlineOnExternalPlayEdge(isPlaying)) return false
+        if (!shouldSwitchToOnlineOnExternal(isPlaying)) return false
 
         if (!isOnlineBootSwitch() || !isPlaying) return false
         val activePkg = globalActiveMediaController?.packageName.orEmpty()
