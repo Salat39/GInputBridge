@@ -1511,7 +1511,7 @@ class MainActivity : ComponentActivity() {
                                             )
                                             if (it) {
                                                 dataStore.saveValue(
-                                                    GeneralPrefs.SOURCE_MANAGEMENT,
+                                                    GeneralPrefs.LEGACY_SOURCE_MANAGEMENT,
                                                     false
                                                 )
                                             }
@@ -1530,7 +1530,7 @@ class MainActivity : ComponentActivity() {
                                     groupDivider = false,
                                     onChange = {
                                         scope.launch {
-                                            dataStore.saveValue(GeneralPrefs.SOURCE_MANAGEMENT, it)
+                                            dataStore.saveValue(GeneralPrefs.LEGACY_SOURCE_MANAGEMENT, it)
                                         }
                                     }
                                 )
@@ -3246,7 +3246,7 @@ private object MainScreenSettingsRow {
         GeneralPrefs.MULTI_LONG_PRESS_ENABLED,
         GeneralPrefs.SUPPRESSION_MODE,
         GeneralPrefs.DISABLE_ON_CLIMATE,
-        GeneralPrefs.SOURCE_MANAGEMENT,
+        GeneralPrefs.LEGACY_SOURCE_MANAGEMENT,
         GeneralPrefs.RADIO_BT_CONTROL,
         GeneralPrefs.REMEMBER_DRIVE_MODE,
         GeneralPrefs.TARGET_RECOVERY_DRIVE_MODE,

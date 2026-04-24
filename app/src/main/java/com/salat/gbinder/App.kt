@@ -791,7 +791,7 @@ class App : Application(), ImageLoaderFactory {
             }
         }
         launch {
-            dataStore.getValueFlow(GeneralPrefs.SOURCE_MANAGEMENT).collect {
+            dataStore.getValueFlow(GeneralPrefs.LEGACY_SOURCE_MANAGEMENT).collect {
                 sourceManagement = it ?: false
 
                 if (isOnlineBootSwitch()) {
@@ -1301,7 +1301,7 @@ class App : Application(), ImageLoaderFactory {
 
     // Getting initial values, otherwise race conditions with true defaults
     private suspend fun initialRuntimePrefsState() = withContext(Dispatchers.IO) {
-        sourceManagement = dataStore.getValueFlow(GeneralPrefs.SOURCE_MANAGEMENT).first() ?: false
+        sourceManagement = dataStore.getValueFlow(GeneralPrefs.LEGACY_SOURCE_MANAGEMENT).first() ?: false
         radioBtControl = dataStore.getValueFlow(GeneralPrefs.RADIO_BT_CONTROL).first() ?: true
         altMute = dataStore.getValueFlow(GeneralPrefs.ALT_MUTE).first() ?: true
         altMenu = dataStore.getValueFlow(GeneralPrefs.ALT_MENU).first() ?: true
