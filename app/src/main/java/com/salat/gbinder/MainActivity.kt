@@ -827,39 +827,51 @@ class MainActivity : ComponentActivity() {
 
                                 Spacer(Modifier.height(16.dp))
 
-                                if (lockDoubleClick) {
-                                    val sliderDCTitle =
-                                        stringResource(R.string.double_tap_window_timing)
-                                    Text(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 42.dp),
-                                        textAlign = TextAlign.Left,
-                                        text = "$sliderDCTitle: " +
-                                                doubleClickTime.toDecimalSecondString(),
-                                        color = AppTheme.colors.contentPrimary
-                                    )
-                                    ValueSlider(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 36.dp),
-                                        value = doubleClickTime,
-                                        valueRange = 50..1500,
-                                        onValueChange = { newValue ->
-                                            doubleClickTime = newValue
-                                            scope.launch {
-                                                dataStore.saveValue(
-                                                    GeneralPrefs.DOUBLE_CLICK_TIME,
-                                                    newValue
-                                                )
-                                            }
-                                        },
-                                        enabled = true,
-                                        defaultMark = 300,
-                                        step = 10
-                                    )
+                                AnimatedVisibility(
+                                    visible = lockDoubleClick,
+                                    enter = expandVertically(
+                                        expandFrom = Alignment.Top,
+                                        animationSpec = tween(300)
+                                    ),
+                                    exit = shrinkVertically(
+                                        shrinkTowards = Alignment.Top,
+                                        animationSpec = tween(300)
+                                    ),
+                                ) {
+                                    Column {
+                                        val sliderDCTitle =
+                                            stringResource(R.string.double_tap_window_timing)
+                                        Text(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 42.dp),
+                                            textAlign = TextAlign.Left,
+                                            text = "$sliderDCTitle: " +
+                                                    doubleClickTime.toDecimalSecondString(),
+                                            color = AppTheme.colors.contentPrimary
+                                        )
+                                        ValueSlider(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 36.dp),
+                                            value = doubleClickTime,
+                                            valueRange = 50..1500,
+                                            onValueChange = { newValue ->
+                                                doubleClickTime = newValue
+                                                scope.launch {
+                                                    dataStore.saveValue(
+                                                        GeneralPrefs.DOUBLE_CLICK_TIME,
+                                                        newValue
+                                                    )
+                                                }
+                                            },
+                                            enabled = true,
+                                            defaultMark = 300,
+                                            step = 10
+                                        )
 
-                                    Spacer(Modifier.height(24.dp))
+                                        Spacer(Modifier.height(24.dp))
+                                    }
                                 }
                                 RenderGroupDivider()
                                 Spacer(Modifier.height(24.dp))
@@ -1486,7 +1498,8 @@ class MainActivity : ComponentActivity() {
 
                                 RenderSwitcher(
                                     modifier = Modifier.padding(horizontal = 20.dp),
-                                    title = "Управлять радио и bluetooth",
+                                    title = stringResource(R.string.radio_bt_control_title),
+                                    subtitle = stringResource(R.string.radio_bt_control_subtitle),
                                     value = radioBtControl,
                                     enable = mediaControlEnabled,
                                     groupDivider = false,
@@ -1508,23 +1521,21 @@ class MainActivity : ComponentActivity() {
 
                                 Spacer(Modifier.height(12.dp))
 
-                                if (!radioBtControl) {
-                                    RenderSwitcher(
-                                        modifier = Modifier.padding(horizontal = 20.dp),
-                                        title = stringResource(R.string.audio_source_control),
-                                        subtitle = stringResource(R.string.audio_source_control_desc),
-                                        value = sourceManagement,
-                                        enable = mediaControlEnabled,
-                                        groupDivider = false,
-                                        onChange = {
-                                            scope.launch {
-                                                dataStore.saveValue(GeneralPrefs.SOURCE_MANAGEMENT, it)
-                                            }
+                                RenderSwitcher(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.audio_source_control),
+                                    subtitle = stringResource(R.string.audio_source_control_desc),
+                                    value = sourceManagement,
+                                    enable = mediaControlEnabled && !radioBtControl,
+                                    groupDivider = false,
+                                    onChange = {
+                                        scope.launch {
+                                            dataStore.saveValue(GeneralPrefs.SOURCE_MANAGEMENT, it)
                                         }
-                                    )
+                                    }
+                                )
 
-                                    Spacer(Modifier.height(12.dp))
-                                }
+                                Spacer(Modifier.height(12.dp))
 
                                 // disable when AC
                                 RenderSwitcher(

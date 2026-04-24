@@ -86,6 +86,8 @@
     <string name="media_control_desc">Enable this feature to use steering wheel buttons for track switching, pausing, and playing. When another media app is opened, control automatically switches to it.</string>
     <string name="media_apps">Media apps</string>
     <string name="media_apps_desc">Select apps that should take over media control when they appear on the screen</string>
+    <string name="radio_bt_control_title">Control radio and Bluetooth</string>
+    <string name="radio_bt_control_subtitle">Advanced control together with native audio sources</string>
     <string name="disable_on_climate">Disable when climate is open</string>
     <string name="disable_on_climate_desc">Automatically disable media control when the system climate settings window appears on the screen.</string>
     <string name="configure_media_apps">Configure media apps</string>

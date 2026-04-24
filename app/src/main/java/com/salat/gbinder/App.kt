@@ -354,6 +354,7 @@ class App : Application(), ImageLoaderFactory {
     }
 
     private fun onOneOSApiConnected() = appScope.launch {
+        initialRuntimePrefsState()
         initPlaybackMetadataCollector()
         initPrefsCollector()
         initSetAudioSourceCollector()
@@ -1296,6 +1297,14 @@ class App : Application(), ImageLoaderFactory {
         // Early debug mode set
         debugMode = dataStore.getValueFlow(GeneralPrefs.DEBUG_MODE).first() ?: false
         deepLogs = dataStore.getValueFlow(GeneralPrefs.DEEP_LOGS).first() ?: false
+    }
+
+    // Getting initial values, otherwise race conditions with true defaults
+    private suspend fun initialRuntimePrefsState() = withContext(Dispatchers.IO) {
+        sourceManagement = dataStore.getValueFlow(GeneralPrefs.SOURCE_MANAGEMENT).first() ?: false
+        radioBtControl = dataStore.getValueFlow(GeneralPrefs.RADIO_BT_CONTROL).first() ?: true
+        altMute = dataStore.getValueFlow(GeneralPrefs.ALT_MUTE).first() ?: true
+        altMenu = dataStore.getValueFlow(GeneralPrefs.ALT_MENU).first() ?: true
     }
 
     private fun CoroutineScope.initPlaybackMetadataCollector() = launch(Dispatchers.Default) {
@@ -2301,14 +2310,17 @@ class App : Application(), ImageLoaderFactory {
         when (keyCode) {
             KeyCode.KEYCODE_R_MEDIA_PREVIOUS -> try {
                 debugDeepLog("[MEDIA_EVENT]: Previous")
-                if (globalActiveMediaController != null) {
+                val activeController = globalActiveMediaController
+                    ?.takeIf { isAllowedMediaSessionPackage(it.packageName) }
+
+                if (activeController != null) {
                     debugDeepLog("[MEDIA_EVENT]: Sending 'Previous' to active MediaSession")
-                    sendSessionSkip(globalActiveMediaController!!, isNext = false)
-                    currentMediaAppPackage = globalActiveMediaController?.packageName ?: ""
+                    sendSessionSkip(activeController, isNext = false)
+                    currentMediaAppPackage = activeController.packageName ?: ""
                 } else if (currentMediaAppPackage.isEmpty()) {
                     debugDeepLog("[MEDIA_EVENT]: No current player")
                     val findController =
-                        globalMediaControllers?.find { it.packageName in controlMediaApps }
+                        globalMediaControllers?.find { isAllowedMediaSessionPackage(it.packageName) }
                     if (findController != null) {
                         debugDeepLog("[MEDIA_EVENT]: Sending 'Previous' to found MediaSession")
                         sendSessionSkip(findController, isNext = false)
@@ -2321,7 +2333,10 @@ class App : Application(), ImageLoaderFactory {
                     debugDeepLog("[MEDIA_EVENT]: With current player")
                     debugDeepLog("[MEDIA_EVENT]: Find session and sending 'Previous' to current player $currentMediaAppPackage")
                     val findController =
-                        globalMediaControllers?.find { it.packageName == currentMediaAppPackage }
+                        globalMediaControllers?.find {
+                            it.packageName == currentMediaAppPackage &&
+                                    isAllowedMediaSessionPackage(it.packageName)
+                        }
                     findController?.let { sendSessionSkip(it, isNext = false) } ?: run {
                         sendMediaActionToApp(
                             currentMediaAppPackage,
@@ -2435,14 +2450,17 @@ class App : Application(), ImageLoaderFactory {
 
             KeyCode.KEYCODE_R_MEDIA_NEXT -> try {
                 debugDeepLog("[MEDIA_EVENT]: Next")
-                if (globalActiveMediaController != null) {
+                val activeController = globalActiveMediaController
+                    ?.takeIf { isAllowedMediaSessionPackage(it.packageName) }
+
+                if (activeController != null) {
                     debugDeepLog("[MEDIA_EVENT]: Sending 'Next' to active MediaSession")
-                    sendSessionSkip(globalActiveMediaController!!, isNext = true)
-                    currentMediaAppPackage = globalActiveMediaController?.packageName ?: ""
+                    sendSessionSkip(activeController, isNext = true)
+                    currentMediaAppPackage = activeController.packageName ?: ""
                 } else if (currentMediaAppPackage.isEmpty()) {
                     debugDeepLog("[MEDIA_EVENT]: No current player")
                     val findController =
-                        globalMediaControllers?.find { it.packageName in controlMediaApps }
+                        globalMediaControllers?.find { isAllowedMediaSessionPackage(it.packageName) }
                     if (findController != null) {
                         debugDeepLog("[MEDIA_EVENT]: Sending 'Next' to found MediaSession")
                         sendSessionSkip(findController, isNext = true)
@@ -2455,7 +2473,10 @@ class App : Application(), ImageLoaderFactory {
                     debugDeepLog("[MEDIA_EVENT]: With current player")
                     debugDeepLog("[MEDIA_EVENT]: Find session and sending 'Next' to current player $currentMediaAppPackage")
                     val findController =
-                        globalMediaControllers?.find { it.packageName == currentMediaAppPackage }
+                        globalMediaControllers?.find {
+                            it.packageName == currentMediaAppPackage &&
+                                    isAllowedMediaSessionPackage(it.packageName)
+                        }
                     findController?.let { sendSessionSkip(it, isNext = true) } ?: run {
                         sendMediaActionToApp(
                             currentMediaAppPackage,
@@ -2535,11 +2556,15 @@ class App : Application(), ImageLoaderFactory {
 
     private fun resolvePreferredControllerForPlayPause(): MediaController? {
         val fgPackage = currentVisibleApp
-        if (fgPackage.isNotEmpty() && fgPackage in controlMediaApps) {
-            val fgController = globalMediaControllers?.find { it.packageName == fgPackage }
-            if (fgController != null) return fgController
+
+        if (isAllowedMediaSessionPackage(fgPackage)) {
+            globalMediaControllers
+                ?.find { it.packageName == fgPackage }
+                ?.let { return it }
         }
+
         return globalActiveMediaController
+            ?.takeIf { isAllowedMediaSessionPackage(it.packageName) }
     }
 
     private suspend fun ensureOnlineAudioSource() {
@@ -2876,6 +2901,11 @@ class App : Application(), ImageLoaderFactory {
 
     private fun isOnlineBootSwitch(): Boolean {
         return sourceManagement || radioBtControl
+    }
+
+    private fun isAllowedMediaSessionPackage(packageName: String?): Boolean {
+        if (packageName.isNullOrEmpty()) return false
+        return packageName in controlMediaApps || packageName in NATIVE_SOURCE_SESSION_PACKAGES
     }
 
     private fun shouldSwitchToOnlineOnExternalPlayEdge(isPlaying: Boolean): Boolean {

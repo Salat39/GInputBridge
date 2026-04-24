@@ -78,6 +78,8 @@
     <string name="media_control_desc">Активируйте эту функцию, чтобы использовать кнопки руля для переключения треков, паузы и воспроизведения. Когда медиаприложение показывается на экране, управление автоматически переходит к нему</string>
     <string name="media_apps">Медиаприложения</string>
     <string name="media_apps_desc">Выберите приложения которые должны перехватывать управление медиа, и приложение по умолчанию</string>
+    <string name="radio_bt_control_title">Управлять радио и Bluetooth</string>
+    <string name="radio_bt_control_subtitle">Продвинутое управление вместе с нативными источниками аудио</string>
     <string name="disable_on_climate">Отключать, когда открыт климат</string>
     <string name="disable_on_climate_desc">Автоматически отключать медиауправление, когда на экране появляется системное окно настройки климата</string>
     <string name="configure_media_apps">Настройте медиаприложения</string>
