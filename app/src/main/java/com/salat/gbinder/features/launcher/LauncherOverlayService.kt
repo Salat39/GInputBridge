@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.os.Build
@@ -87,6 +88,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.setViewTreeLifecycleOwner
@@ -153,6 +155,14 @@ class LauncherOverlayService : Service() {
         private const val CHANNEL_ID = "lcr_overlay_service_channel"
         private const val LAUNCHER_OVERLAY = 2007
         private const val SHORT_TOOLBAR_THRESHOLD = 150
+
+        @Volatile
+        @JvmField
+        var isAlive: Boolean = false
+
+        @Volatile
+        @JvmField
+        var isStarting: Boolean = false
     }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -199,8 +209,6 @@ class LauncherOverlayService : Service() {
         }
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) = START_STICKY
-
     private fun buildNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
         .setContentTitle("App Launcher Overlay")
         .setContentText("Show App Launcher menu")
@@ -209,16 +217,67 @@ class LauncherOverlayService : Service() {
         .setOngoing(true) // Foreground service best practice
         .build()
 
+    private fun buildMinimalNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
+        .setContentTitle("App Launcher Overlay")
+        .setSmallIcon(R.drawable.ic_launcher_logo)
+        .setPriority(NotificationCompat.PRIORITY_MIN)
+        .setOngoing(true)
+        .build()
+
+    @Suppress("DEPRECATION")
+    @SuppressLint("ObsoleteSdkInt")
+    private fun tryEnterForeground(): Boolean {
+        var ok = false
+        runCatching {
+            ServiceCompat.startForeground(
+                this,
+                LAUNCHER_OVERLAY,
+                buildNotification(),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MANIFEST
+            )
+            ok = true
+        }.onFailure { e1 ->
+            Timber.e(e1, "[LAUNCHER] startForeground failed, fallback")
+            runCatching {
+                startForeground(LAUNCHER_OVERLAY, buildMinimalNotification())
+                ok = true
+            }.onFailure { e2 ->
+                Timber.e(e2, "[LAUNCHER] minimal startForeground failed")
+            }
+        }
+        return ok
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (!tryEnterForeground()) {
+            isAlive = false
+            isStarting = false
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        isAlive = true
+        isStarting = false
+        return START_STICKY
+    }
+
     @OptIn(FlowPreview::class)
     @Suppress("DEPRECATION")
     @SuppressLint("ObsoleteSdkInt")
     override fun onCreate() {
         super.onCreate()
 
-        createNotificationChannel()
-        startForeground(LAUNCHER_OVERLAY, buildNotification())
+        runCatching { createNotificationChannel() }
+        val started = tryEnterForeground()
+        isStarting = false
+        if (!started) {
+            isAlive = false
+            stopSelf()
+            return
+        }
+        isAlive = true
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            isAlive = false
             stopSelf()
             return
         }
@@ -935,9 +994,15 @@ class LauncherOverlayService : Service() {
     }
 
     override fun onDestroy() {
+        isAlive = false
+        isStarting = false
         super.onDestroy()
         // Finish Compose lifecycle to avoid leaks
-        runCatching { composeLifecycleOwner.setCurrentState(Lifecycle.State.DESTROYED) }
+        runCatching {
+            if (::composeLifecycleOwner.isInitialized) {
+                composeLifecycleOwner.setCurrentState(Lifecycle.State.DESTROYED)
+            }
+        }
         serviceScope.cancel()
         stateKeeper.setLauncherOverlayEnabled(false)
         hideLauncherOverlay()

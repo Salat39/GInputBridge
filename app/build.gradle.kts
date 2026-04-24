@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.baselineprofile)
     id(libs.plugins.googleServices.get().pluginId)
+    id(libs.plugins.firebase.crashlytics.get().pluginId)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
@@ -151,6 +152,7 @@ dependencies {
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
+    implementation(libs.firebase.crashlytics)
     implementation(libs.firebase.firestore)
     // implementation(libs.firebase.config)
 

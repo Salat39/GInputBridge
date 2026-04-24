@@ -325,7 +325,10 @@ class App : Application(), ImageLoaderFactory {
             for (msg in channel) {
                 try {
                     GlobalState.logState.update { oldList ->
-                        oldList.addAndTrim(System.currentTimeMillis() to msg, LOGS_LIMIT)
+                        val now = System.currentTimeMillis()
+                        val prev = oldList.lastOrNull()?.first ?: 0L
+                        val ts = if (now > prev) now else prev + 1L
+                        oldList.addAndTrim(ts to msg, LOGS_LIMIT)
                     }
                 } catch (e: Throwable) {
                     Timber.e(e)
