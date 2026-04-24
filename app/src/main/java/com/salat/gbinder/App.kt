@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.Application
 import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.LauncherApps
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.PlaybackState
@@ -36,7 +37,6 @@ import com.geely.lib.oneosapi.phone.PhoneManager
 import com.geely.lib.oneosapi.phone.inter.IBluetoothServicesListener
 import com.geely.lib.oneosapi.phone.telecom.GlyCallItem
 import com.google.firebase.FirebaseApp
-import com.google.firebase.analytics.FirebaseAnalytics
 import com.salat.gbinder.adb.domain.repository.AdbRepository
 import com.salat.gbinder.car.data.CarPropertyKey
 import com.salat.gbinder.car.data.CarPropertyValue
@@ -138,6 +138,11 @@ class App : Application(), ImageLoaderFactory {
         private const val DUSI_ASSISTANT_PACKAGE = "com.dusiassistant"
         private const val KARAOKE_FOCUS_ACTION = "com.audiocn.karaoke.action.KEY_BROADCAST_FOCUS"
         private const val KARAOKE_FOCUS_EXTRA = "KaraokeKeyFocus"
+        private val NATIVE_SOURCE_SESSION_PACKAGES = setOf(
+            "com.android.bluetooth",
+            "com.geely.usbservice",
+            "com.geely.radio.service"
+        )
         private val BT_RADIO_SOURCES = setOf(
             MediaCenterConstant.AudioSource.AUDIO_SOURCE_BT,
             MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO,
@@ -155,12 +160,11 @@ class App : Application(), ImageLoaderFactory {
 
         private const val MINIMIZE_SYSTEM_DELAY = 360L
         private const val SILENT_START = 4 // in sec
-        private const val STARTUP_SECONDARY_COLLECTORS_DELAY = 4_000L
-        private const val STARTUP_ADB_HELPER_DELAY = 30_000L
-        private const val STARTUP_ANALYTICS_DELAY = 45_000L
         private const val ONLINE_SWITCH_RETRY_INTERVAL_MS = 1200L
         private const val KARAOKE_RETRY_COUNT = 4
         private const val KARAOKE_RETRY_DELAY_MS = 1500L
+        private const val MEDIA_CODE_PLAY = 0x1000
+        private const val MEDIA_CODE_PAUSE = 0x1001
 
         private val AUDIO_SOURCE = MediaCenterConstant.AudioSource.AUDIO_SOURCE_ONLINE
     }
@@ -335,47 +339,41 @@ class App : Application(), ImageLoaderFactory {
             initAppScalesCollector()
             initVisibleAppCollector() // Accessibility event bridge
             handleToggleLauncher()
+            handleAdbActions()
 
             // Start API init
             initOneOSApiManager()
             carManager.create()
         }
 
-        appScope.launch {
-            delay(STARTUP_ANALYTICS_DELAY)
-            runCatching {
-                FirebaseApp.initializeApp(this@App)
-                FirebaseAnalytics.getInstance(this@App)
-            }.onFailure { Timber.e(it) }
-        }
+        // Launcher device packages tracker
+        monitorPackageChangesOnDevice()
+
+        FirebaseApp.initializeApp(this)
         Timber.d("[APP] CREATED")
     }
 
     private fun onOneOSApiConnected() = appScope.launch {
-        bindKeyInputAndMediaManagers()
-
-        delay(250L)
         initPlaybackMetadataCollector()
         initPrefsCollector()
         initSetAudioSourceCollector()
         initMediaControlToggleCollector()
         initRequestPlaybackInfoCollector()
+        initDevicePackagesChangedCollector()
+        initRequestPhoneCollector()
         initAccessibilityStateCollector()
         initMediaSessionsStateCollector()
+        backupVisiblePackageCollector()
+        initLauncherManagerWatchDog()
+        handleKeyBindMode()
+        collectDriveModeChanged()
+        collectIgnitionState()
+        handleNotifPlayTest()
 
-        launch {
-            delay(STARTUP_SECONDARY_COLLECTORS_DELAY)
-            initDevicePackagesChangedCollector()
-            initRequestPhoneCollector()
-            backupVisiblePackageCollector()
-            initLauncherManagerWatchDog()
-            delay(STARTUP_ADB_HELPER_DELAY)
-            handleAdbActions()
-            handleKeyBindMode()
-            collectDriveModeChanged()
-            collectIgnitionState()
-            handleNotifPlayTest()
-        }
+        // TODO Test delay
+        delay(250L)
+        // KeyInputManager and mediaManager binding
+        bindKeyInputAndMediaManagers()
 
         // Launcher manager binding flag
         stateKeeper.setLauncherManagerState(
@@ -914,6 +912,28 @@ class App : Application(), ImageLoaderFactory {
             )
         }
 
+        // Start retry for Phone if not already active
+        if (phoneInitJob?.isActive != true) {
+            phoneInitJob = launchDynamicRetry(
+                initBlock = {
+                    try {
+                        val isAlive = OneOSApiManager.getInstance(this@App)
+                            .phoneManager
+                            ?.takeIf { it.isAlive }
+                            ?.let { initPhoneManager(); true }
+                            ?: false
+                        debugDeepLog("[PhoneManager] ${if (isAlive) "is" else "not"} alive")
+                        isAlive
+                    } catch (e: Exception) {
+                        Timber.e(e)
+                        debugDeepLog("[PhoneManager] alive check error")
+                        false
+                    }
+                },
+                cancelBlock = { cancelPhoneManager() }
+            )
+        }
+
         // Start retry for Theme if not already active
         /* if (themeInitJob?.isActive != true) {
             themeInitJob = launchDynamicRetry(
@@ -1072,28 +1092,24 @@ class App : Application(), ImageLoaderFactory {
         launch {
             GlobalState.requestPhoneCallFlow.collect { number ->
                 if (number.isEmpty()) return@collect
-                ensurePhoneManagerReady()
                 runCatching { mPhoneManager?.placeCall(number) }
                 debugDeepLog("[PHONE] call $number")
             }
         }
         launch {
             GlobalState.requestPhoneAnswerFlow.collect {
-                ensurePhoneManagerReady()
                 runCatching { mPhoneManager?.answerCall() }
                 debugDeepLog("[PHONE] answer")
             }
         }
         launch {
             GlobalState.requestPhoneRejectFlow.collect {
-                ensurePhoneManagerReady()
                 runCatching { mPhoneManager?.rejectCall() }
                 debugDeepLog("[PHONE] reject")
             }
         }
         launch {
             GlobalState.requestPhoneDisconnectFlow.collect {
-                ensurePhoneManagerReady()
                 runCatching { mPhoneManager?.disconnectCall() }
                 debugDeepLog("[PHONE] disconnect")
             }
@@ -1328,15 +1344,6 @@ class App : Application(), ImageLoaderFactory {
             debugDeepLog("[PhoneManager] error")
         }
         return mPhoneManager != null && listenerResult
-    }
-
-    private fun ensurePhoneManagerReady(): Boolean {
-        if (mPhoneManager?.isAlive == true) return true
-        return runCatching { initPhoneManager() }
-            .getOrElse {
-                Timber.e(it)
-                false
-            }
     }
 
     private fun cancelPhoneManager() {
@@ -1897,7 +1904,7 @@ class App : Application(), ImageLoaderFactory {
         }
         key.handleTrigger()
 
-        customShortClickAction(keyCode)
+        customShortClickAction(keyCode, func)
         sendShortClick(keyCode)
     }
 
@@ -2260,7 +2267,7 @@ class App : Application(), ImageLoaderFactory {
     // Custom actions
     // -----------------------------------
 
-    private suspend fun customShortClickAction(keyCode: Int) {
+    private suspend fun customShortClickAction(keyCode: Int, func: Int) {
         if (mediaControlEnabled) {
 
             // Wrong audio source and not foreground available player
@@ -2284,12 +2291,12 @@ class App : Application(), ImageLoaderFactory {
             // Locked by time task
             if (mediaControlTimeLock) return
 
-            customMediaControlAction(keyCode)
+            customMediaControlAction(keyCode, func)
         }
     }
 
-    private suspend fun customMediaControlAction(keyCode: Int) {
-        if (radioBtControl && handleBtRadioByMediaCenter(keyCode)) return
+    private suspend fun customMediaControlAction(keyCode: Int, func: Int) {
+        if (radioBtControl && handleBtRadioByMediaCenter(keyCode, func)) return
 
         when (keyCode) {
             KeyCode.KEYCODE_R_MEDIA_PREVIOUS -> try {
@@ -2464,11 +2471,10 @@ class App : Application(), ImageLoaderFactory {
         }
     }
 
-    private suspend fun handleBtRadioByMediaCenter(keyCode: Int): Boolean {
+    private suspend fun handleBtRadioByMediaCenter(keyCode: Int, func: Int): Boolean {
         val mediaCenter = mMediaCenterManager?.takeIf { it.isAlive } ?: return false
         val source = mediaCenter.currentAudioSource
         if (source !in BT_RADIO_SOURCES) return false
-        val isFgExternalPlayer = currentVisibleApp.isNotEmpty() && currentVisibleApp in controlMediaApps
 
         return runCatching {
             val handled = when (keyCode) {
@@ -2485,23 +2491,32 @@ class App : Application(), ImageLoaderFactory {
                 }
 
                 KeyCode.KEYCODE_R_MEDIA_PLAY_PAUSE -> {
-                    if (isOnlineBootSwitch() && isFgExternalPlayer) {
-                        ensureOnlineAudioSourceForForegroundPlayer()
-                        false
-                    } else {
-                        val paused = if (source == MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO) {
-                            mediaCenter.radioManager?.pause() == true
-                        } else {
-                            mediaCenter.musicAdapterManager?.pause() == 1
-                        }
+                    val forcePause = func == MEDIA_CODE_PAUSE
+                    val forcePlay = func == MEDIA_CODE_PLAY
 
-                        if (paused) {
-                            true
-                        } else if (source == MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO) {
+                    val fgPackage = currentVisibleApp
+                    if (source in BT_RADIO_SOURCES && fgPackage.isNotEmpty() && fgPackage in controlMediaApps) {
+                        ensureOnlineAudioSource()
+                        return@runCatching false
+                    }
+
+                    if (source == MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO) {
+                        val radioStatus = mediaCenter.radioManager?.radioStatus ?: 0
+                        if (radioStatus == MEDIA_CODE_PAUSE) {
+                            mediaCenter.radioManager?.pause() == true
+                        } else if (radioStatus == MEDIA_CODE_PLAY) {
+                            mediaCenter.radioManager?.requestAudioSource()
                             mediaCenter.radioManager?.play() == true
                         } else {
-                            mediaCenter.musicAdapterManager?.play() == 1
+                            mediaCenter.radioManager?.requestAudioSource()
+                            mediaCenter.radioManager?.play() == true
                         }
+                    } else if (forcePause) {
+                        mediaCenter.musicAdapterManager?.pause() == 1
+                    } else if (forcePlay) {
+                        mediaCenter.musicAdapterManager?.play() == 1
+                    } else {
+                        false
                     }
                 }
 
@@ -2527,7 +2542,7 @@ class App : Application(), ImageLoaderFactory {
         return globalActiveMediaController
     }
 
-    private suspend fun ensureOnlineAudioSourceForForegroundPlayer() {
+    private suspend fun ensureOnlineAudioSource() {
         val manager = mMediaCenterManager?.takeIf { it.isAlive } ?: return
         if (manager.currentAudioSource == AUDIO_SOURCE) return
         resetAudioSource()
@@ -2864,18 +2879,18 @@ class App : Application(), ImageLoaderFactory {
     }
 
     private fun shouldSwitchToOnlineOnExternalPlayEdge(isPlaying: Boolean): Boolean {
-        val fgPackage = currentVisibleApp
-        val allowedExternalPlayerInForeground = fgPackage.isNotEmpty() && fgPackage in controlMediaApps
-        val currentExternalPlaying = isPlaying && allowedExternalPlayerInForeground
+        val currentExternalPlaying = isPlaying
         val isPlayEdge = !lastExternalPlayingState && currentExternalPlaying
         lastExternalPlayingState = currentExternalPlaying
         return isPlayEdge
     }
 
     private fun shouldSwitchOnline(isPlaying: Boolean): Boolean {
-        shouldSwitchToOnlineOnExternalPlayEdge(isPlaying)
+        if (!shouldSwitchToOnlineOnExternalPlayEdge(isPlaying)) return false
 
         if (!isOnlineBootSwitch() || !isPlaying) return false
+        val activePkg = globalActiveMediaController?.packageName.orEmpty()
+        if (activePkg in NATIVE_SOURCE_SESSION_PACKAGES) return false
         val currentSource = mMediaCenterManager?.currentAudioSource ?: return false
         if (currentSource !in BT_RADIO_SOURCES) return false
 
@@ -2902,6 +2917,19 @@ class App : Application(), ImageLoaderFactory {
         if (now - lastOnlineSwitchAttemptAt < ONLINE_SWITCH_RETRY_INTERVAL_MS) return
         lastOnlineSwitchAttemptAt = now
         resetIfOtherAudioSource()
+    }
+
+    private fun isNativeSourcePlaying(source: MediaCenterConstant.AudioSource): Boolean {
+        val packages = when (source) {
+            MediaCenterConstant.AudioSource.AUDIO_SOURCE_BT -> setOf("com.android.bluetooth")
+            MediaCenterConstant.AudioSource.AUDIO_SOURCE_USB -> setOf("com.geely.usbservice")
+            MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO -> setOf("com.geely.radio.service")
+            else -> emptySet()
+        }
+        if (packages.isEmpty()) return false
+        return globalMediaControllers
+            ?.any { it.packageName in packages && it.playbackState?.state == PlaybackState.STATE_PLAYING }
+            ?: false
     }
 
     private fun resetAudioSource() = runCatching {
@@ -3099,6 +3127,70 @@ class App : Application(), ImageLoaderFactory {
                 volumeFactor = notifVolume
             )
         }
+    }
+
+    private fun monitorPackageChangesOnDevice() = appScope.launch {
+        runCatching {
+            val launcherApps = getSystemService(LAUNCHER_APPS_SERVICE) as LauncherApps
+            val mainHandler = Handler(Looper.getMainLooper())
+
+            val callback = object : LauncherApps.Callback() {
+                // Called when a package is newly installed for the current user
+                override fun onPackageAdded(packageName: String?, user: android.os.UserHandle?) {
+                    if (packageName != null) {
+                        Timber.i("LA: added %s", packageName)
+                        appScope.launch {
+                            GlobalState.devicePackagesChangedFlow.emit(
+                                PackagesChangedEvent.Added(packageName)
+                            )
+                        }
+                    }
+                }
+
+                // Called when a package is removed for the current user
+                override fun onPackageRemoved(packageName: String?, user: android.os.UserHandle?) {
+                    if (packageName != null) {
+                        Timber.i("LA: removed %s", packageName)
+                        appScope.launch {
+                            GlobalState.devicePackagesChangedFlow.emit(
+                                PackagesChangedEvent.Removed(packageName)
+                            )
+                        }
+                    }
+                }
+
+                // Called when the contents of an existing package change (enabled comps, perms, etc.)
+                override fun onPackageChanged(packageName: String?, user: android.os.UserHandle?) {
+                    if (packageName != null) {
+                        Timber.i("LA: changed %s", packageName)
+                        appScope.launch {
+                            GlobalState.devicePackagesChangedFlow.emit(
+                                PackagesChangedEvent.Changed(packageName)
+                            )
+                        }
+                    }
+                }
+
+                // Optional: when packages become available (e.g., after move to storage)
+                override fun onPackagesAvailable(
+                    packageNames: Array<out String>?,
+                    user: android.os.UserHandle?,
+                    replacing: Boolean
+                ) {
+                }
+
+                // Optional: when packages become unavailable
+                override fun onPackagesUnavailable(
+                    packageNames: Array<out String>?,
+                    user: android.os.UserHandle?,
+                    replacing: Boolean
+                ) {
+                }
+            }
+
+            // Register on main; keep a strong reference to avoid GC
+            launcherApps.registerCallback(callback, mainHandler)
+        }.onFailure { Timber.e(it) }
     }
 
     override fun newImageLoader(): ImageLoader {

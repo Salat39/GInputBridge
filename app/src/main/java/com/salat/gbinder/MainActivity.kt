@@ -3268,7 +3268,7 @@ private object MainScreenSettingsRow {
         false,
         false,
         false,
-        false,
+        true,
         false,
         LAST_DM_ID,
         false,
