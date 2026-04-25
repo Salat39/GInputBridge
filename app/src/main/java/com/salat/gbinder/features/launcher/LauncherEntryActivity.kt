@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,11 +39,11 @@ import com.salat.gbinder.DEFAULT_UI_SCALE
 import com.salat.gbinder.R
 import com.salat.gbinder.components.extractPackageName
 import com.salat.gbinder.components.requireDisplayOverlay
-import com.salat.gbinder.isServiceRunning
+import com.salat.gbinder.isLauncherServiceRunning
 import com.salat.gbinder.statekeeper.domain.entity.LauncherActivitySignal
 import com.salat.gbinder.statekeeper.domain.entity.LauncherOverlaySignal
 import com.salat.gbinder.statekeeper.domain.repository.StateKeeperRepository
-import com.salat.gbinder.stopOverlay
+import com.salat.gbinder.stopLauncherOverlay
 import com.salat.gbinder.ui.BaseButton
 import com.salat.gbinder.ui.BaseDialog
 import com.salat.gbinder.ui.clickableNoRipple
@@ -85,8 +84,8 @@ class LauncherEntryActivity() : ComponentActivity() {
             Timber.d("[LAUNCHER] detected restricted pkgs")
 
             // Kill overlay if exist
-            if (isServiceRunning<LauncherOverlayService>(this)) {
-                stopOverlay<LauncherOverlayService>(this)
+            if (isLauncherServiceRunning(this)) {
+                stopLauncherOverlay(this)
             }
 
             // Finish current instance
@@ -112,7 +111,7 @@ class LauncherEntryActivity() : ComponentActivity() {
         if (requireDisplayOverlay()) {
             if (!stateKeeper.launcherOverlayEnabled.value) {
                 stateKeeper.toggleLauncher() // TODO TEST
-                // startOverlay<LauncherOverlayService>(this)
+                // startLauncherOverlay(this)
             }
 
             if (BACK_HANDLER) {
@@ -155,8 +154,8 @@ class LauncherEntryActivity() : ComponentActivity() {
     }
 
     /* private fun killOverlay() {
-        if (isServiceRunning<LauncherOverlayService>(this@LauncherEntryActivity)) {
-            stopOverlay<LauncherOverlayService>(this@LauncherEntryActivity)
+        if (isLauncherServiceRunning(this@LauncherEntryActivity)) {
+            stopLauncherOverlay(this@LauncherEntryActivity)
         }
         finish()
     } */

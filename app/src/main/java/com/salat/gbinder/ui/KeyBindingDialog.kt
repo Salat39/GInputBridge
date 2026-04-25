@@ -89,14 +89,14 @@ import com.salat.gbinder.entity.KeyBindConfig
 import com.salat.gbinder.entity.KeyBindPattern
 import com.salat.gbinder.mappers.keyCodeMap
 import com.salat.gbinder.mappers.toAllDisplay
+import com.salat.gbinder.ui.reordable.ReorderableItem
+import com.salat.gbinder.ui.reordable.rememberReorderableLazyListState
 import com.salat.gbinder.ui.theme.AppTheme
 import com.salat.gbinder.util.SystemAppsLightRepository
+import com.salat.gbinder.util.rememberIsLandscape
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.salat.gbinder.ui.reordable.ReorderableItem
-import com.salat.gbinder.ui.reordable.rememberReorderableLazyListState
-import com.salat.gbinder.util.rememberIsLandscape
 import timber.log.Timber
 
 private enum class KeyBindingDialogStep {

@@ -399,6 +399,10 @@
     <string name="alternative_mute_detection_desc">Если у вас не определяются долгие нажатия кнопки \"Mute\", попробуйте включить альтернативный способ определения нажатий для этой кнопки</string>
     <string name="return_to_previous_app">Возврат в прошлое приложение</string>
     <string name="return_to_previous_app_desc">Разворачивает предыдущее открытое приложение</string>
+    <string name="media_control_mode_full_title">Полное</string>
+    <string name="media_control_mode_full_subtitle">Управляет всеми источниками: Android, радио и Bluetooth. Всё через приложение</string>
+    <string name="media_control_mode_session_title">Медиасессия</string>
+    <string name="media_control_mode_session_subtitle">Управляет только активной Android-медиасессией. Радио и Bluetooth управляет прошивка</string>
 
     <string name="api_text_launcher"><![CDATA[<strong>Управление лаунчером</strong>
 <br>

@@ -1,4 +1,4 @@
-package com.salat.gbinder
+package com.salat.gbinder.ui
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween

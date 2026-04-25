@@ -1,4 +1,4 @@
-package com.salat.gbinder
+package com.salat.gbinder.screenParts
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -36,6 +36,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.salat.gbinder.R
 import com.salat.gbinder.ui.BaseDialog
 import com.salat.gbinder.ui.theme.AppTheme
 

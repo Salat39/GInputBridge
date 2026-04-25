@@ -67,7 +67,6 @@ import com.salat.gbinder.entity.PressState
 import com.salat.gbinder.entity.ToggleMediaControl
 import com.salat.gbinder.features.launcher.LauncherDataRepository
 import com.salat.gbinder.features.launcher.LauncherEntryActivity
-import com.salat.gbinder.features.launcher.LauncherOverlayService
 import com.salat.gbinder.features.launcher.OVERLAY_RESTRICTED_PKGS
 import com.salat.gbinder.logs.ExecTraceTree
 import com.salat.gbinder.mappers.asAppSource
@@ -2253,8 +2252,8 @@ class App : Application(), ImageLoaderFactory {
         // Open overlay when user in restricted apps
         if (currentVisibleApp in OVERLAY_RESTRICTED_PKGS) {
             // Stop overlay and kill launcher background activity
-            if (isServiceRunning<LauncherOverlayService>(this@App)) {
-                stopOverlay<LauncherOverlayService>(this@App)
+            if (isLauncherServiceRunning(this@App)) {
+                stopLauncherOverlay(this@App)
             }
             finishLauncherEntryActivitiesIfRunning()
 
@@ -2263,15 +2262,15 @@ class App : Application(), ImageLoaderFactory {
             delay(MINIMIZE_SYSTEM_DELAY)
 
             // Relaunch overlay
-            startOverlay<LauncherOverlayService>(this@App)
+            startLauncherOverlay(this@App)
             return@launch
         }
 
         // Normal overlay toggling
-        if (isServiceRunning<LauncherOverlayService>(this@App)) {
-            stopOverlay<LauncherOverlayService>(this@App)
+        if (isLauncherServiceRunning(this@App)) {
+            stopLauncherOverlay(this@App)
         } else {
-            startOverlay<LauncherOverlayService>(this@App)
+            startLauncherOverlay(this@App)
         }
     }
 
@@ -2954,7 +2953,7 @@ class App : Application(), ImageLoaderFactory {
         resetIfOtherAudioSource()
     }
 
-    private fun isNativeSourcePlaying(source: MediaCenterConstant.AudioSource): Boolean {
+    /* private fun isNativeSourcePlaying(source: MediaCenterConstant.AudioSource): Boolean {
         val packages = when (source) {
             MediaCenterConstant.AudioSource.AUDIO_SOURCE_BT -> setOf("com.android.bluetooth")
             MediaCenterConstant.AudioSource.AUDIO_SOURCE_USB -> setOf("com.geely.usbservice")
@@ -2965,7 +2964,7 @@ class App : Application(), ImageLoaderFactory {
         return globalMediaControllers
             ?.any { it.packageName in packages && it.playbackState?.state == PlaybackState.STATE_PLAYING }
             ?: false
-    }
+    } */
 
     private fun resetAudioSource() = runCatching {
         mMediaCenterManager?.requestAudioSource(AUDIO_SOURCE, MediaCenterConstant.AppSource.WECARFLOW)

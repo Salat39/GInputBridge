@@ -30,6 +30,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -44,9 +46,22 @@ fun HugeSegmentToggler(
     selectedIndex: Int,
     items: List<HugeTogglerItem>,
     fontSize: Int = 13,
+    textHorizontalPadding: Int = 4,
+    dividerPadding: Int = 2,
     activeBackground: Color,
     itemContentColor: Color,
     dividerColor: Color = itemContentColor.copy(alpha = 0.1f),
+    enabled: Boolean = true,
+    multiline: Boolean = false,
+    titleTextStyle: TextStyle = AppTheme.typography.screenTitle.copy(
+        fontSize = fontSize.sp
+    ),
+    titleWithoutSubtitleTextStyle: TextStyle = AppTheme.typography.screenTitle.copy(
+        fontSize = (fontSize - 1).sp
+    ),
+    subtitleTextStyle: TextStyle = AppTheme.typography.screenTitle.copy(
+        fontSize = (fontSize - 6).sp
+    ),
     onReSelect: (Int) -> Unit = {},
     onSelectionChange: (Int) -> Unit
 ) {
@@ -136,34 +151,37 @@ fun HugeSegmentToggler(
                         modifier = Modifier
                             .width(tabWidth)
                             .fillMaxHeight()
-                            .padding(horizontal = 4.dp, vertical = 10.dp)
+                            .padding(horizontal = textHorizontalPadding.dp, vertical = 10.dp)
                             .clickableNoRipple {
-                                if (index != selectedIndex) {
-                                    onSelectionChange(index)
-                                } else onReSelect(index)
+                                if (enabled) {
+                                    if (index != selectedIndex) {
+                                        onSelectionChange(index)
+                                    } else onReSelect(index)
+                                }
                             },
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
                             text = item.text,
-                            style = AppTheme.typography.screenTitle.copy( // overlayNativeText
-                                fontSize = if (item.subtitle == null) (fontSize - 1).sp else fontSize.sp
-                            ),
+                            style = if (item.subtitle == null) {
+                                titleWithoutSubtitleTextStyle
+                            } else {
+                                titleTextStyle
+                            },
                             color = itemContentColor,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         item.subtitle?.let { subtitle ->
-                            Spacer(Modifier.height(2.dp))
+                            Spacer(Modifier.height(dividerPadding.dp))
 
                             Text(
                                 text = subtitle,
-                                style = AppTheme.typography.screenTitle.copy( // overlayNativeText
-                                    fontSize = (fontSize - 6).sp
-                                ),
+                                style = subtitleTextStyle,
                                 color = itemContentColor.copy(.6f),
-                                maxLines = 1,
+                                maxLines = if(multiline) Int.MAX_VALUE else  1,
+                                textAlign = TextAlign.Center,
                                 overflow = TextOverflow.Ellipsis
                             )
                         }

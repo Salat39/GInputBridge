@@ -37,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.salat.gbinder.BuildConfig
 import com.salat.gbinder.R
-import com.salat.gbinder.SegmentToggler
 import com.salat.gbinder.components.toast
 import com.salat.gbinder.datastore.LauncherPrefs
 import com.salat.gbinder.datastore.LauncherStorageRepository
@@ -47,6 +46,7 @@ import com.salat.gbinder.entity.DisplayLauncherItemType
 import com.salat.gbinder.entity.SegmentTogglerItem
 import com.salat.gbinder.ui.RangeValueSlider
 import com.salat.gbinder.ui.RenderSwitcher
+import com.salat.gbinder.ui.SegmentToggler
 import com.salat.gbinder.ui.ValueSlider
 import com.salat.gbinder.ui.theme.AppTheme
 import kotlinx.coroutines.launch

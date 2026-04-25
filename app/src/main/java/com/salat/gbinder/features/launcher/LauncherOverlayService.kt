@@ -125,7 +125,7 @@ import com.salat.gbinder.mappers.isSplitIntent
 import com.salat.gbinder.statekeeper.domain.entity.LauncherActivitySignal
 import com.salat.gbinder.statekeeper.domain.entity.LauncherOverlaySignal
 import com.salat.gbinder.statekeeper.domain.repository.StateKeeperRepository
-import com.salat.gbinder.stopOverlay
+import com.salat.gbinder.stopLauncherOverlay
 import com.salat.gbinder.ui.BottomShadow
 import com.salat.gbinder.ui.OptionsMenuItem
 import com.salat.gbinder.ui.RenderOptionsMenuItem
@@ -1174,7 +1174,7 @@ class LauncherOverlayService : Service() {
         serviceScope.cancel()
 
         // Keep your original contract:
-        stopOverlay<LauncherOverlayService>(this)
+        stopLauncherOverlay(this)
     }
 
     @Composable

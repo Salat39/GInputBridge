@@ -1,4 +1,4 @@
-package com.salat.gbinder
+package com.salat.gbinder.ui
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
@@ -37,7 +37,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.salat.gbinder.entity.SegmentTogglerItem
-import com.salat.gbinder.ui.clickableNoRipple
 import com.salat.gbinder.ui.theme.AppTheme
 import kotlin.math.abs
 

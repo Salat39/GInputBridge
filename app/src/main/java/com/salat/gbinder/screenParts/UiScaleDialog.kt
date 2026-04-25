@@ -1,4 +1,4 @@
-package com.salat.gbinder
+package com.salat.gbinder.screenParts
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,6 +20,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.salat.gbinder.DEFAULT_UI_SCALE
+import com.salat.gbinder.R
+import com.salat.gbinder.components.roundScale
 import com.salat.gbinder.ui.BaseDialog
 import com.salat.gbinder.ui.ValueSlider
 import com.salat.gbinder.ui.theme.AppTheme
@@ -104,5 +107,3 @@ fun UiScaleDialog(
 
     }
 }
-
-internal fun Float.roundScale() = (this * 100f).roundToInt() / 100f

@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import com.salat.gbinder.ui.theme.AppTheme
@@ -26,6 +27,68 @@ fun RenderSwitcher(
     modifier: Modifier,
     title: String,
     subtitle: String? = null,
+    value: Boolean? = null,
+    enable: Boolean = true,
+    groupDivider: Boolean = true,
+    clickRadius: Int = 8,
+    titleStyle: TextStyle = AppTheme.typography.screenTitle,
+    subtitleColor: Color = AppTheme.colors.contentPrimary.copy(.4f),
+    subtitleStyle: TextStyle = AppTheme.typography.dialogSubtitle,
+    switchScale: Float = .8f,
+    onChange: (Boolean) -> Unit = {}
+) {
+    RenderSwitcherContent(
+        modifier = modifier,
+        title = title,
+        subtitle = subtitle?.let { AnnotatedString(it) },
+        value = value,
+        enable = enable,
+        groupDivider = groupDivider,
+        clickRadius = clickRadius,
+        titleStyle = titleStyle,
+        subtitleColor = subtitleColor,
+        subtitleStyle = subtitleStyle,
+        switchScale = switchScale,
+        onChange = onChange
+    )
+}
+
+@Composable
+fun RenderSwitcher(
+    modifier: Modifier,
+    title: String,
+    subtitle: AnnotatedString,
+    value: Boolean? = null,
+    enable: Boolean = true,
+    groupDivider: Boolean = true,
+    clickRadius: Int = 8,
+    titleStyle: TextStyle = AppTheme.typography.screenTitle,
+    subtitleColor: Color = AppTheme.colors.contentPrimary.copy(.4f),
+    subtitleStyle: TextStyle = AppTheme.typography.dialogSubtitle,
+    switchScale: Float = .8f,
+    onChange: (Boolean) -> Unit = {}
+) {
+    RenderSwitcherContent(
+        modifier = modifier,
+        title = title,
+        subtitle = subtitle,
+        value = value,
+        enable = enable,
+        groupDivider = groupDivider,
+        clickRadius = clickRadius,
+        titleStyle = titleStyle,
+        subtitleColor = subtitleColor,
+        subtitleStyle = subtitleStyle,
+        switchScale = switchScale,
+        onChange = onChange
+    )
+}
+
+@Composable
+private fun RenderSwitcherContent(
+    modifier: Modifier,
+    title: String,
+    subtitle: AnnotatedString? = null,
     value: Boolean? = null,
     enable: Boolean = true,
     groupDivider: Boolean = true,
@@ -58,7 +121,7 @@ fun RenderSwitcher(
                 color = AppTheme.colors.contentPrimary
             )
 
-            if (subtitle != null) {
+            subtitle?.let { subtitle ->
                 Spacer(Modifier.height(5.dp))
 
                 Text(

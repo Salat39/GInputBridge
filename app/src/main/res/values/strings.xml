@@ -407,6 +407,10 @@
     <string name="alternative_mute_detection_desc">If long presses on the Mute button are not detected, try enabling the alternative press detection method for this button</string>
     <string name="return_to_previous_app">Return to previous app</string>
     <string name="return_to_previous_app_desc">Expands the previously opened application (if it was not closed)</string>
+    <string name="media_control_mode_full_title">Full control</string>
+    <string name="media_control_mode_full_subtitle">Controls all sources: Android, radio, and Bluetooth. Everything is handled through the app</string>
+    <string name="media_control_mode_session_title">Media session</string>
+    <string name="media_control_mode_session_subtitle">Controls only the active Android media session. Radio and Bluetooth are handled by the firmware</string>
 
     <string name="api_text_launcher"><![CDATA[<strong>Launcher Control</strong>
 <br>

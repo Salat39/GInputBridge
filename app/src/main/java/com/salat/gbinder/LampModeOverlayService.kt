@@ -49,6 +49,7 @@ import com.salat.gbinder.components.ComposeWindowLifecycleOwner
 import com.salat.gbinder.components.toPxInt
 import com.salat.gbinder.entity.SegmentTogglerItem
 import com.salat.gbinder.statekeeper.domain.repository.StateKeeperRepository
+import com.salat.gbinder.ui.OverlaySegmentToggler
 import com.salat.gbinder.ui.theme.AppTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope

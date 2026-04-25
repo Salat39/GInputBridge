@@ -192,6 +192,16 @@ data class AppTypography internal constructor(
         fontSize = 19.sp,
         lineHeight = 21.sp
     ),
+    val togglerTitle: TextStyle = TextStyle(
+        fontWeight = FontWeight.Normal,
+        fontSize = 14.sp,
+        lineHeight = 15.sp
+    ),
+    val togglerSubtitle: TextStyle = TextStyle(
+        fontWeight = FontWeight.Normal,
+        fontSize = 9.sp,
+        lineHeight = 12.sp
+    ),
 )
 
 // val MaterialTypography = Typography()

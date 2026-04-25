@@ -1,4 +1,4 @@
-package com.salat.gbinder
+package com.salat.gbinder.screenParts
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Spacer

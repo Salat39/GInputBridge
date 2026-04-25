@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
-import com.salat.gbinder.ui.theme.AppTheme
 
 @Composable
 fun FullScreenDialog(
