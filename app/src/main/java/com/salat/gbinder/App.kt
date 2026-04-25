@@ -2953,19 +2953,6 @@ class App : Application(), ImageLoaderFactory {
         resetIfOtherAudioSource()
     }
 
-    /* private fun isNativeSourcePlaying(source: MediaCenterConstant.AudioSource): Boolean {
-        val packages = when (source) {
-            MediaCenterConstant.AudioSource.AUDIO_SOURCE_BT -> setOf("com.android.bluetooth")
-            MediaCenterConstant.AudioSource.AUDIO_SOURCE_USB -> setOf("com.geely.usbservice")
-            MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO -> setOf("com.geely.radio.service")
-            else -> emptySet()
-        }
-        if (packages.isEmpty()) return false
-        return globalMediaControllers
-            ?.any { it.packageName in packages && it.playbackState?.state == PlaybackState.STATE_PLAYING }
-            ?: false
-    } */
-
     private fun resetAudioSource() = runCatching {
         mMediaCenterManager?.requestAudioSource(AUDIO_SOURCE, MediaCenterConstant.AppSource.WECARFLOW)
     }.onFailure { Timber.e(it) }
