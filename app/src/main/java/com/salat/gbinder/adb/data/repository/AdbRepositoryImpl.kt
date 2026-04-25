@@ -320,6 +320,20 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         return r.contains("mode=freeform ")
     }
 
+    override suspend fun isAppLaunched(packageName: String): Boolean {
+        val pkg = packageName.trim()
+        if (pkg.isEmpty() || pkg.equals("unknown", ignoreCase = true) || !isValidPackageName(pkg)) {
+            return false
+        }
+
+        val result = execute("pidof $pkg 2>/dev/null || true").trim()
+        if (result.isEmpty()) return false
+
+        return result.split(' ', '\n', '\r', '\t').any { pid ->
+            pid.toIntOrNull()?.let { it > 0 } == true
+        }
+    }
+
     override suspend fun getTaskId(packageName: String): Int? {
         val pkg = packageName.trim()
         if (pkg.isEmpty() || pkg.equals("unknown", ignoreCase = true) || !isValidPackageName(pkg)) {

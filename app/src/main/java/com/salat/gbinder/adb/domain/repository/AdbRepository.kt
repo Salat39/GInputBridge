@@ -11,6 +11,8 @@ interface AdbRepository {
 
     suspend fun isAppInFreeform(packageName: String): Boolean?
 
+    suspend fun isAppLaunched(packageName: String): Boolean
+
     suspend fun getTaskId(packageName: String): Int?
 
     suspend fun forceStop(packageName: String): String

@@ -406,11 +406,9 @@ class LauncherOverlayService : Service() {
                         inMyApps = inMyApps != null,
                         launchedStatus = if (!config.enableAdbHelper) {
                             AppLaunchedState.NO_DETECT
-                        } else when (adb.isAppInFreeform(item.packageName)) {
-                            true -> AppLaunchedState.FREEFORM
-                            false -> AppLaunchedState.FULLSCREEN
-                            null -> AppLaunchedState.NO
-                        }
+                        } else if (adb.isAppLaunched(item.packageName)) {
+                            AppLaunchedState.LAUNCHED
+                        } else AppLaunchedState.NO
                     )
                 }
             }
@@ -428,11 +426,9 @@ class LauncherOverlayService : Service() {
                         appData = apps.find { it.packageName == item.packageName },
                         launchedStatus = if (!config.enableAdbHelper) {
                             AppLaunchedState.NO_DETECT
-                        } else when (adb.isAppInFreeform(item.packageName)) {
-                            true -> AppLaunchedState.FREEFORM
-                            false -> AppLaunchedState.FULLSCREEN
-                            null -> AppLaunchedState.NO
-                        }
+                        } else if (adb.isAppLaunched(item.packageName)) {
+                            AppLaunchedState.LAUNCHED
+                        } else AppLaunchedState.NO
                     )
                 }
             }
@@ -1319,8 +1315,7 @@ class LauncherOverlayService : Service() {
                         .background(AppTheme.colors.surfaceMenuDivider.copy(.5f))
                 )
 
-                val isLaunched =
-                    launchedStatus == AppLaunchedState.FULLSCREEN || launchedStatus == AppLaunchedState.FREEFORM
+                val isLaunched = launchedStatus == AppLaunchedState.LAUNCHED
                 Column(
                     modifier = Modifier
                         .weight(1f)
