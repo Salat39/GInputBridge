@@ -12,6 +12,7 @@ enum class KeyBindAction {
     PHONE_CALL,
     CAMERAS_360,
     CAROUSEL_LAMP,
+    CAROUSEL_AUDIO_SOURCE,
     TASK_MANAGER,
     ANDROID_BACK,
     ANDROID_HOME,

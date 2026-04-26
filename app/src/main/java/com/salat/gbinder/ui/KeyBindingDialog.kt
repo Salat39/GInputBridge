@@ -78,10 +78,12 @@ import com.salat.gbinder.components.inMainToast
 import com.salat.gbinder.components.onlyDigitsAndLeadingPlus
 import com.salat.gbinder.components.requireDisplayOverlay
 import com.salat.gbinder.datastore.KeyBindStorageRepository
+import com.salat.gbinder.entity.DISPLAY_AUDIO_SOURCES
 import com.salat.gbinder.entity.DISPLAY_DRIVE_MODES
 import com.salat.gbinder.entity.DISPLAY_LAMP_MODES
 import com.salat.gbinder.entity.DeviceAppInfo
 import com.salat.gbinder.entity.DisplayDriveMode
+import com.salat.gbinder.entity.DraggableAudioSourceItem
 import com.salat.gbinder.entity.DraggableDMItem
 import com.salat.gbinder.entity.DraggableLampItem
 import com.salat.gbinder.entity.KeyBindAction
@@ -109,6 +111,7 @@ private enum class KeyBindingDialogStep {
     SET_DRIVE_MODE_CHOOSE_METHOD,
     SET_TOGGLE_DRIVE_MODE,
     SET_CAROUSEL_DRIVE_MODE,
+    SET_CAROUSEL_AUDIO_SOURCE,
     SET_CAROUSEL_CAR_LAMP,
 }
 
@@ -117,6 +120,7 @@ private enum class KeyBindingDialogActions {
     LINK_LAUNCH,
     APP_LAUNCHER,
     DRIVE_MODE_CHOOSE,
+    AUDIO_SOURCE_CHOOSE,
     PHONE_CALL,
     CAMERAS_360,
     CAR_LAMP,
@@ -165,6 +169,7 @@ fun KeyBindingDialog(
             KeyBindingDialogActions.LINK_LAUNCH,
             KeyBindingDialogActions.APP_LAUNCHER,
             KeyBindingDialogActions.DRIVE_MODE_CHOOSE,
+            KeyBindingDialogActions.AUDIO_SOURCE_CHOOSE,
             KeyBindingDialogActions.CAR_LAMP,
             KeyBindingDialogActions.PHONE_CALL,
             KeyBindingDialogActions.CAMERAS_360,
@@ -185,6 +190,7 @@ fun KeyBindingDialog(
     var dmToggleSelected by remember { mutableStateOf<DisplayDriveMode?>(null) }
     var carouselDriveModes by remember { mutableStateOf<List<DraggableDMItem>>(emptyList()) }
     var carouselLightModes by remember { mutableStateOf<List<DraggableLampItem>>(emptyList()) }
+    var carouselAudioSources by remember { mutableStateOf<List<DraggableAudioSourceItem>>(emptyList()) }
     var numberValue: TextFieldValue by remember { mutableStateOf(TextFieldValue("")) }
 
     val pickShortcut = rememberLauncherForActivityResult(
@@ -265,6 +271,7 @@ fun KeyBindingDialog(
                 KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD -> stringResource(R.string.driving_mode_switch_type)
                 KeyBindingDialogStep.SET_TOGGLE_DRIVE_MODE -> stringResource(R.string.switching)
                 KeyBindingDialogStep.SET_CAROUSEL_DRIVE_MODE -> stringResource(R.string.carousel)
+                KeyBindingDialogStep.SET_CAROUSEL_AUDIO_SOURCE -> stringResource(R.string.carousel)
                 KeyBindingDialogStep.SET_CALL_PHONE_NUMBER -> stringResource(R.string.call)
                 KeyBindingDialogStep.SET_CAROUSEL_CAR_LAMP -> stringResource(R.string.headlight_mode)
             },
@@ -292,6 +299,7 @@ fun KeyBindingDialog(
                     KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD -> ""
                     KeyBindingDialogStep.SET_TOGGLE_DRIVE_MODE -> stringResource(R.string.switching_desc)
                     KeyBindingDialogStep.SET_CAROUSEL_DRIVE_MODE -> stringResource(R.string.drag_modes_to_switch)
+                    KeyBindingDialogStep.SET_CAROUSEL_AUDIO_SOURCE -> stringResource(R.string.audio_source_carousel_subtitle)
                     KeyBindingDialogStep.SET_CALL_PHONE_NUMBER -> stringResource(R.string.enter_phone_number)
                     KeyBindingDialogStep.SET_CAROUSEL_CAR_LAMP -> stringResource(R.string.drag_modes_to_switch)
                 },
@@ -472,6 +480,10 @@ fun KeyBindingDialog(
                                         step = KeyBindingDialogStep.DRIVE_MODE_WARNING
                                     }
 
+                                    KeyBindingDialogActions.AUDIO_SOURCE_CHOOSE -> {
+                                        step = KeyBindingDialogStep.SET_CAROUSEL_AUDIO_SOURCE
+                                    }
+
                                     KeyBindingDialogActions.PHONE_CALL -> {
                                         step = KeyBindingDialogStep.SET_CALL_PHONE_NUMBER
                                     }
@@ -570,6 +582,8 @@ fun KeyBindingDialog(
 
                                     KeyBindingDialogActions.DRIVE_MODE_CHOOSE -> stringResource(R.string.driving_mode_change)
 
+                                    KeyBindingDialogActions.AUDIO_SOURCE_CHOOSE -> stringResource(R.string.audio_source_change)
+
                                     KeyBindingDialogActions.PHONE_CALL -> stringResource(R.string.call)
 
                                     KeyBindingDialogActions.CAMERAS_360 -> stringResource(R.string.circle_cameras)
@@ -599,6 +613,8 @@ fun KeyBindingDialog(
                                     KeyBindingDialogActions.APP_LAUNCHER -> stringResource(R.string.app_launcher_toggle_desc)
 
                                     KeyBindingDialogActions.DRIVE_MODE_CHOOSE -> stringResource(R.string.driving_mode_switch)
+
+                                    KeyBindingDialogActions.AUDIO_SOURCE_CHOOSE -> stringResource(R.string.audio_source_switching)
 
                                     KeyBindingDialogActions.PHONE_CALL -> stringResource(R.string.call_number_desc)
 
@@ -1149,6 +1165,176 @@ fun KeyBindingDialog(
                 }
             }
 
+            KeyBindingDialogStep.SET_CAROUSEL_AUDIO_SOURCE -> {
+                LaunchedEffect(Unit) {
+                    val srcList = DISPLAY_AUDIO_SOURCES.map {
+                        DraggableAudioSourceItem.Source(
+                            index = 0,
+                            item = it,
+                            showPos = false
+                        )
+                    }
+                    carouselAudioSources = listOf(DraggableAudioSourceItem.Divider) + srcList
+                }
+
+                val lazyListState = rememberLazyListState()
+                val reorderableLazyListState =
+                    rememberReorderableLazyListState(lazyListState) { from, to ->
+                        val fromIdx = from.index
+                        val toIdx = to.index
+
+                        if (fromIdx !in carouselAudioSources.indices || toIdx !in carouselAudioSources.indices || fromIdx == toIdx) {
+                            return@rememberReorderableLazyListState
+                        }
+
+                        carouselAudioSources = carouselAudioSources.toMutableList().apply {
+                            val moved = removeAt(fromIdx)
+                            val insertAt = if (toIdx > fromIdx) toIdx else toIdx
+                            add(insertAt, moved)
+                        }.toList()
+                    }
+
+                var audioDividerIndex by remember { mutableIntStateOf(0) }
+                LaunchedEffect(audioDividerIndex) {
+                    carouselAudioSources = carouselAudioSources.mapIndexed { i, item ->
+                        if (item is DraggableAudioSourceItem.Source) {
+                            if (i < audioDividerIndex) {
+                                item.copy(showPos = true)
+                            } else {
+                                item.copy(showPos = false)
+                            }
+                        } else item
+                    }
+                }
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    state = lazyListState
+                ) {
+                    itemsIndexed(
+                        items = carouselAudioSources,
+                        key = { _, item ->
+                            when (item) {
+                                DraggableAudioSourceItem.Divider -> -1
+                                is DraggableAudioSourceItem.Source -> item.item.key.hashCode()
+                            }
+                        }
+                    ) { index, item ->
+
+                        when (item) {
+                            DraggableAudioSourceItem.Divider -> {
+                                ReorderableItem(
+                                    state = reorderableLazyListState,
+                                    key = -1
+                                ) { _ ->
+                                    LaunchedEffect(index) {
+                                        audioDividerIndex = index
+                                    }
+
+                                    Row(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .background(AppTheme.colors.surfaceMenu),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+
+                                        Spacer(Modifier.width(24.dp))
+
+                                        Icon(
+                                            imageVector = Icons.Filled.KeyboardArrowUp,
+                                            contentDescription = null,
+                                            tint = AppTheme.colors.contentPrimary,
+                                            modifier = Modifier
+                                                .size(26.dp)
+                                                .offset(y = 1.dp)
+                                        )
+
+                                        Spacer(Modifier.width(6.dp))
+
+                                        Text(
+                                            modifier = Modifier
+                                                .padding(end = 24.dp)
+                                                .padding(vertical = 16.dp),
+                                            text = stringResource(
+                                                if (index == 0) {
+                                                    R.string.drag_up
+                                                } else {
+                                                    R.string.active_audio_sources
+                                                }
+                                            ),
+                                            style = AppTheme.typography.sourceType.copy(fontSize = 11.sp),
+                                            overflow = TextOverflow.Ellipsis,
+                                            maxLines = 1,
+                                            color = AppTheme.colors.contentPrimary
+                                        )
+                                    }
+                                }
+                            }
+
+                            is DraggableAudioSourceItem.Source -> ReorderableItem(
+                                state = reorderableLazyListState,
+                                key = item.item.key.hashCode()
+                            ) { _ ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(AppTheme.colors.surfaceBackground)
+                                        .padding(vertical = 12.dp)
+                                        .padding(end = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Spacer(Modifier.width(24.dp))
+
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            text = if (item.showPos) {
+                                                "${(index + 1)}. ${stringResource(item.item.displayTitle)}"
+                                            } else {
+                                                stringResource(item.item.displayTitle)
+                                            },
+                                            style = AppTheme.typography.cardTitle,
+                                            overflow = TextOverflow.Ellipsis,
+                                            maxLines = 1,
+                                            color = AppTheme.colors.contentPrimary
+                                        )
+
+                                        Spacer(Modifier.height(4.dp))
+
+                                        Text(
+                                            text = stringResource(item.item.description),
+                                            style = AppTheme.typography.idTitle,
+                                            color = AppTheme.colors.contentPrimary.copy(.5f)
+                                        )
+                                    }
+
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxHeight()
+                                            .draggableHandle()
+                                            .padding(vertical = 14.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Spacer(Modifier.width(36.dp))
+
+                                        Icon(
+                                            painter = painterResource(R.drawable.ic_drag_handle),
+                                            contentDescription = null,
+                                            tint = AppTheme.colors.contentPrimary.copy(.5f),
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                        )
+
+                                        Spacer(Modifier.width(16.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             KeyBindingDialogStep.SET_CAROUSEL_CAR_LAMP -> {
                 LaunchedEffect(Unit) {
                     val dmList = DISPLAY_LAMP_MODES.map {
@@ -1347,6 +1533,9 @@ fun KeyBindingDialog(
                             KeyBindingDialogStep.SET_CAROUSEL_DRIVE_MODE -> step =
                                 KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD
 
+                            KeyBindingDialogStep.SET_CAROUSEL_AUDIO_SOURCE -> step =
+                                KeyBindingDialogStep.SET_ACTION
+
                             KeyBindingDialogStep.SET_CALL_PHONE_NUMBER -> step =
                                 KeyBindingDialogStep.SET_ACTION
 
@@ -1366,6 +1555,7 @@ fun KeyBindingDialog(
                         KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD -> R.string.back
                         KeyBindingDialogStep.SET_TOGGLE_DRIVE_MODE -> R.string.back
                         KeyBindingDialogStep.SET_CAROUSEL_DRIVE_MODE -> R.string.back
+                        KeyBindingDialogStep.SET_CAROUSEL_AUDIO_SOURCE -> R.string.back
                         KeyBindingDialogStep.SET_CALL_PHONE_NUMBER -> R.string.back
                         KeyBindingDialogStep.SET_CAROUSEL_CAR_LAMP -> R.string.back
                     }
@@ -1384,6 +1574,7 @@ fun KeyBindingDialog(
                         KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD -> false
                         KeyBindingDialogStep.SET_TOGGLE_DRIVE_MODE -> dmToggleSelected != null
                         KeyBindingDialogStep.SET_CAROUSEL_DRIVE_MODE -> carouselDriveModes.indexOfFirst { it is DraggableDMItem.Divider } > 1
+                        KeyBindingDialogStep.SET_CAROUSEL_AUDIO_SOURCE -> carouselAudioSources.indexOfFirst { it is DraggableAudioSourceItem.Divider } > 0
                         KeyBindingDialogStep.SET_CALL_PHONE_NUMBER -> numberValue.text.length > 2
                         KeyBindingDialogStep.SET_CAROUSEL_CAR_LAMP -> carouselLightModes.indexOfFirst { it is DraggableLampItem.Divider } > 0
                     }
@@ -1499,6 +1690,32 @@ fun KeyBindingDialog(
                                     }
                                 }
 
+                                KeyBindingDialogStep.SET_CAROUSEL_AUDIO_SOURCE -> {
+                                    scope.launch(Dispatchers.IO) {
+                                        try {
+                                            val name =
+                                                bind?.bind?.let { keyBindStorage.getBindName(it) }
+                                                    ?: ""
+
+                                            val carousel = carouselAudioSources
+                                                .takeWhile { it !is DraggableAudioSourceItem.Divider }
+                                                .filterIsInstance<DraggableAudioSourceItem.Source>()
+                                                .map { it.item.key }
+
+                                            if (carousel.isNotEmpty()) {
+                                                keyBindStorage.saveBinds(
+                                                    name, KeyBindConfig(
+                                                        action = KeyBindAction.CAROUSEL_AUDIO_SOURCE,
+                                                        value = carousel.joinToString("|")
+                                                    )
+                                                )
+                                            }
+                                            onDismiss()
+                                        } catch (_: Exception) {
+                                        }
+                                    }
+                                }
+
                                 KeyBindingDialogStep.SET_CALL_PHONE_NUMBER -> {
                                     scope.launch(Dispatchers.IO) {
                                         val number = numberValue.text.onlyDigitsAndLeadingPlus()
@@ -1561,6 +1778,7 @@ fun KeyBindingDialog(
                             KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD -> R.string.next
                             KeyBindingDialogStep.SET_TOGGLE_DRIVE_MODE -> android.R.string.ok
                             KeyBindingDialogStep.SET_CAROUSEL_DRIVE_MODE -> android.R.string.ok
+                            KeyBindingDialogStep.SET_CAROUSEL_AUDIO_SOURCE -> android.R.string.ok
                             KeyBindingDialogStep.SET_CALL_PHONE_NUMBER -> android.R.string.ok
                             KeyBindingDialogStep.SET_CAROUSEL_CAR_LAMP -> android.R.string.ok
                         }

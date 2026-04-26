@@ -83,8 +83,6 @@
     <string name="disable_on_climate">Отключать, когда открыт климат</string>
     <string name="disable_on_climate_desc">Автоматически отключать медиауправление, когда на экране появляется системное окно настройки климата</string>
     <string name="configure_media_apps">Настройте медиаприложения</string>
-    <string name="audio_source_control">Управление аудио источниками</string>
-    <string name="audio_source_control_desc">Если активна медиасессия Android, переключает источник аудио головного устройства на ONLINE. Если воспроизводится Bluetooth, радио или CarPlay, отключает действия кнопок, чтобы избежать конфликтов с кнопками воспроизведения</string>
     <string name="hide_media_widget">Скрытие медиавиджета на главном экране</string>
     <string name="hide_media_widget_desc">Скрывает виджет на главном экране, используя возможности системных API. На главном экране появляется возможность свайпа влево для перехода в стандартное меню приложений</string>
     <string name="send_media_session_data">Отправка данных медиасессии</string>
@@ -144,6 +142,21 @@
     <string name="driving_mode_switch">Переключение между выбранными режимами вождения</string>
     <string name="driving_mode_order_desc">Перетащите вверх режимы, между которыми вы хотите переключаться. Порядок также учитывается.</string>
     <string name="confirm_block_button_actions">Вы уверены что хотите заблокировать действия кнопок?</string>
+    <string name="audio_source_change">Смена источника аудио</string>
+    <string name="audio_source_switching">Переключение между выбранными аудиоисточниками</string>
+    <string name="audio_source_switching_list">Переключение аудиоисточников: %s</string>
+
+    <string name="audio_source_bt">Bluetooth</string>
+    <string name="audio_source_bt_desc">Воспроизведение с сопряжённых телефонов и других Bluetooth-устройств</string>
+    <string name="audio_source_radio">Радио</string>
+    <string name="audio_source_radio_desc">Штатное радио головного устройства</string>
+    <string name="audio_source_usb">USB</string>
+    <string name="audio_source_usb_desc">Воспроизведение с подключенного USB-накопителя</string>
+    <string name="audio_source_cpaa">CarPlay</string>
+    <string name="audio_source_cpaa_desc">Подключение iPhone, интерфейс Apple CarPlay на экране мультимедиа</string>
+    <string name="audio_source_online">Медиасессия</string>
+    <string name="audio_source_online_desc">Сторонние и системные медиаплееры Android (медиасессия и аудиофокус)</string>
+    <string name="audio_source_carousel_subtitle">Перетащите вверх те аудиоисточники, которые вы хотите последовательно переключать.</string>
 
     <string name="remember_driving_mode">Восстанавливать режим вождения</string>
     <string name="remember_driving_mode_desc">Последний используемый режим вождения (или тот, который вы выберете) сохраняется и автоматически восстанавливается при следующем запуске автомобиля</string>
@@ -171,6 +184,7 @@
     <string name="driving_mode_switch_error">Ошибка переключения режимов вождения</string>
     <string name="drag_modes_to_switch">Перетащите вверх те режимы которые вы хотите последовательно переключать</string>
     <string name="active_modes">Активные режимы</string>
+    <string name="active_audio_sources">Активные аудиоисточники</string>
     <string name="drag_up">Перетащите выше</string>
     <string name="driving_mode_switching">Переключение режимов вождения: %s</string>
     <string name="export_settings">Экспорт настроек</string>

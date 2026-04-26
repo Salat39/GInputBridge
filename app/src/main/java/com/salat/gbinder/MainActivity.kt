@@ -94,6 +94,7 @@ import com.salat.gbinder.datastore.GeneralPrefs
 import com.salat.gbinder.datastore.KeyBindStorageRepository
 import com.salat.gbinder.datastore.LauncherPrefs
 import com.salat.gbinder.datastore.NoBackupPrefs
+import com.salat.gbinder.entity.DISPLAY_AUDIO_SOURCES
 import com.salat.gbinder.entity.DISPLAY_LAMP_MODES
 import com.salat.gbinder.entity.DeviceLinkInfo
 import com.salat.gbinder.entity.DisplayAdbState
@@ -2363,7 +2364,8 @@ class MainActivity : ComponentActivity() {
                 link = resolveBindLink(action.action, action.value),
                 phone = resolveBindPhone(action.action, action.value),
                 driveModes = resolveBindDriveModes(action.action, action.value),
-                lampModes = resolveBindLampModes(context, action.action, action.value)
+                lampModes = resolveBindLampModes(context, action.action, action.value),
+                audioSources = resolveBindAudioSources(context, action.action, action.value)
             )
         }.filter { it.keyNames.isNotEmpty() }
     }
@@ -2456,6 +2458,23 @@ class MainActivity : ComponentActivity() {
             .joinToString(", ") { names.getOrDefault(it, "") }
     }
 
+    private fun resolveBindAudioSources(
+        context: Context,
+        action: KeyBindAction,
+        value: String
+    ): String? {
+        if (action != KeyBindAction.CAROUSEL_AUDIO_SOURCE) return null
+
+        val keyToLabel = DISPLAY_AUDIO_SOURCES.associate {
+            it.key to context.getString(it.displayTitle)
+        }
+        return value
+            .split("|")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .joinToString(", ") { keyToLabel[it] ?: it }
+    }
+
     private fun KeyBindAction.toDisplayKeyAction() = when (this) {
         KeyBindAction.LAUNCH_APP -> DisplayKeyAction.LAUNCH_APP
         KeyBindAction.LAUNCH_LINK -> DisplayKeyAction.LAUNCH_LINK
@@ -2465,6 +2484,7 @@ class MainActivity : ComponentActivity() {
         KeyBindAction.PHONE_CALL -> DisplayKeyAction.PHONE_CALL
         KeyBindAction.CAMERAS_360 -> DisplayKeyAction.CAMERAS_360
         KeyBindAction.CAROUSEL_LAMP -> DisplayKeyAction.CAROUSEL_LAMP
+        KeyBindAction.CAROUSEL_AUDIO_SOURCE -> DisplayKeyAction.CAROUSEL_AUDIO_SOURCE
         KeyBindAction.TASK_MANAGER -> DisplayKeyAction.TASK_MANAGER
         KeyBindAction.ANDROID_BACK -> DisplayKeyAction.ANDROID_BACK
         KeyBindAction.ANDROID_HOME -> DisplayKeyAction.ANDROID_HOME

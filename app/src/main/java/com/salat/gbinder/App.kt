@@ -1,3 +1,5 @@
+@file:Suppress("UNNECESSARY_SAFE_CALL")
+
 package com.salat.gbinder
 
 import android.app.Activity
@@ -80,15 +82,20 @@ import com.salat.gbinder.util.SystemAppsLightRepository
 import com.salat.gbinder.util.activeMediaControllerFlow
 import com.salat.gbinder.util.activeMediaSessionControllerFlow
 import com.salat.gbinder.util.driveModeNotifStore
+import com.salat.gbinder.util.getAudioSourceDisplayLabel
 import com.salat.gbinder.util.getDriveModeName
 import com.salat.gbinder.util.hasElapsedSinceBoot
+import com.salat.gbinder.util.isCarouselNoOpReSelect
 import com.salat.gbinder.util.isMediaPlayingFlow
+import com.salat.gbinder.util.nextCarouselAudioSource
 import com.salat.gbinder.util.openApp
+import com.salat.gbinder.util.requestCarouselAudioSourceForTarget
 import com.salat.gbinder.util.sendMediaActionToApp
 import com.salat.gbinder.util.sendMurglarAutoPlayCompat
 import com.salat.gbinder.util.sendVkxAutoPlayCompat
 import com.salat.gbinder.util.sendYmAutoPlayCompat
 import com.salat.gbinder.util.softOpenApp
+import com.salat.gbinder.util.waitForCarouselAudioSourceToSettle
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -253,6 +260,7 @@ class App : Application(), ImageLoaderFactory {
 
     // Single mutex for this preference key
     private val toggleDriveModeTaskMutex = Mutex()
+    private val carouselAudioSourceMutex = Mutex()
 
     // Notify by drive mode changed
     private var canNotify = false
@@ -297,6 +305,7 @@ class App : Application(), ImageLoaderFactory {
     private var lastExternalPlayingState: Boolean = false
     private var lastOnlineSwitchAttemptAt: Long = 0L
     private var lastPlaybackMetadata: PlaybackMetadata? = null
+    private var lastKnownStableAudioSource: MediaCenterConstant.AudioSource? = null
 
     private var adbIsEnabled = false
     private var currentVisibleApp = ""
@@ -1468,6 +1477,7 @@ class App : Application(), ImageLoaderFactory {
                 OneOSApiManager.getInstance(this@App).mediaCenterManager
             mSourceStateListener =
                 SourceStateListener { source, _ ->
+                    lastKnownStableAudioSource = source
                     val sourceKey = source.asString()
                     sendAudioSourceChanged(sourceKey)
                     debugLog("AUDIO SOURCE CHANGED: $sourceKey")
@@ -1494,6 +1504,7 @@ class App : Application(), ImageLoaderFactory {
         // Send current source after init
         try {
             mMediaCenterManager?.currentAudioSource?.let { source ->
+                lastKnownStableAudioSource = source
                 val sourceKey = source.asString()
                 sendAudioSourceChanged(sourceKey)
                 // debugLog("AUDIO SOURCE CHANGED: $sourceKey")
@@ -1515,6 +1526,7 @@ class App : Application(), ImageLoaderFactory {
             }
             mMediaCenterManager = null
             mSourceStateListener = null
+            lastKnownStableAudioSource = null
             karaokeFocusBoot = false
             karaokeRetryJob?.cancel()
             karaokeRetryJob = null
@@ -2021,6 +2033,8 @@ class App : Application(), ImageLoaderFactory {
 
                 KeyBindAction.CAROUSEL_LAMP -> bind.carouselLampMode()
 
+                KeyBindAction.CAROUSEL_AUDIO_SOURCE -> bind.carouselAudioSource()
+
                 KeyBindAction.APP_LAUNCHER -> toggleLauncher()
 
                 KeyBindAction.TASK_MANAGER -> callTaskManager()
@@ -2211,6 +2225,167 @@ class App : Application(), ImageLoaderFactory {
                 debugLog("[LAMP MODE] toggle to ${lm.displayName}")
             }
         }.onFailure { Timber.e(it) }
+    }
+
+    private fun KeyBindConfig.carouselAudioSource() = appScope.launch(Dispatchers.IO) {
+        runCatching {
+            carouselAudioSourceMutex.withLock {
+                val manager = mMediaCenterManager?.takeIf { it.isAlive }
+                if (manager == null) {
+                    inMainToast(getString(R.string.error))
+                    return@withLock
+                }
+                val sources = value
+                    .split('|')
+                    .map { it.trim() }
+                    .mapNotNull { it.asAudioSource() }
+                if (sources.isEmpty()) return@withLock
+                val current = manager.currentAudioSource ?: return@withLock
+                val last = lastKnownStableAudioSource
+                val target = nextCarouselAudioSource(sources, current, last)
+                if (isCarouselNoOpReSelect(sources, current, target, last)) {
+                    debugDeepLog("[KEY_BIND] carousel audio: already on (no-op) $target from $current")
+                    return@withLock
+                }
+                inMainToast(this@App.getAudioSourceDisplayLabel(target))
+
+                runCatching { carouselPauseOldSourceBeforeSwitch(current) }
+                    .onFailure { Timber.e(it) }
+                runCatching { requestCarouselAudioSourceForTarget(manager, target) }
+                    .onFailure { Timber.e(it) }
+                val settled = waitForCarouselAudioSourceToSettle(manager, target)
+                runCatching { carouselPlayNewSourceAfterSwitch(target, settled) }
+                    .onFailure { Timber.e(it) }
+                debugDeepLog("[KEY_BIND] carousel audio: $current -> $target (settled=$settled)")
+            }
+        }.onFailure { Timber.e(it) }
+    }
+
+    private fun carouselPauseOldSourceBeforeSwitch(oldSource: MediaCenterConstant.AudioSource) {
+        when (oldSource) {
+            MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO -> {
+                mMediaCenterManager?.radioManager?.pause()
+                debugDeepLog("[KEY_BIND] carousel audio: pause old RADIO (radioManager)")
+                return
+            }
+
+            MediaCenterConstant.AudioSource.AUDIO_SOURCE_BT,
+            MediaCenterConstant.AudioSource.AUDIO_SOURCE_USB -> {
+                runCatching { mMediaCenterManager?.musicAdapterManager?.pause() == 1 }.onFailure { Timber.e(it) }
+                debugDeepLog("[KEY_BIND] carousel audio: pause old BT/USB (musicAdapterManager)")
+                return
+            }
+
+            else -> Unit
+        }
+        val controller = resolvePreferredControllerForPlayPause()
+            ?: globalMediaControllers?.find { isAllowedMediaSessionPackage(it.packageName) }
+        if (controller?.playbackState?.state == PlaybackState.STATE_PLAYING) {
+            controller.transportControls?.pause()
+            debugDeepLog("[KEY_BIND] carousel audio: pause old MediaSession ${controller.packageName}")
+        } else {
+            debugDeepLog("[KEY_BIND] carousel audio: pause old: session idle or no controller, $oldSource")
+        }
+    }
+
+    private suspend fun carouselPlayNewSourceAfterSwitch(
+        target: MediaCenterConstant.AudioSource,
+        sourceSettled: Boolean
+    ) {
+        if (target == MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO) {
+            runCatching {
+                mMediaCenterManager?.radioManager?.requestAudioSource()
+                mMediaCenterManager?.radioManager?.play()
+            }.onFailure { Timber.e(it) }
+            debugDeepLog("[KEY_BIND] carousel audio: play RADIO (radioManager)")
+            return
+        }
+
+        if (target == MediaCenterConstant.AudioSource.AUDIO_SOURCE_BT ||
+            target == MediaCenterConstant.AudioSource.AUDIO_SOURCE_USB
+        ) {
+            val mediaCenter = mMediaCenterManager?.takeIf { it.isAlive } ?: return
+            if (!sourceSettled && mediaCenter.currentAudioSource != target) {
+                debugDeepLog("[KEY_BIND] carousel audio: skip BT/USB play, source=${mediaCenter.currentAudioSource} target=$target")
+                return
+            }
+            runCatching { mediaCenter.musicAdapterManager?.play() == 1 }.onFailure { Timber.e(it) }
+            debugDeepLog("[KEY_BIND] carousel audio: play new BT/USB (musicAdapterManager)")
+            return
+        }
+
+        val mediaCenter = mMediaCenterManager?.takeIf { it.isAlive } ?: return
+        if (!sourceSettled && mediaCenter.currentAudioSource != target) {
+            debugDeepLog("[KEY_BIND] carousel audio: skip streaming play, source=${mediaCenter.currentAudioSource} target=$target")
+            return
+        }
+        if (defaultMediaApps.isNotEmpty()) {
+            val findDefaultController = globalMediaControllers?.find { it.packageName == defaultMediaApps }
+            if (findDefaultController != null) {
+                if (findDefaultController.playbackState?.state == PlaybackState.STATE_PLAYING) {
+                    debugDeepLog("[KEY_BIND] carousel: default app session already playing, no-op play")
+                } else {
+                    if (isLegacySourceManagement()) resetIfOtherAudioSource()
+                    findDefaultController.transportControls?.play()
+                }
+                currentMediaAppPackage = defaultMediaApps
+                return
+            }
+        }
+
+        val activeController = resolvePreferredControllerForPlayPause()
+        if (activeController != null) {
+            if (isLegacySourceManagement()) resetIfOtherAudioSource()
+            debugDeepLog("[KEY_BIND] carousel: play via ${activeController.packageName} (resolvePreferred)")
+            activeController.transportControls?.play()
+            currentMediaAppPackage = activeController.packageName ?: ""
+            return
+        }
+
+        if (currentMediaAppPackage.isEmpty()) {
+            val findController = globalMediaControllers?.find { it.packageName in controlMediaApps }
+            if (findController != null) {
+                if (isLegacySourceManagement()) resetIfOtherAudioSource()
+                debugDeepLog("[KEY_BIND] carousel: play via control app ${findController.packageName}")
+                findController.transportControls?.play()
+                currentMediaAppPackage = findController.packageName
+                return
+            }
+        } else {
+            val byCurrent = globalMediaControllers?.find { it.packageName == currentMediaAppPackage }
+            if (byCurrent != null) {
+                if (isLegacySourceManagement()) resetIfOtherAudioSource()
+                byCurrent.transportControls?.play()
+                return
+            }
+            sendMediaActionToApp(currentMediaAppPackage, AppMediaAction.TOGGLE)
+            return
+        }
+
+        if (defaultMediaApps.isNotEmpty()) {
+            if (isLegacySourceManagement()) resetIfOtherAudioSource()
+            debugDeepLog("[KEY_BIND] carousel: open default and play $defaultMediaApps")
+            if (defaultMediaApps == YAM_PACKAGE) {
+                sendYmAutoPlayCompat()
+            } else if (defaultMediaApps == HAV_YM_PACKAGE) {
+                openApp(HAV_YM_UMA_PACKAGE)
+            } else {
+                openApp(defaultMediaApps)
+                delay(OPEN_APP_TO_SEND_PLAY_PAUSE)
+                sendMediaActionToApp(defaultMediaApps, AppMediaAction.PLAY)
+                if (defaultMediaApps == MURGLAR_PACKAGE) {
+                    delay(PLAYER_COMPAT_ACTION_DELAY)
+                    sendMurglarAutoPlayCompat()
+                }
+                if (defaultMediaApps == VKX_PACKAGE) {
+                    delay(PLAYER_COMPAT_ACTION_DELAY)
+                    sendVkxAutoPlayCompat()
+                }
+            }
+            currentMediaAppPackage = defaultMediaApps
+        } else {
+            debugDeepLog("[KEY_BIND] carousel: no default player to start")
+        }
     }
 
     private fun callTaskManager() = appScope.launch(Dispatchers.Main) {

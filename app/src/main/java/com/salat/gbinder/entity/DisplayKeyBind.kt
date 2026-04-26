@@ -12,5 +12,6 @@ data class DisplayKeyBind(
     val link: DeviceLinkInfo?,
     val phone: String?,
     val driveModes: String?,
-    val lampModes: String?
+    val lampModes: String?,
+    val audioSources: String?
 )

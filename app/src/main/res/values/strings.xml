@@ -91,8 +91,6 @@
     <string name="disable_on_climate">Disable when climate is open</string>
     <string name="disable_on_climate_desc">Automatically disable media control when the system climate settings window appears on the screen.</string>
     <string name="configure_media_apps">Configure media apps</string>
-    <string name="audio_source_control">Audio source control</string>
-    <string name="audio_source_control_desc">If a media session is playing, switches the head unit\'s audio source to ONLINE. If BT|Radio|Carplay is playing, disables button actions to prevent playback button conflicts</string>
     <string name="hide_media_widget">Hide media widget on home screen</string>
     <string name="hide_media_widget_desc">Hides the widget on the home screen using system API capabilities. Allows swiping left on the home screen to access the standard app menu</string>
     <string name="send_media_session_data">Send media session data</string>
@@ -152,6 +150,21 @@
     <string name="driving_mode_switch">Switch between selected driving modes</string>
     <string name="driving_mode_order_desc">Drag up the modes you want to switch between. The order is also taken into account.</string>
     <string name="confirm_block_button_actions">Are you sure you want to block button actions?</string>
+    <string name="audio_source_change">Audio source change</string>
+    <string name="audio_source_switching">Switching between selected audio sources</string>
+    <string name="audio_source_switching_list">Switching between audio: %s</string>
+
+    <string name="audio_source_bt">Bluetooth</string>
+    <string name="audio_source_bt_desc">Playback from paired phones and other Bluetooth devices</string>
+    <string name="audio_source_radio">Radio</string>
+    <string name="audio_source_radio_desc">The vehicle\'s built-in tuner</string>
+    <string name="audio_source_usb">USB</string>
+    <string name="audio_source_usb_desc">Playback from a USB drive</string>
+    <string name="audio_source_cpaa">CarPlay</string>
+    <string name="audio_source_cpaa_desc">iPhone link; Apple CarPlay interface on the head unit</string>
+    <string name="audio_source_online">Media session</string>
+    <string name="audio_source_online_desc">Other Android and system music players (media session and audio focus)</string>
+    <string name="audio_source_carousel_subtitle">Drag up the audio sources you want to switch between in order.</string>
 
     <string name="remember_driving_mode">Remember driving mode</string>
     <string name="remember_driving_mode_desc">The last used driving mode will be restored after a system restart</string>
@@ -179,6 +192,7 @@
     <string name="driving_mode_switch_error">Driving mode switch error</string>
     <string name="drag_modes_to_switch">Drag up the modes you want to switch sequentially</string>
     <string name="active_modes">Active modes</string>
+    <string name="active_audio_sources">Active audio sources</string>
     <string name="drag_up">Drag up</string>
     <string name="driving_mode_switching">Switching driving modes: %s</string>
     <string name="export_settings">Export settings</string>
