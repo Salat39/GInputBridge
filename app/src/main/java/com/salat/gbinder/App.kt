@@ -1501,7 +1501,7 @@ class App : Application(), ImageLoaderFactory {
             if (isOnlineBootSwitch()) {
                 val sourceBeforeSwitch = mMediaCenterManager?.currentAudioSource
                 resetIfOtherAudioSource()
-                if (sourceBeforeSwitch in BT_RADIO_SOURCES) {
+                if (radioBtControl && sourceBeforeSwitch in BT_RADIO_SOURCES) {
                     applyKaraokeFocusOnBootIfNeeded()
                     kickKaraokeRetry()
                 }
