@@ -818,10 +818,6 @@ class App : Application(), ImageLoaderFactory {
                 if (previous == true && !newValue) {
                     sendKaraokeFocus(false)
                     karaokeFocusBoot = false
-                    if (!sourceManagement) {
-                        sourceManagement = true
-                        dataStore.saveValue(GeneralPrefs.LEGACY_SOURCE_MANAGEMENT, true)
-                    }
                 }
                 lastRadioBtControlState = newValue
             }
