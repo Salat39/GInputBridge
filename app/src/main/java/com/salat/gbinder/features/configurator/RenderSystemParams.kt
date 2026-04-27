@@ -179,6 +179,7 @@ private fun RenderBindCustomSection(
         title = stringResource(R.string.assign_action_star),
         subtitle = stringResource(R.string.free_button_action_custom)
     ) {
+        viewModel.atlasWheelSettings()
         showBindCustom = true
     }
 }

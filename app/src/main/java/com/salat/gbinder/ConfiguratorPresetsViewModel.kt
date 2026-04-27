@@ -51,10 +51,13 @@ class ConfiguratorPresetsViewModel @Inject constructor(
         }
     }
 
-    fun setFuncCustomKey(key: Int) = viewModelScope.launch(Dispatchers.IO) {
+    fun atlasWheelSettings() = viewModelScope.launch(Dispatchers.IO) {
         if (shouldRunAtlasAdbStep()) {
             adbRepository.execute("""settings put system wheel_settings "1"""")
         }
+    }
+
+    fun setFuncCustomKey(key: Int) = viewModelScope.launch(Dispatchers.IO) {
         stateKeeper.setFunCustomKey(key)
     }
 
