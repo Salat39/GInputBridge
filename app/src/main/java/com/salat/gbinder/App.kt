@@ -304,6 +304,7 @@ class App : Application(), ImageLoaderFactory {
     private var lastExternalPlayingState: Boolean = false
     private var lastOnlineSwitchAttemptAt: Long = 0L
     private var lastPlaybackMetadata: PlaybackMetadata? = null
+    private var lastRadioBtControlState: Boolean? = null
     private var lastKnownStableAudioSource: MediaCenterConstant.AudioSource? = null
 
     private var adbIsEnabled = false
@@ -811,7 +812,18 @@ class App : Application(), ImageLoaderFactory {
         }
         launch {
             dataStore.getValueFlow(GeneralPrefs.RADIO_BT_CONTROL).collect {
-                radioBtControl = it ?: true
+                val newValue = it ?: true
+                val previous = lastRadioBtControlState
+                radioBtControl = newValue
+                if (previous == true && !newValue) {
+                    sendKaraokeFocus(false)
+                    karaokeFocusBoot = false
+                    if (!sourceManagement) {
+                        sourceManagement = true
+                        dataStore.saveValue(GeneralPrefs.LEGACY_SOURCE_MANAGEMENT, true)
+                    }
+                }
+                lastRadioBtControlState = newValue
             }
         }
         launch {
@@ -2755,22 +2767,26 @@ class App : Application(), ImageLoaderFactory {
 
         val manager = mMediaCenterManager?.takeIf { it.isAlive } ?: return
         runCatching {
-            sendBroadcast(
-                Intent(KARAOKE_FOCUS_ACTION).apply {
-                    `package` = "com.geely.mediacenterservice"
-                    component = ComponentName(
-                        "com.geely.mediacenterservice",
-                        "com.geely.mediacenterservice.keyinput.KaraokeAppFocusReceiver"
-                    )
-                    putExtra(KARAOKE_FOCUS_EXTRA, true)
-                }
-            )
+            sendKaraokeFocus(true)
             karaokeFocusBoot = true
             debugDeepLog("[MediaCenterManager] karaoke focus enabled, source=${manager.currentAudioSource}")
         }.onFailure {
             Timber.e(it)
             debugDeepLog("[MediaCenterManager] karaoke focus failed")
         }
+    }
+
+    private fun sendKaraokeFocus(enabled: Boolean) {
+        sendBroadcast(
+            Intent(KARAOKE_FOCUS_ACTION).apply {
+                `package` = "com.geely.mediacenterservice"
+                component = ComponentName(
+                    "com.geely.mediacenterservice",
+                    "com.geely.mediacenterservice.keyinput.KaraokeAppFocusReceiver"
+                )
+                putExtra(KARAOKE_FOCUS_EXTRA, enabled)
+            }
+        )
     }
 
     private fun kickKaraokeRetry() {
