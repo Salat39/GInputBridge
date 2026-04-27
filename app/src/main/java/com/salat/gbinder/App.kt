@@ -85,7 +85,6 @@ import com.salat.gbinder.util.driveModeNotifStore
 import com.salat.gbinder.util.getAudioSourceDisplayLabel
 import com.salat.gbinder.util.getDriveModeName
 import com.salat.gbinder.util.hasElapsedSinceBoot
-import com.salat.gbinder.util.isCarouselNoOpReSelect
 import com.salat.gbinder.util.isMediaPlayingFlow
 import com.salat.gbinder.util.nextCarouselAudioSource
 import com.salat.gbinder.util.openApp
@@ -2239,12 +2238,12 @@ class App : Application(), ImageLoaderFactory {
                     .split('|')
                     .map { it.trim() }
                     .mapNotNull { it.asAudioSource() }
+                    .distinct()
                 if (sources.isEmpty()) return@withLock
                 val current = manager.currentAudioSource ?: return@withLock
-                val last = lastKnownStableAudioSource
-                val target = nextCarouselAudioSource(sources, current, last)
-                if (isCarouselNoOpReSelect(sources, current, target, last)) {
-                    debugDeepLog("[KEY_BIND] carousel audio: already on (no-op) $target from $current")
+                val target = nextCarouselAudioSource(sources, current)
+                if (target == current) {
+                    debugDeepLog("[KEY_BIND] carousel audio: already on $target")
                     return@withLock
                 }
                 inMainToast(this@App.getAudioSourceDisplayLabel(target))
@@ -2319,6 +2318,35 @@ class App : Application(), ImageLoaderFactory {
             debugDeepLog("[KEY_BIND] carousel audio: skip streaming play, source=${mediaCenter.currentAudioSource} target=$target")
             return
         }
+
+        val activeController = resolvePreferredControllerForPlayPause()
+            ?.takeIf { it.packageName in controlMediaApps }
+        if (activeController != null) {
+            if (isLegacySourceManagement()) resetIfOtherAudioSource()
+            debugDeepLog("[KEY_BIND] carousel: play via ${activeController.packageName} (resolvePreferred)")
+            activeController.transportControls?.play()
+            currentMediaAppPackage = activeController.packageName ?: ""
+            return
+        }
+
+        if (currentMediaAppPackage.isNotEmpty() && currentMediaAppPackage in controlMediaApps) {
+            val byCurrent = globalMediaControllers?.find { it.packageName == currentMediaAppPackage }
+            if (byCurrent != null) {
+                if (isLegacySourceManagement()) resetIfOtherAudioSource()
+                byCurrent.transportControls?.play()
+                return
+            }
+        }
+
+        val findController = globalMediaControllers?.find { it.packageName in controlMediaApps }
+        if (findController != null) {
+            if (isLegacySourceManagement()) resetIfOtherAudioSource()
+            debugDeepLog("[KEY_BIND] carousel: play via control app ${findController.packageName}")
+            findController.transportControls?.play()
+            currentMediaAppPackage = findController.packageName
+            return
+        }
+
         if (defaultMediaApps.isNotEmpty()) {
             val findDefaultController = globalMediaControllers?.find { it.packageName == defaultMediaApps }
             if (findDefaultController != null) {
@@ -2331,38 +2359,6 @@ class App : Application(), ImageLoaderFactory {
                 currentMediaAppPackage = defaultMediaApps
                 return
             }
-        }
-
-        val activeController = resolvePreferredControllerForPlayPause()
-        if (activeController != null) {
-            if (isLegacySourceManagement()) resetIfOtherAudioSource()
-            debugDeepLog("[KEY_BIND] carousel: play via ${activeController.packageName} (resolvePreferred)")
-            activeController.transportControls?.play()
-            currentMediaAppPackage = activeController.packageName ?: ""
-            return
-        }
-
-        if (currentMediaAppPackage.isEmpty()) {
-            val findController = globalMediaControllers?.find { it.packageName in controlMediaApps }
-            if (findController != null) {
-                if (isLegacySourceManagement()) resetIfOtherAudioSource()
-                debugDeepLog("[KEY_BIND] carousel: play via control app ${findController.packageName}")
-                findController.transportControls?.play()
-                currentMediaAppPackage = findController.packageName
-                return
-            }
-        } else {
-            val byCurrent = globalMediaControllers?.find { it.packageName == currentMediaAppPackage }
-            if (byCurrent != null) {
-                if (isLegacySourceManagement()) resetIfOtherAudioSource()
-                byCurrent.transportControls?.play()
-                return
-            }
-            sendMediaActionToApp(currentMediaAppPackage, AppMediaAction.TOGGLE)
-            return
-        }
-
-        if (defaultMediaApps.isNotEmpty()) {
             if (isLegacySourceManagement()) resetIfOtherAudioSource()
             debugDeepLog("[KEY_BIND] carousel: open default and play $defaultMediaApps")
             if (defaultMediaApps == YAM_PACKAGE) {
