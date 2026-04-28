@@ -305,6 +305,7 @@ class App : Application(), ImageLoaderFactory {
     private var lastOnlineSwitchAttemptAt: Long = 0L
     private var lastPlaybackMetadata: PlaybackMetadata? = null
     private var lastRadioBtControlState: Boolean? = null
+    private var lastCarplayState: Boolean? = null
     private var lastKnownStableAudioSource: MediaCenterConstant.AudioSource? = null
 
     private var adbIsEnabled = false
@@ -2496,6 +2497,13 @@ class App : Application(), ImageLoaderFactory {
 
     private suspend fun customMediaControlAction(keyCode: Int, func: Int) {
         if (radioBtControl && handleBtRadioByMediaCenter(keyCode, func)) return
+        val isCarplay = shouldLegacyCarplay()
+        val wasCarplay = lastCarplayState
+        lastCarplayState = isCarplay
+        if (wasCarplay == true && !isCarplay) {
+            currentMediaAppPackage = ""
+        }
+        if (isCarplay) return
 
         when (keyCode) {
             KeyCode.KEYCODE_R_MEDIA_PREVIOUS -> try {
@@ -2680,6 +2688,11 @@ class App : Application(), ImageLoaderFactory {
 
             else -> Unit
         }
+    }
+
+    private fun shouldLegacyCarplay(): Boolean {
+        val source = mMediaCenterManager?.takeIf { it.isAlive }?.currentAudioSource ?: return false
+        return source == MediaCenterConstant.AudioSource.AUDIO_SOURCE_CPAA
     }
 
     private suspend fun handleBtRadioByMediaCenter(keyCode: Int, func: Int): Boolean {
