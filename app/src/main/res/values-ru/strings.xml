@@ -424,9 +424,9 @@
     <string name="return_to_previous_app">Возврат в прошлое приложение</string>
     <string name="return_to_previous_app_desc">Разворачивает предыдущее открытое приложение</string>
     <string name="media_control_mode_full_title">Полное</string>
-    <string name="media_control_mode_full_subtitle">Управляет всеми источниками: Android, радио и Bluetooth. Всё через приложение</string>
+    <string name="media_control_mode_full_subtitle">Управляет всеми источниками: Android, Радио/USB/Bluetooth. Всё через приложение</string>
     <string name="media_control_mode_session_title">Медиасессия</string>
-    <string name="media_control_mode_session_subtitle">Управляет только активной Android-медиасессией. Радио и Bluetooth управляет прошивка</string>
+    <string name="media_control_mode_session_subtitle">Управляет только активной Android-медиасессией. Радио/USB/Bluetooth управляет прошивка</string>
 
     <string name="api_text_launcher"><![CDATA[<strong>Управление лаунчером</strong>
 <br>

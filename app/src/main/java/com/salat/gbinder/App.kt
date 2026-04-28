@@ -815,7 +815,11 @@ class App : Application(), ImageLoaderFactory {
                 val newValue = it ?: true
                 val previous = lastRadioBtControlState
                 radioBtControl = newValue
-                if (previous == true && !newValue) {
+                if (previous == false && newValue) {
+                    karaokeFocusBoot = false
+                    runCatching { sendKaraokeFocus(true) }.onFailure { Timber.e(it) }
+                    karaokeRetry()
+                } else if (previous == true && !newValue) {
                     sendKaraokeFocus(false)
                     karaokeFocusBoot = false
                 }
@@ -1042,6 +1046,11 @@ class App : Application(), ImageLoaderFactory {
 
             inputSource?.let { source ->
                 try {
+                    if (radioBtControl && source in BT_RADIO_SOURCES && !karaokeFocusBoot) {
+                        mMediaCenterManager?.takeIf { it.isAlive } ?: return@let
+                        sendKaraokeFocus(true)
+                        karaokeFocusBoot = true
+                    }
                     if (inputAppSource == null) {
                         mMediaCenterManager?.requestAudioSource(source)
                     } else {
@@ -1499,7 +1508,7 @@ class App : Application(), ImageLoaderFactory {
                 resetIfOtherAudioSource()
                 if (radioBtControl && sourceBeforeSwitch in BT_RADIO_SOURCES) {
                     applyKaraokeFocusOnBootIfNeeded()
-                    kickKaraokeRetry()
+                    karaokeRetry()
                 }
             }
             debugDeepLog("[MediaCenterManager] ready")
@@ -2785,7 +2794,7 @@ class App : Application(), ImageLoaderFactory {
         )
     }
 
-    private fun kickKaraokeRetry() {
+    private fun karaokeRetry() {
         if (karaokeFocusBoot) return
         if (karaokeRetryJob?.isActive == true) return
 
