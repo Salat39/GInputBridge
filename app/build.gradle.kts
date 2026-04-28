@@ -19,7 +19,7 @@ android {
 //        applicationId = "com.ecarx.hardkeytest"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1440
+        versionCode = 1400
         versionName = "4.0"
 
         setProperty("archivesBaseName", "$versionName[$versionCode]GInputBridge")
@@ -181,6 +181,7 @@ afterEvaluate {
 // Create release BP and assemble release
 // -----------------------------------------------------
 
+// Step 1: Create release profiles
 tasks.register("prepareRelease") {
     dependsOn(":app:generateProdReleaseBaselineProfile")
     finalizedBy("assembleReleaseBuild")
