@@ -153,6 +153,9 @@ class App : Application(), ImageLoaderFactory {
             MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO,
             MediaCenterConstant.AudioSource.AUDIO_SOURCE_USB
         )
+        private val ONLINE_SWITCH_SOURCES = BT_RADIO_SOURCES + setOf(
+            MediaCenterConstant.AudioSource.AUDIO_SOURCE_CPAA
+        )
 
         private const val RESTORE_DRIVE_MODE_TIMEOUT = 9_000L
 
@@ -2495,8 +2498,8 @@ class App : Application(), ImageLoaderFactory {
     }
 
     private suspend fun customMediaControlAction(keyCode: Int, func: Int) {
-        if (radioBtControl && handleBtRadioByMediaCenter(keyCode, func)) return
         if (shouldLegacyCarplay()) return
+        if (radioBtControl && handleBtRadioByMediaCenter(keyCode, func)) return
 
         when (keyCode) {
             KeyCode.KEYCODE_R_MEDIA_PREVIOUS -> try {
@@ -3124,7 +3127,7 @@ class App : Application(), ImageLoaderFactory {
         val activePkg = globalActiveMediaController?.packageName.orEmpty()
         if (activePkg in NATIVE_SOURCE_SESSION_PACKAGES) return false
         val currentSource = mMediaCenterManager?.currentAudioSource ?: return false
-        if (currentSource !in BT_RADIO_SOURCES) return false
+        if (currentSource !in ONLINE_SWITCH_SOURCES) return false
 
         val now = System.currentTimeMillis()
         if (now - lastOnlineSwitchAttemptAt < ONLINE_SWITCH_RETRY_INTERVAL_MS) return false
@@ -3143,7 +3146,7 @@ class App : Application(), ImageLoaderFactory {
         if (!isPlaying) return
 
         val currentSource = mMediaCenterManager?.currentAudioSource ?: return
-        if (currentSource !in BT_RADIO_SOURCES) return
+        if (currentSource !in ONLINE_SWITCH_SOURCES) return
 
         val now = System.currentTimeMillis()
         if (now - lastOnlineSwitchAttemptAt < ONLINE_SWITCH_RETRY_INTERVAL_MS) return
