@@ -202,245 +202,220 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun RenderScreen() {
-        var uiScale by remember {
-            mutableFloatStateOf(stateKeeper.uiScales.value?.first ?: DEFAULT_UI_SCALE)
-        }
-        val context = LocalContext.current
-        val density = LocalDensity.current
-        val scaledDensity = remember(density, uiScale) {
-            Density(
-                density.density * uiScale,
-                density.fontScale * uiScale
-            )
-        }
-
-        LaunchedEffect(Unit) {
-            stateKeeper.uiScales.collect { updatedUiScale ->
-                uiScale = updatedUiScale?.first ?: DEFAULT_UI_SCALE
+            var uiScale by remember {
+                mutableFloatStateOf(stateKeeper.uiScales.value?.first ?: DEFAULT_UI_SCALE)
             }
-        }
-
-        AppTheme(
-            darkTheme = true
-        ) {
-            val scope = rememberCoroutineScope()
-
-            val canAccessibility = if (!BuildConfig.DEBUG) {
-                viewModel.canAccessibility.collectAsStateWithLifecycle()
-            } else {
-                remember { mutableStateOf(true) }
+            val context = LocalContext.current
+            val density = LocalDensity.current
+            val scaledDensity = remember(density, uiScale) {
+                Density(
+                    density.density * uiScale,
+                    density.fontScale * uiScale
+                )
             }
-            val bindsImport by viewModel.bindsImport.collectAsStateWithLifecycle()
-            val appUpdateInfo by viewModel.appUpdateInfo.collectAsStateWithLifecycle()
-            val updateDownloadState by viewModel.updateDownloadState.collectAsStateWithLifecycle()
 
-            var showConfigurator by rememberSaveable { mutableStateOf(Pair(false, false)) }
+            LaunchedEffect(Unit) {
+                stateKeeper.uiScales.collect { updatedUiScale ->
+                    uiScale = updatedUiScale?.first ?: DEFAULT_UI_SCALE
+                }
+            }
+
+            AppTheme(
+                darkTheme = true
+            ) {
+                val scope = rememberCoroutineScope()
+
+                val canAccessibility = if (!BuildConfig.DEBUG) {
+                    viewModel.canAccessibility.collectAsStateWithLifecycle()
+                } else {
+                    remember { mutableStateOf(true) }
+                }
+                val bindsImport by viewModel.bindsImport.collectAsStateWithLifecycle()
+                val appUpdateInfo by viewModel.appUpdateInfo.collectAsStateWithLifecycle()
+                val updateDownloadState by viewModel.updateDownloadState.collectAsStateWithLifecycle()
+
+                var showConfigurator by rememberSaveable { mutableStateOf(Pair(false, false)) }
             var showSystemParams by remember { mutableStateOf(false) }
 
             var mainScreenState by rememberSaveable(
                 stateSaver = MainScreenState.saver
             ) { mutableStateOf(MainScreenState.Default) }
-            var keyBinds by remember { mutableStateOf<List<DisplayKeyBind>?>(null) }
+                var keyBinds by remember { mutableStateOf<List<DisplayKeyBind>?>(null) }
 
-            var adbConnectionState by remember {
-                mutableStateOf<DisplayAdbState>(
-                    DisplayAdbState.Disconnected
-                )
-            }
-            var readyUi by remember { mutableStateOf(false) }
+                var adbConnectionState by remember {
+                    mutableStateOf<DisplayAdbState>(
+                        DisplayAdbState.Disconnected
+                    )
+                }
+                var readyUi by remember { mutableStateOf(false) }
 
-            LaunchedEffect(Unit) {
-                launch {
-                    adb.connectionState.collect { state ->
-                        adbConnectionState = state.toDisplayAdbState()
+                LaunchedEffect(Unit) {
+                    launch {
+                        adb.connectionState.collect { state ->
+                            adbConnectionState = state.toDisplayAdbState()
+                        }
                     }
                 }
-            }
-            LaunchedEffect(Unit) {
-                launch {
-                    dataStore.valuesFlowWithDefaults(
-                        MainScreenSettingsRow.keys,
-                        MainScreenSettingsRow.defaults
-                    ).collect { row ->
+                LaunchedEffect(Unit) {
+                    launch {
+                        dataStore.valuesFlowWithDefaults(
+                            MainScreenSettingsRow.keys,
+                            MainScreenSettingsRow.defaults
+                        ).collect { row ->
                         mainScreenState = mainScreenState.updateFrom(row)
+                        }
                     }
-                }
-                launch {
-                    dataStore.getValueFlow(GeneralPrefs.KEY_BINDS).collect { json ->
-                        json?.let {
+                    launch {
+                        dataStore.getValueFlow(GeneralPrefs.KEY_BINDS).collect { json ->
+                            json?.let {
                             keyBinds = withContext(Dispatchers.IO) {
                                 buildDisplayKeyBinds(it, context)
                             }
                         }
+                        }
+                    }
+                    readyUi = true
+                }
+
+                LaunchedEffect(updateDownloadState) {
+                    runCatching {
+                        if (updateDownloadState is UiDownloadState.Error) {
+                            context.toast(context.getString(R.string.data_fetch_failed))
+                            viewModel.clearUpdateDownloadState()
+                        }
+
+                        if (updateDownloadState is UiDownloadState.Success) {
+                            val uri = (updateDownloadState as UiDownloadState.Success).uri
+                                .toContentUri(context)
+                            promptInstall(context, uri)
+                            viewModel.clearUpdateDownloadState()
+                        }
                     }
                 }
-                readyUi = true
-            }
 
-            LaunchedEffect(updateDownloadState) {
-                runCatching {
-                    if (updateDownloadState is UiDownloadState.Error) {
-                        context.toast(context.getString(R.string.data_fetch_failed))
-                        viewModel.clearUpdateDownloadState()
-                    }
-
-                    if (updateDownloadState is UiDownloadState.Success) {
-                        val uri = (updateDownloadState as UiDownloadState.Success).uri
-                            .toContentUri(context)
-                        promptInstall(context, uri)
-                        viewModel.clearUpdateDownloadState()
-                    }
+                var isNotificationServiceEnabled by remember {
+                    mutableStateOf(context.isNotificationServiceEnabled())
                 }
-            }
 
-            var isNotificationServiceEnabled by remember {
-                mutableStateOf(context.isNotificationServiceEnabled())
-            }
+                var isDebugMInstalled by remember { mutableStateOf(false) }
+                var isMConfigMInstalled by remember { mutableStateOf(false) }
 
-            var isDebugMInstalled by remember { mutableStateOf(false) }
-            var isMConfigMInstalled by remember { mutableStateOf(false) }
+                val lifecycleOwner = LocalLifecycleOwner.current
+                DisposableEffect(lifecycleOwner) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        when (event) {
+                            Lifecycle.Event.ON_RESUME -> {
+                                isNotificationServiceEnabled =
+                                    context.isNotificationServiceEnabled()
 
-            val lifecycleOwner = LocalLifecycleOwner.current
-            DisposableEffect(lifecycleOwner) {
-                val observer = LifecycleEventObserver { _, event ->
-                    when (event) {
-                        Lifecycle.Event.ON_RESUME -> {
-                            isNotificationServiceEnabled =
-                                context.isNotificationServiceEnabled()
-
-                            scope.launch(Dispatchers.IO) {
+                                scope.launch(Dispatchers.IO) {
                                 val installedState = withContext(Dispatchers.IO) {
                                     systemApps.isDebugMInstalled() to systemApps.isMConfigInstalled()
                                 }
                                 isDebugMInstalled = installedState.first
                                 isMConfigMInstalled = installedState.second
+                                }
                             }
+
+                            else -> Unit
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                }
+
+                CompositionLocalProvider(LocalDensity provides scaledDensity) {
+                    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+
+                        val importBindsConfirmDialog by remember { derivedStateOf { bindsImport.isNotEmpty() } }
+                        if (importBindsConfirmDialog) {
+                            ConfirmDialog(
+                                title = stringResource(R.string._import),
+                                message = stringResource(R.string.import_data_prompt),
+                                uiScale = uiScale,
+                                negativeAction = false,
+                                onCancel = { viewModel.setBindsImport("") },
+                                onDismiss = { viewModel.setBindsImport("") },
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        onImportBinds(bindsImport)
+                                        viewModel.setBindsImport("")
+                                    }
+                                }
+                            )
                         }
 
-                        else -> Unit
-                    }
-                }
-                lifecycleOwner.lifecycle.addObserver(observer)
-                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-            }
+                        RenderSettingsImportDialog(uiScale, canAccessibility.value)
 
-            CompositionLocalProvider(LocalDensity provides scaledDensity) {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                        var deleteConfirmDialog by remember { mutableStateOf<String?>(null) }
+                        deleteConfirmDialog?.let { _ ->
+                            ConfirmDialog(
+                                title = stringResource(R.string.confirm_delete_title),
+                                message = stringResource(R.string.confirm_delete_message),
+                                uiScale = uiScale,
+                                negativeAction = true,
+                                onCancel = { deleteConfirmDialog = null },
+                                onDismiss = { deleteConfirmDialog = null },
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        deleteConfirmDialog?.let {
+                                            keyBindStorage.deleteBind(it)
+                                        }
 
-                    val importBindsConfirmDialog by remember { derivedStateOf { bindsImport.isNotEmpty() } }
-                    if (importBindsConfirmDialog) {
-                        ConfirmDialog(
-                            title = stringResource(R.string._import),
-                            message = stringResource(R.string.import_data_prompt),
-                            uiScale = uiScale,
-                            negativeAction = false,
-                            onCancel = { viewModel.setBindsImport("") },
-                            onDismiss = { viewModel.setBindsImport("") },
-                            onClick = {
-                                scope.launch(Dispatchers.IO) {
-                                    onImportBinds(bindsImport)
-                                    viewModel.setBindsImport("")
-                                }
-                            }
-                        )
-                    }
-
-                    RenderSettingsImportDialog(uiScale, canAccessibility.value)
-
-                    var deleteConfirmDialog by remember { mutableStateOf<String?>(null) }
-                    deleteConfirmDialog?.let { _ ->
-                        ConfirmDialog(
-                            title = stringResource(R.string.confirm_delete_title),
-                            message = stringResource(R.string.confirm_delete_message),
-                            uiScale = uiScale,
-                            negativeAction = true,
-                            onCancel = { deleteConfirmDialog = null },
-                            onDismiss = { deleteConfirmDialog = null },
-                            onClick = {
-                                scope.launch(Dispatchers.IO) {
-                                    deleteConfirmDialog?.let {
-                                        keyBindStorage.deleteBind(it)
+                                        deleteConfirmDialog = null
                                     }
-
-                                    deleteConfirmDialog = null
                                 }
-                            }
-                        )
-                    }
+                            )
+                        }
 
-                    var actionBindLockConfirmDialog by remember { mutableStateOf<Boolean?>(null) }
-                    actionBindLockConfirmDialog?.let { _ ->
-                        ConfirmDialog(
-                            title = stringResource(R.string.suppression_mode),
-                            message = stringResource(R.string.confirm_block_button_actions),
-                            uiScale = uiScale,
-                            negativeAction = true,
-                            onCancel = { actionBindLockConfirmDialog = null },
-                            onDismiss = { actionBindLockConfirmDialog = null },
-                            onClick = {
+                        var actionBindLockConfirmDialog by remember { mutableStateOf<Boolean?>(null) }
+                        actionBindLockConfirmDialog?.let { _ ->
+                            ConfirmDialog(
+                                title = stringResource(R.string.suppression_mode),
+                                message = stringResource(R.string.confirm_block_button_actions),
+                                uiScale = uiScale,
+                                negativeAction = true,
+                                onCancel = { actionBindLockConfirmDialog = null },
+                                onDismiss = { actionBindLockConfirmDialog = null },
+                                onClick = {
                                 mainScreenState = mainScreenState.copy(suppressionMode = true)
                                 actionBindLockConfirmDialog = null
-                                scope.launch {
-                                    dataStore.saveValue(
-                                        GeneralPrefs.SUPPRESSION_MODE,
-                                        true
-                                    )
+                                        scope.launch {
+                                            dataStore.saveValue(
+                                                GeneralPrefs.SUPPRESSION_MODE,
+                                                true
+                                            )
+                                    }
                                 }
-                            }
-                        )
-                    }
+                            )
+                        }
 
-                    fun onDeleteDialog(bindCode: String) {
-                        deleteConfirmDialog = bindCode
-                    }
+                        fun onDeleteDialog(bindCode: String) {
+                            deleteConfirmDialog = bindCode
+                        }
 
-                    val scrollState = rememberScrollState()
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(AppTheme.colors.surfaceBackground)
-                            .padding(innerPadding)
-                            .then(
+                        val scrollState = rememberScrollState()
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(AppTheme.colors.surfaceBackground)
+                                .padding(innerPadding)
+                                .then(
                                 if (showConfigurator.first || showSystemParams) {
-                                    Modifier
-                                } else Modifier.verticalScroll(scrollState)
-                            ),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        if (!canAccessibility.value) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    modifier = Modifier
-                                        .padding(horizontal = 24.dp),
-                                    text = stringResource(R.string.enable_accessibility),
-                                    textAlign = TextAlign.Center,
-                                    style = AppTheme.typography.screenTitle.copy(
-                                        lineHeight = 23.sp
-                                    ),
-                                    color = AppTheme.colors.contentPrimary
-                                )
-                                Spacer(Modifier.height(36.dp))
-                                BaseButton(
-                                    title = stringResource(R.string.accessibility_features),
-                                    onClick = { context.openAccessibilitySettings() })
-                            }
-                        } else if (showConfigurator.first) {
-                            BackHandler { showConfigurator = false to false }
-
-                            if (mainScreenState.configuratorWarning) {
-
+                                        Modifier
+                                    } else Modifier.verticalScroll(scrollState)
+                                ),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            if (!canAccessibility.value) {
                                 Column(
-                                    modifier = Modifier.fillMaxSize(),
-                                    verticalArrangement = Arrangement.Center,
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Text(
                                         modifier = Modifier
                                             .padding(horizontal = 24.dp),
-                                        text = stringResource(R.string.warning_disclaimer),
+                                        text = stringResource(R.string.enable_accessibility),
                                         textAlign = TextAlign.Center,
                                         style = AppTheme.typography.screenTitle.copy(
                                             lineHeight = 23.sp
@@ -449,47 +424,72 @@ class MainActivity : ComponentActivity() {
                                     )
                                     Spacer(Modifier.height(36.dp))
                                     BaseButton(
-                                        title = stringResource(R.string.im_scared_but_ready),
-                                        backgroundColor = AppTheme.colors.addSplitTop,
-                                        onClick = {
-                                            scope.launch {
-                                                dataStore.saveValue(
-                                                    NoBackupPrefs.CONFIGURATOR_WARNING,
-                                                    false
-                                                )
+                                        title = stringResource(R.string.accessibility_features),
+                                        onClick = { context.openAccessibilitySettings() })
+                                }
+                            } else if (showConfigurator.first) {
+                                BackHandler { showConfigurator = false to false }
+
+                            if (mainScreenState.configuratorWarning) {
+
+                                    Column(
+                                        modifier = Modifier.fillMaxSize(),
+                                        verticalArrangement = Arrangement.Center,
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            modifier = Modifier
+                                                .padding(horizontal = 24.dp),
+                                            text = stringResource(R.string.warning_disclaimer),
+                                            textAlign = TextAlign.Center,
+                                            style = AppTheme.typography.screenTitle.copy(
+                                                lineHeight = 23.sp
+                                            ),
+                                            color = AppTheme.colors.contentPrimary
+                                        )
+                                        Spacer(Modifier.height(36.dp))
+                                        BaseButton(
+                                            title = stringResource(R.string.im_scared_but_ready),
+                                            backgroundColor = AppTheme.colors.addSplitTop,
+                                            onClick = {
+                                                scope.launch {
+                                                    dataStore.saveValue(
+                                                        NoBackupPrefs.CONFIGURATOR_WARNING,
+                                                        false
+                                                    )
                                                 mainScreenState =
                                                     mainScreenState.copy(configuratorWarning = false)
-                                            }
-                                        })
-                                    Spacer(Modifier.height(24.dp))
-                                    BaseButton(
-                                        title = stringResource(R.string.not_that_interested),
-                                        backgroundColor = AppTheme.colors.surfaceMenu,
-                                        onClick = {
-                                            showConfigurator = false to false
-                                        })
-                                }
-                            } else RenderConfigurator(
-                                viewModel = viewModel,
-                                uiScaleState = uiScale,
-                                onlyFavorite = showConfigurator.second,
-                                favoriteStorage = remember { favoriteStorage },
-                                onClose = { showConfigurator = false to false }
-                            )
+                                                }
+                                            })
+                                        Spacer(Modifier.height(24.dp))
+                                        BaseButton(
+                                            title = stringResource(R.string.not_that_interested),
+                                            backgroundColor = AppTheme.colors.surfaceMenu,
+                                            onClick = {
+                                                showConfigurator = false to false
+                                            })
+                                    }
+                                } else RenderConfigurator(
+                                    viewModel = viewModel,
+                                    uiScaleState = uiScale,
+                                    onlyFavorite = showConfigurator.second,
+                                    favoriteStorage = remember { favoriteStorage },
+                                    onClose = { showConfigurator = false to false }
+                                )
                         } else if (showSystemParams) {
                             RenderSystemParams(
-                                uiScaleState = uiScale,
+                                    uiScaleState = uiScale,
                                 enableAdbHelper = mainScreenState.enableAdbHelper,
                                 adbDimAutoStop = mainScreenState.adbDimAutoStop,
-                                onAdbDimAutoStopChanged = {
+                                    onAdbDimAutoStopChanged = {
                                     mainScreenState = mainScreenState.copy(adbDimAutoStop = it)
-                                    scope.launch {
-                                        dataStore.saveValue(GeneralPrefs.ADB_DIM_AUTO_STOP, it)
-                                    }
-                                },
+                                        scope.launch {
+                                            dataStore.saveValue(GeneralPrefs.ADB_DIM_AUTO_STOP, it)
+                                        }
+                                    },
                                 onClose = { showSystemParams = false }
-                            )
-                        } else if (readyUi) {
+                                )
+                            } else if (readyUi) {
                             RenderMainContent(
                                 mainScreenState = mainScreenState,
                                 updateMainScreenState = { mainScreenState = it },
@@ -544,63 +544,63 @@ class MainActivity : ComponentActivity() {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
 
-        Spacer(Modifier.height(26.dp))
+                                Spacer(Modifier.height(26.dp))
 
-        Text(
-            modifier = Modifier,
-            text = stringResource(
+                                Text(
+                                    modifier = Modifier,
+                                    text = stringResource(
                 if (mainScreenState.isEnabled) {
-                    R.string.binder_active
-                } else {
-                    R.string.binder_disabled
-                }
-            ),
-            style = AppTheme.typography.dialogTitle,
+                                            R.string.binder_active
+                                        } else {
+                                            R.string.binder_disabled
+                                        }
+                                    ),
+                                    style = AppTheme.typography.dialogTitle,
             color = if (mainScreenState.isEnabled) {
-                AppTheme.colors.contentAccent
-            } else {
-                AppTheme.colors.sliderPassive
-            }
-        )
+                                        AppTheme.colors.contentAccent
+                                    } else {
+                                        AppTheme.colors.sliderPassive
+                                    }
+                                )
 
-        Spacer(Modifier.height(48.dp))
+                                Spacer(Modifier.height(48.dp))
 
-        // App update ui
-        appUpdateInfo?.let { info ->
-            RenderAppUpdate(info, updateDownloadState)
-        }
+                                // App update ui
+                                appUpdateInfo?.let { info ->
+                                    RenderAppUpdate(info, updateDownloadState)
+                                }
 
-        // is enable
-        RenderSwitcher(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.enable),
-            subtitle = stringResource(R.string.key_binder_sync),
+                                // is enable
+                                RenderSwitcher(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.enable),
+                                    subtitle = stringResource(R.string.key_binder_sync),
             value = mainScreenState.isEnabled,
-            enable = true,
-            groupDivider = false,
-            onChange = {
+                                    enable = true,
+                                    groupDivider = false,
+                                    onChange = {
                 updateMainScreenState(mainScreenState.copy(isEnabled = it))
                 scope.launch(Dispatchers.IO) {
-                    dataStore.saveValue(GeneralPrefs.DATA_SYNC_ENABLED, it)
-                }
-            }
-        )
+                                            dataStore.saveValue(GeneralPrefs.DATA_SYNC_ENABLED, it)
+                                        }
+                                    }
+                                )
 
-        Spacer(Modifier.height(24.dp))
-        RenderGroupDivider()
-        Spacer(Modifier.height(24.dp))
+                                Spacer(Modifier.height(24.dp))
+                                RenderGroupDivider()
+                                Spacer(Modifier.height(24.dp))
 
-        RenderGroupTitle(stringResource(R.string.steering_wheel_buttons))
+                                RenderGroupTitle(stringResource(R.string.steering_wheel_buttons))
 
-        // custom long click enable
-        RenderSwitcher(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.custom_long_press_timing),
-            subtitle = stringResource(R.string.custom_long_press_timing_desc),
+                                // custom long click enable
+                                RenderSwitcher(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.custom_long_press_timing),
+                                    subtitle = stringResource(R.string.custom_long_press_timing_desc),
             value = mainScreenState.enableCustomLongClick,
-            enable = true,
-            groupDivider = false,
-            onChange = { enable ->
+                                    enable = true,
+                                    groupDivider = false,
+                                    onChange = { enable ->
                 updateMainScreenState(
                     mainScreenState.copy(
                         enableCustomLongClick = enable,
@@ -609,122 +609,122 @@ class MainActivity : ComponentActivity() {
                     )
                 )
                 scope.launch(Dispatchers.IO) {
-                    dataStore.saveValue(
-                        GeneralPrefs.CUSTOM_LONG_PRESS_ENABLED,
-                        enable
-                    )
+                                            dataStore.saveValue(
+                                                GeneralPrefs.CUSTOM_LONG_PRESS_ENABLED,
+                                                enable
+                                            )
 
-                    if (!enable) {
-                        dataStore.saveValue(
-                            GeneralPrefs.ALT_MENU,
-                            false
-                        )
-                        dataStore.saveValue(
-                            GeneralPrefs.ALT_MUTE,
-                            false
-                        )
-                    }
-                }
-            }
-        )
+                                            if (!enable) {
+                                                dataStore.saveValue(
+                                                    GeneralPrefs.ALT_MENU,
+                                                    false
+                                                )
+                                                dataStore.saveValue(
+                                                    GeneralPrefs.ALT_MUTE,
+                                                    false
+                                                )
+                                            }
+                                        }
+                                    }
+                                )
 
-        Spacer(Modifier.height(16.dp))
+                                Spacer(Modifier.height(16.dp))
 
-        //  custom long click time
-        val sliderTitle = stringResource(R.string.long_press_trigger_timing)
-        Text(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 42.dp),
-            textAlign = TextAlign.Left,
-            text = "$sliderTitle: " +
+                                //  custom long click time
+                                val sliderTitle = stringResource(R.string.long_press_trigger_timing)
+                                Text(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 42.dp),
+                                    textAlign = TextAlign.Left,
+                                    text = "$sliderTitle: " +
                     mainScreenState.customLongClickTiming.toDecimalSecondString(),
-            color = AppTheme.colors.contentPrimary
-        )
-        ValueSlider(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 36.dp),
+                                    color = AppTheme.colors.contentPrimary
+                                )
+                                ValueSlider(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 36.dp),
             value = mainScreenState.customLongClickTiming,
-            valueRange = 50..1500,
-            onValueChange = { newValue ->
+                                    valueRange = 50..1500,
+                                    onValueChange = { newValue ->
                 updateMainScreenState(mainScreenState.copy(customLongClickTiming = newValue))
                 scope.launch(Dispatchers.IO) {
-                    dataStore.saveValue(
-                        GeneralPrefs.CUSTOM_LONG_PRESS_TIME,
-                        newValue
-                    )
-                }
-            },
-            enabled = true,
+                                            dataStore.saveValue(
+                                                GeneralPrefs.CUSTOM_LONG_PRESS_TIME,
+                                                newValue
+                                            )
+                                        }
+                                    },
+                                    enabled = true,
             defaultMark = MainScreenState.Default.customLongClickTiming,
-            step = 10
-        )
+                                    step = 10
+                                )
 
-        Spacer(Modifier.height(12.dp))
+                                Spacer(Modifier.height(12.dp))
 
-        // custom short click enable
-        RenderSwitcher(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.custom_short_press_timing),
-            subtitle = stringResource(R.string.custom_short_press_timing_desc),
+                                // custom short click enable
+                                RenderSwitcher(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.custom_short_press_timing),
+                                    subtitle = stringResource(R.string.custom_short_press_timing_desc),
             value = mainScreenState.enabledCustomShortClick,
-            enable = true,
-            groupDivider = false,
-            onChange = {
+                                    enable = true,
+                                    groupDivider = false,
+                                    onChange = {
                 updateMainScreenState(mainScreenState.copy(enabledCustomShortClick = it))
                 scope.launch(Dispatchers.IO) {
-                    dataStore.saveValue(
-                        GeneralPrefs.CUSTOM_SHORT_CLICK_ENABLED,
-                        it
-                    )
-                }
-            }
-        )
+                                            dataStore.saveValue(
+                                                GeneralPrefs.CUSTOM_SHORT_CLICK_ENABLED,
+                                                it
+                                            )
+                                        }
+                                    }
+                                )
 
-        Spacer(Modifier.height(12.dp))
+                                Spacer(Modifier.height(12.dp))
 
-        // multi-long click enable
-        RenderSwitcher(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.detect_multi_long),
-            subtitle = stringResource(R.string.multi_long_trigger),
+                                // multi-long click enable
+                                RenderSwitcher(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.detect_multi_long),
+                                    subtitle = stringResource(R.string.multi_long_trigger),
             value = mainScreenState.multiLongPressEnabled,
-            enable = true,
-            groupDivider = false,
-            onChange = {
+                                    enable = true,
+                                    groupDivider = false,
+                                    onChange = {
                 updateMainScreenState(mainScreenState.copy(multiLongPressEnabled = it))
                 scope.launch(Dispatchers.IO) {
-                    dataStore.saveValue(
-                        GeneralPrefs.MULTI_LONG_PRESS_ENABLED,
-                        it
-                    )
-                }
-            }
-        )
+                                            dataStore.saveValue(
+                                                GeneralPrefs.MULTI_LONG_PRESS_ENABLED,
+                                                it
+                                            )
+                                        }
+                                    }
+                                )
 
-        Spacer(Modifier.height(16.dp))
+                                Spacer(Modifier.height(16.dp))
 
-        // lock double click
-        RenderSwitcher(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.detect_double_tap),
-            subtitle = stringResource(R.string.double_click_description),
+                                // lock double click
+                                RenderSwitcher(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.detect_double_tap),
+                                    subtitle = stringResource(R.string.double_click_description),
             value = mainScreenState.lockDoubleClick,
-            enable = true,
-            groupDivider = false,
-            onChange = {
+                                    enable = true,
+                                    groupDivider = false,
+                                    onChange = {
                 updateMainScreenState(mainScreenState.copy(lockDoubleClick = it))
                 scope.launch(Dispatchers.IO) {
-                    dataStore.saveValue(
-                        GeneralPrefs.DOUBLE_CLICK_ENABLED,
-                        it
-                    )
-                }
-            }
-        )
+                                            dataStore.saveValue(
+                                                GeneralPrefs.DOUBLE_CLICK_ENABLED,
+                                                it
+                                            )
+                                        }
+                                    }
+                                )
 
-        Spacer(Modifier.height(16.dp))
+                                Spacer(Modifier.height(16.dp))
 
         AnimatedVisibility(
             visible = mainScreenState.lockDoubleClick,
@@ -738,54 +738,54 @@ class MainActivity : ComponentActivity() {
             ),
         ) {
             Column {
-                val sliderDCTitle =
-                    stringResource(R.string.double_tap_window_timing)
-                Text(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 42.dp),
-                    textAlign = TextAlign.Left,
-                    text = "$sliderDCTitle: " +
+                                    val sliderDCTitle =
+                                        stringResource(R.string.double_tap_window_timing)
+                                    Text(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 42.dp),
+                                        textAlign = TextAlign.Left,
+                                        text = "$sliderDCTitle: " +
                             mainScreenState.doubleClickTime.toDecimalSecondString(),
-                    color = AppTheme.colors.contentPrimary
-                )
-                ValueSlider(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 36.dp),
+                                        color = AppTheme.colors.contentPrimary
+                                    )
+                                    ValueSlider(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 36.dp),
                     value = mainScreenState.doubleClickTime,
-                    valueRange = 50..1500,
-                    onValueChange = { newValue ->
+                                        valueRange = 50..1500,
+                                        onValueChange = { newValue ->
                         updateMainScreenState(mainScreenState.copy(doubleClickTime = newValue))
                         scope.launch(Dispatchers.IO) {
-                            dataStore.saveValue(
-                                GeneralPrefs.DOUBLE_CLICK_TIME,
-                                newValue
-                            )
-                        }
-                    },
-                    enabled = true,
+                                                dataStore.saveValue(
+                                                    GeneralPrefs.DOUBLE_CLICK_TIME,
+                                                    newValue
+                                                )
+                                            }
+                                        },
+                                        enabled = true,
                     defaultMark = MainScreenState.Default.doubleClickTime,
-                    step = 10
-                )
+                                        step = 10
+                                    )
 
-                Spacer(Modifier.height(24.dp))
+                                    Spacer(Modifier.height(24.dp))
             }
-        }
-        RenderGroupDivider()
-        Spacer(Modifier.height(24.dp))
+                                }
+                                RenderGroupDivider()
+                                Spacer(Modifier.height(24.dp))
 
-        RenderGroupTitle(stringResource(R.string.additional_press_processing))
+                                RenderGroupTitle(stringResource(R.string.additional_press_processing))
 
-        // custom menu
-        RenderSwitcher(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.alternative_menu_detection),
-            subtitle = stringResource(R.string.alternative_menu_detection_desc),
+                                // custom menu
+                                RenderSwitcher(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.alternative_menu_detection),
+                                    subtitle = stringResource(R.string.alternative_menu_detection_desc),
             value = mainScreenState.altMenu,
-            enable = true,
-            groupDivider = false,
-            onChange = { enable ->
+                                    enable = true,
+                                    groupDivider = false,
+                                    onChange = { enable ->
                 updateMainScreenState(
                     mainScreenState.copy(
                         altMenu = enable,
@@ -793,31 +793,31 @@ class MainActivity : ComponentActivity() {
                     )
                 )
                 scope.launch(Dispatchers.IO) {
-                    dataStore.saveValue(
-                        GeneralPrefs.ALT_MENU,
-                        enable
-                    )
-                    if (enable) {
-                        dataStore.saveValue(
-                            GeneralPrefs.CUSTOM_LONG_PRESS_ENABLED,
-                            true
-                        )
-                    }
-                }
-            }
-        )
+                                            dataStore.saveValue(
+                                                GeneralPrefs.ALT_MENU,
+                                                enable
+                                            )
+                                            if (enable) {
+                                                dataStore.saveValue(
+                                                    GeneralPrefs.CUSTOM_LONG_PRESS_ENABLED,
+                                                    true
+                                                )
+                                            }
+                                        }
+                                    }
+                                )
 
-        Spacer(Modifier.height(16.dp))
+                                Spacer(Modifier.height(16.dp))
 
-        // custom mute
-        RenderSwitcher(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.alternative_mute_detection),
-            subtitle = stringResource(R.string.alternative_mute_detection_desc),
+                                // custom mute
+                                RenderSwitcher(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.alternative_mute_detection),
+                                    subtitle = stringResource(R.string.alternative_mute_detection_desc),
             value = mainScreenState.altMute,
-            enable = true,
-            groupDivider = false,
-            onChange = { enable ->
+                                    enable = true,
+                                    groupDivider = false,
+                                    onChange = { enable ->
                 updateMainScreenState(
                     mainScreenState.copy(
                         altMute = enable,
@@ -825,170 +825,170 @@ class MainActivity : ComponentActivity() {
                     )
                 )
                 scope.launch(Dispatchers.IO) {
-                    dataStore.saveValue(
-                        GeneralPrefs.ALT_MUTE,
-                        enable
-                    )
-                    if (enable) {
-                        dataStore.saveValue(
-                            GeneralPrefs.CUSTOM_LONG_PRESS_ENABLED,
-                            true
-                        )
-                    }
-                }
-            }
-        )
+                                            dataStore.saveValue(
+                                                GeneralPrefs.ALT_MUTE,
+                                                enable
+                                            )
+                                            if (enable) {
+                                                dataStore.saveValue(
+                                                    GeneralPrefs.CUSTOM_LONG_PRESS_ENABLED,
+                                                    true
+                                                )
+                                            }
+                                        }
+                                    }
+                                )
 
-        Spacer(Modifier.height(16.dp))
+                                Spacer(Modifier.height(16.dp))
 
-        //  custom long click time
-        val altTimingSlider =
-            stringResource(R.string.alt_long_press_trigger_timing)
-        Text(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 42.dp),
-            textAlign = TextAlign.Left,
-            text = "$altTimingSlider: " +
+                                //  custom long click time
+                                val altTimingSlider =
+                                    stringResource(R.string.alt_long_press_trigger_timing)
+                                Text(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 42.dp),
+                                    textAlign = TextAlign.Left,
+                                    text = "$altTimingSlider: " +
                     mainScreenState.altLongTime.toDecimalSecondString(),
-            color = AppTheme.colors.contentPrimary
-        )
-        ValueSlider(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 36.dp),
+                                    color = AppTheme.colors.contentPrimary
+                                )
+                                ValueSlider(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 36.dp),
             value = mainScreenState.altLongTime,
-            valueRange = 50..1500,
-            onValueChange = { newValue ->
+                                    valueRange = 50..1500,
+                                    onValueChange = { newValue ->
                 updateMainScreenState(mainScreenState.copy(altLongTime = newValue))
                 scope.launch(Dispatchers.IO) {
-                    dataStore.saveValue(
-                        GeneralPrefs.ALT_LONG_TIME,
-                        newValue
-                    )
-                }
-            },
-            enabled = true,
+                                            dataStore.saveValue(
+                                                GeneralPrefs.ALT_LONG_TIME,
+                                                newValue
+                                            )
+                                        }
+                                    },
+                                    enabled = true,
             defaultMark = MainScreenState.Default.altLongTime,
-            step = 10
-        )
+                                    step = 10
+                                )
 
-        Spacer(Modifier.height(24.dp))
-        RenderGroupDivider()
-        Spacer(Modifier.height(24.dp))
+                                Spacer(Modifier.height(24.dp))
+                                RenderGroupDivider()
+                                Spacer(Modifier.height(24.dp))
 
-        var showBindingDialog by remember { mutableStateOf(false) }
-        if (showBindingDialog) {
-            KeyBindingDialog(
-                uiScaleState = uiScale,
-                systemApps = remember { systemApps },
-                keyBindStorage = remember { keyBindStorage },
-                onDismiss = { showBindingDialog = false }
-            )
-        }
+                                var showBindingDialog by remember { mutableStateOf(false) }
+                                if (showBindingDialog) {
+                                    KeyBindingDialog(
+                                        uiScaleState = uiScale,
+                                        systemApps = remember { systemApps },
+                                        keyBindStorage = remember { keyBindStorage },
+                                        onDismiss = { showBindingDialog = false }
+                                    )
+                                }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Min)
-                .padding(horizontal = 42.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            BaseButton(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.add_keybind_button)
-            ) {
-                showBindingDialog = true
-            }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(IntrinsicSize.Min)
+                                        .padding(horizontal = 42.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    BaseButton(
+                                        modifier = Modifier.weight(1f),
+                                        title = stringResource(R.string.add_keybind_button)
+                                    ) {
+                                        showBindingDialog = true
+                                    }
 
-            val showShareButton by remember { derivedStateOf { keyBinds?.isNotEmpty() == true } }
-            if (showShareButton) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .width(60.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(AppTheme.colors.surfaceMenu)
-                        .clickable {
-                            scope.launch(Dispatchers.IO) {
-                                val code = keyBindStorage.getCode()
-                                context.cleanupShareTempFiles()
-                                context.shareTextAsGibbFile(code, "binds")
-                            }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        modifier = Modifier
-                            .size(24.dp),
-                        imageVector = Icons.Filled.Share,
-                        tint = AppTheme.colors.contentPrimary,
-                        contentDescription = "delete"
-                    )
-                }
-            }
-        }
+                                    val showShareButton by remember { derivedStateOf { keyBinds?.isNotEmpty() == true } }
+                                    if (showShareButton) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxHeight()
+                                                .width(60.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(AppTheme.colors.surfaceMenu)
+                                                .clickable {
+                                                    scope.launch(Dispatchers.IO) {
+                                                        val code = keyBindStorage.getCode()
+                                                        context.cleanupShareTempFiles()
+                                                        context.shareTextAsGibbFile(code, "binds")
+                                                    }
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                modifier = Modifier
+                                                    .size(24.dp),
+                                                imageVector = Icons.Filled.Share,
+                                                tint = AppTheme.colors.contentPrimary,
+                                                contentDescription = "delete"
+                                            )
+                                        }
+                                    }
+                                }
 
-        // Key binds list
+                                // Key binds list
         RenderKeyBinds(
             keyBinds = keyBinds,
             onDeleteDialog = { bindCode -> showDeleteBindConfirmDialog(bindCode) }
         )
 
-        Spacer(Modifier.height(24.dp))
-        RenderGroupDivider()
-        Spacer(Modifier.height(24.dp))
+                                Spacer(Modifier.height(24.dp))
+                                RenderGroupDivider()
+                                Spacer(Modifier.height(24.dp))
 
-        RenderGroupTitle(stringResource(R.string.playback_control))
+                                RenderGroupTitle(stringResource(R.string.playback_control))
 
-        // media control
-        RenderSwitcher(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.audio_control),
-            subtitle = stringResource(R.string.media_control_desc),
+                                // media control
+                                RenderSwitcher(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.audio_control),
+                                    subtitle = stringResource(R.string.media_control_desc),
             value = mainScreenState.mediaControlEnabled,
-            enable = true,
-            groupDivider = false,
-            onChange = {
-                if (!isNotificationServiceEnabled) {
-                    context.requestNotificationServicePermission()
-                    return@RenderSwitcher
-                }
+                                    enable = true,
+                                    groupDivider = false,
+                                    onChange = {
+                                        if (!isNotificationServiceEnabled) {
+                                            context.requestNotificationServicePermission()
+                                            return@RenderSwitcher
+                                        }
 
                 updateMainScreenState(mainScreenState.copy(mediaControlEnabled = it))
                 scope.launch(Dispatchers.IO) {
-                    dataStore.saveValue(
-                        GeneralPrefs.MEDIA_CONTROL_ENABLED,
-                        it
-                    )
-                    dataStore.saveValue(
-                        GeneralPrefs.HAND_MEDIA_CONTROL_ENABLED,
-                        it
-                    )
-                }
-            }
-        )
+                                            dataStore.saveValue(
+                                                GeneralPrefs.MEDIA_CONTROL_ENABLED,
+                                                it
+                                            )
+                                            dataStore.saveValue(
+                                                GeneralPrefs.HAND_MEDIA_CONTROL_ENABLED,
+                                                it
+                                            )
+                                        }
+                                    }
+                                )
 
-        Spacer(Modifier.height(12.dp))
+                                Spacer(Modifier.height(12.dp))
 
-        var showMediaAppsDialog by remember { mutableStateOf(false) }
-        if (showMediaAppsDialog) {
-            RenderMediaAppsPickerDialog(
-                uiScaleState = uiScale,
-                systemApps = remember { systemApps },
-                dataStore = remember { dataStore },
-                onDismiss = { showMediaAppsDialog = false }
-            )
-        }
+                                var showMediaAppsDialog by remember { mutableStateOf(false) }
+                                if (showMediaAppsDialog) {
+                                    RenderMediaAppsPickerDialog(
+                                        uiScaleState = uiScale,
+                                        systemApps = remember { systemApps },
+                                        dataStore = remember { dataStore },
+                                        onDismiss = { showMediaAppsDialog = false }
+                                    )
+                                }
 
-        RenderListButton(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.media_apps),
-            subtitle = stringResource(R.string.media_apps_desc),
+                                RenderListButton(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.media_apps),
+                                    subtitle = stringResource(R.string.media_apps_desc),
             enable = mainScreenState.mediaControlEnabled
-        ) {
-            showMediaAppsDialog = true
-        }
+                                ) {
+                                    showMediaAppsDialog = true
+                                }
 
         Spacer(Modifier.height(16.dp))
 
@@ -1006,7 +1006,7 @@ class MainActivity : ComponentActivity() {
                 color = AppTheme.colors.contentPrimary
             )
 
-            Spacer(Modifier.height(12.dp))
+                                Spacer(Modifier.height(12.dp))
 
             Box(
                 Modifier
@@ -1053,16 +1053,16 @@ class MainActivity : ComponentActivity() {
                                 )
                             )
                             scope.launch(Dispatchers.IO) {
-                                dataStore.saveValue(
-                                    GeneralPrefs.RADIO_BT_CONTROL,
+                                            dataStore.saveValue(
+                                                GeneralPrefs.RADIO_BT_CONTROL,
                                     true
-                                )
-                                dataStore.saveValue(
+                                            )
+                                                dataStore.saveValue(
                                     GeneralPrefs.LEGACY_SOURCE_MANAGEMENT,
-                                    false
-                                )
-                            }
-                        }
+                                                    false
+                                                )
+                                            }
+                                        }
 
                         1 -> {
                             updateMainScreenState(
@@ -1089,502 +1089,502 @@ class MainActivity : ComponentActivity() {
 
         Spacer(Modifier.height(18.dp))
 
-        // disable when AC
-        RenderSwitcher(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.disable_on_climate),
-            subtitle = stringResource(R.string.disable_on_climate_desc),
+                                // disable when AC
+                                RenderSwitcher(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.disable_on_climate),
+                                    subtitle = stringResource(R.string.disable_on_climate_desc),
             value = mainScreenState.disableOnClimate,
             enable = mainScreenState.mediaControlEnabled,
-            groupDivider = false,
-            onChange = {
+                                    groupDivider = false,
+                                    onChange = {
                 updateMainScreenState(mainScreenState.copy(disableOnClimate = it))
                 scope.launch(Dispatchers.IO) {
-                    dataStore.saveValue(GeneralPrefs.DISABLE_ON_CLIMATE, it)
-                }
-            }
-        )
+                                            dataStore.saveValue(GeneralPrefs.DISABLE_ON_CLIMATE, it)
+                                        }
+                                    }
+                                )
 
-        Spacer(Modifier.height(12.dp))
+                                Spacer(Modifier.height(12.dp))
 
-        // metadata translator
-        RenderSwitcher(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.send_media_session_data),
-            subtitle = stringResource(R.string.send_media_session_data_desc),
+                                // metadata translator
+                                RenderSwitcher(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.send_media_session_data),
+                                    subtitle = stringResource(R.string.send_media_session_data_desc),
             value = mainScreenState.mediaDataTranslator,
-            enable = true,
-            groupDivider = false,
-            onChange = {
-                if (!isNotificationServiceEnabled) {
-                    context.requestNotificationServicePermission()
-                    return@RenderSwitcher
-                }
+                                    enable = true,
+                                    groupDivider = false,
+                                    onChange = {
+                                        if (!isNotificationServiceEnabled) {
+                                            context.requestNotificationServicePermission()
+                                            return@RenderSwitcher
+                                        }
 
                 updateMainScreenState(mainScreenState.copy(mediaDataTranslator = it))
                 scope.launch(Dispatchers.IO) {
-                    dataStore.saveValue(
-                        GeneralPrefs.MEDIA_DATA_TRANSLATOR,
-                        it
-                    )
-                }
-            }
-        )
+                                            dataStore.saveValue(
+                                                GeneralPrefs.MEDIA_DATA_TRANSLATOR,
+                                                it
+                                            )
+                                        }
+                                    }
+                                )
 
-        Spacer(Modifier.height(16.dp))
-        RenderGroupDivider()
-        Spacer(Modifier.height(24.dp))
+                                Spacer(Modifier.height(16.dp))
+                                RenderGroupDivider()
+                                Spacer(Modifier.height(24.dp))
 
-        RenderGroupTitle(stringResource(R.string.driving_mode))
+                                RenderGroupTitle(stringResource(R.string.driving_mode))
 
-        var restoreDMWarningDialog by remember { mutableStateOf(false) }
-        if (restoreDMWarningDialog) {
-            ConfirmDialog(
-                title = stringResource(R.string.attention),
-                message = stringResource(R.string.driving_mode_restore_warning),
-                uiScale = uiScale,
-                negativeAction = false,
-                okButtonTitle = stringResource(R.string.enable),
-                onCancel = { restoreDMWarningDialog = false },
-                onDismiss = { restoreDMWarningDialog = false },
-                onClick = {
+                                var restoreDMWarningDialog by remember { mutableStateOf(false) }
+                                if (restoreDMWarningDialog) {
+                                    ConfirmDialog(
+                                        title = stringResource(R.string.attention),
+                                        message = stringResource(R.string.driving_mode_restore_warning),
+                                        uiScale = uiScale,
+                                        negativeAction = false,
+                                        okButtonTitle = stringResource(R.string.enable),
+                                        onCancel = { restoreDMWarningDialog = false },
+                                        onDismiss = { restoreDMWarningDialog = false },
+                                        onClick = {
                     updateMainScreenState(mainScreenState.copy(rememberDriveMode = true))
                     scope.launch(Dispatchers.IO) {
-                        dataStore.saveValue(
-                            GeneralPrefs.REMEMBER_DRIVE_MODE,
-                            true
-                        )
-                    }
-                    restoreDMWarningDialog = false
-                }
-            )
-        }
-        RenderSwitcher(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.remember_driving_mode),
-            subtitle = stringResource(R.string.remember_driving_mode_desc),
+                                                dataStore.saveValue(
+                                                    GeneralPrefs.REMEMBER_DRIVE_MODE,
+                                                    true
+                                                )
+                                            }
+                                            restoreDMWarningDialog = false
+                                        }
+                                    )
+                                }
+                                RenderSwitcher(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.remember_driving_mode),
+                                    subtitle = stringResource(R.string.remember_driving_mode_desc),
             value = mainScreenState.rememberDriveMode,
-            groupDivider = false,
-            onChange = { newValue ->
-                if (newValue && (isDebugMInstalled || isMConfigMInstalled)) {
-                    restoreDMWarningDialog = true
-                } else {
+                                    groupDivider = false,
+                                    onChange = { newValue ->
+                                        if (newValue && (isDebugMInstalled || isMConfigMInstalled)) {
+                                            restoreDMWarningDialog = true
+                                        } else {
                     updateMainScreenState(mainScreenState.copy(rememberDriveMode = newValue))
                     scope.launch(Dispatchers.IO) {
-                        dataStore.saveValue(
-                            GeneralPrefs.REMEMBER_DRIVE_MODE,
-                            newValue
-                        )
-                    }
-                }
-            }
-        )
+                                                dataStore.saveValue(
+                                                    GeneralPrefs.REMEMBER_DRIVE_MODE,
+                                                    newValue
+                                                )
+                                            }
+                                        }
+                                    }
+                                )
 
-        var targetRecoveryDriveModeDialog by remember { mutableStateOf(false) }
-        if (targetRecoveryDriveModeDialog) {
-            TargetRestoreDMDialog(
-                uiScaleState = uiScale,
+                                var targetRecoveryDriveModeDialog by remember { mutableStateOf(false) }
+                                if (targetRecoveryDriveModeDialog) {
+                                    TargetRestoreDMDialog(
+                                        uiScaleState = uiScale,
                 driveMode = mainScreenState.targetRecoveryDriveMode,
-                onTargetDriveModeChanged = { targetMode ->
+                                        onTargetDriveModeChanged = { targetMode ->
                     updateMainScreenState(
                         mainScreenState.copy(
                             targetRecoveryDriveMode = targetMode
                         )
                     )
                     scope.launch(Dispatchers.IO) {
-                        dataStore.saveValue(
-                            GeneralPrefs.TARGET_RECOVERY_DRIVE_MODE,
-                            targetMode
-                        )
-                    }
-                },
-                onDismiss = { targetRecoveryDriveModeDialog = false }
-            )
-        }
-        AnimatedVisibility(
+                                                dataStore.saveValue(
+                                                    GeneralPrefs.TARGET_RECOVERY_DRIVE_MODE,
+                                                    targetMode
+                                                )
+                                            }
+                                        },
+                                        onDismiss = { targetRecoveryDriveModeDialog = false }
+                                    )
+                                }
+                                AnimatedVisibility(
             visible = mainScreenState.rememberDriveMode,
-            enter = expandVertically(
-                expandFrom = Alignment.Top,
-                animationSpec = tween(300)
-            ),
-            exit = shrinkVertically(
-                shrinkTowards = Alignment.Top,
-                animationSpec = tween(300)
-            ),
-        ) {
-            Column {
-                Spacer(Modifier.height(12.dp))
+                                    enter = expandVertically(
+                                        expandFrom = Alignment.Top,
+                                        animationSpec = tween(300)
+                                    ),
+                                    exit = shrinkVertically(
+                                        shrinkTowards = Alignment.Top,
+                                        animationSpec = tween(300)
+                                    ),
+                                ) {
+                                    Column {
+                                        Spacer(Modifier.height(12.dp))
 
-                var isActive by remember { mutableStateOf(false) }
+                                        var isActive by remember { mutableStateOf(false) }
                 val targetRecoveryDM = mainScreenState.targetRecoveryDriveMode
-                    .getDisplayDriveModeName()
-                    .let { name ->
-                        if (name == "Unknown") {
-                            isActive = false
-                            stringResource(R.string.last)
-                        } else {
-                            isActive = true
-                            name
-                        }
-                    }
-                RenderListButton(
-                    modifier = Modifier.padding(horizontal = 20.dp),
-                    title = stringResource(R.string.restore_mode),
-                    subtitle = stringResource(R.string.restore_mode_desc),
-                    content = {
-                        Text(
-                            text = targetRecoveryDM,
-                            modifier = Modifier
-                                .clip(CircleShape)
-                                .background(
-                                    if (isActive) {
-                                        AppTheme.colors.contentAccent
-                                    } else {
-                                        AppTheme.colors.surfaceMenu
+                                            .getDisplayDriveModeName()
+                                            .let { name ->
+                                                if (name == "Unknown") {
+                                                    isActive = false
+                                                    stringResource(R.string.last)
+                                                } else {
+                                                    isActive = true
+                                                    name
+                                                }
+                                            }
+                                        RenderListButton(
+                                            modifier = Modifier.padding(horizontal = 20.dp),
+                                            title = stringResource(R.string.restore_mode),
+                                            subtitle = stringResource(R.string.restore_mode_desc),
+                                            content = {
+                                                Text(
+                                                    text = targetRecoveryDM,
+                                                    modifier = Modifier
+                                                        .clip(CircleShape)
+                                                        .background(
+                                                            if (isActive) {
+                                                                AppTheme.colors.contentAccent
+                                                            } else {
+                                                                AppTheme.colors.surfaceMenu
+                                                            }
+                                                        )
+                                                        .padding(
+                                                            horizontal = 12.dp,
+                                                            vertical = 8.dp
+                                                        ),
+                                                    color = AppTheme.colors.contentPrimary,
+                                                    style = AppTheme.typography.liteBadge
+                                                )
+                                            }
+                                        ) { targetRecoveryDriveModeDialog = true }
                                     }
-                                )
-                                .padding(
-                                    horizontal = 12.dp,
-                                    vertical = 8.dp
-                                ),
-                            color = AppTheme.colors.contentPrimary,
-                            style = AppTheme.typography.liteBadge
-                        )
-                    }
-                ) { targetRecoveryDriveModeDialog = true }
-            }
-        }
+                                }
 
-        Spacer(Modifier.height(12.dp))
+                                Spacer(Modifier.height(12.dp))
 
-        var showNotifPicker by remember { mutableStateOf(false) }
-        if (showNotifPicker) {
-            NotifPickerDialog(
-                uiScaleState = uiScale,
-                dataStore = remember { dataStore },
-                playTest = viewModel::playNotifTest,
-                onDismiss = { showNotifPicker = false }
-            )
-        }
-        RenderListButton(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.driving_mode_change_sound),
-            subtitle = stringResource(R.string.driving_mode_change_sound_desc)
-        ) {
-            showNotifPicker = true
-        }
+                                var showNotifPicker by remember { mutableStateOf(false) }
+                                if (showNotifPicker) {
+                                    NotifPickerDialog(
+                                        uiScaleState = uiScale,
+                                        dataStore = remember { dataStore },
+                                        playTest = viewModel::playNotifTest,
+                                        onDismiss = { showNotifPicker = false }
+                                    )
+                                }
+                                RenderListButton(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.driving_mode_change_sound),
+                                    subtitle = stringResource(R.string.driving_mode_change_sound_desc)
+                                ) {
+                                    showNotifPicker = true
+                                }
 
-        Spacer(Modifier.height(12.dp))
+                                Spacer(Modifier.height(12.dp))
 
-        RenderSwitcher(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.display_driving_mode),
-            subtitle = stringResource(R.string.display_driving_mode_desc),
+                                RenderSwitcher(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.display_driving_mode),
+                                    subtitle = stringResource(R.string.display_driving_mode_desc),
             value = mainScreenState.driveModeOverlay,
-            groupDivider = false,
-            onChange = {
-                if (context.requireDisplayOverlay()) {
+                                    groupDivider = false,
+                                    onChange = {
+                                        if (context.requireDisplayOverlay()) {
                     updateMainScreenState(mainScreenState.copy(driveModeOverlay = it))
                     scope.launch(Dispatchers.IO) {
-                        dataStore.saveValue(
-                            GeneralPrefs.DRIVE_MODE_OVERLAY,
-                            it
-                        )
-                    }
-                }
-            }
-        )
+                                                dataStore.saveValue(
+                                                    GeneralPrefs.DRIVE_MODE_OVERLAY,
+                                                    it
+                                                )
+                                            }
+                                        }
+                                    }
+                                )
 
-        AnimatedVisibility(
+                                AnimatedVisibility(
             visible = mainScreenState.driveModeOverlay,
-            enter = expandVertically(
-                expandFrom = Alignment.Top,
-                animationSpec = tween(300)
-            ),
-            exit = shrinkVertically(
-                shrinkTowards = Alignment.Top,
-                animationSpec = tween(300)
-            ),
-        ) {
-            Column {
-                Spacer(Modifier.height(16.dp))
+                                    enter = expandVertically(
+                                        expandFrom = Alignment.Top,
+                                        animationSpec = tween(300)
+                                    ),
+                                    exit = shrinkVertically(
+                                        shrinkTowards = Alignment.Top,
+                                        animationSpec = tween(300)
+                                    ),
+                                ) {
+                                    Column {
+                                        Spacer(Modifier.height(16.dp))
 
-                //  drive mode overlay size slider
-                val overlaySizeTitle = stringResource(R.string.overlay_size)
-                Text(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 42.dp),
-                    textAlign = TextAlign.Left,
+                                        //  drive mode overlay size slider
+                                        val overlaySizeTitle = stringResource(R.string.overlay_size)
+                                        Text(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 42.dp),
+                                            textAlign = TextAlign.Left,
                     text = "$overlaySizeTitle: " + (mainScreenState.driveModeOverlayScale + uiScale).asOneDecimalX(),
-                    color = AppTheme.colors.contentPrimary
-                )
-                ValueSlider(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 36.dp),
+                                            color = AppTheme.colors.contentPrimary
+                                        )
+                                        ValueSlider(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 36.dp),
                     value = mainScreenState.driveModeOverlayScale,
-                    valueRange = -1.2f..1.7f,
-                    onValueChange = { newValue ->
+                                            valueRange = -1.2f..1.7f,
+                                            onValueChange = { newValue ->
                         updateMainScreenState(mainScreenState.copy(driveModeOverlayScale = newValue))
                         scope.launch(Dispatchers.IO) {
-                            dataStore.saveValue(
-                                GeneralPrefs.DM_OVERLAY_SCALE,
-                                newValue
-                            )
-                        }
-                    },
-                    enabled = true,
+                                                    dataStore.saveValue(
+                                                        GeneralPrefs.DM_OVERLAY_SCALE,
+                                                        newValue
+                                                    )
+                                                }
+                                            },
+                                            enabled = true,
                     defaultMark = MainScreenState.Default.driveModeOverlayScale,
-                    step = 0.1f
-                )
+                                            step = 0.1f
+                                        )
 
-                Spacer(Modifier.height(16.dp))
+                                        Spacer(Modifier.height(16.dp))
 
-                //  drive mode overlay offset slider
-                val overlayOffsetTitle =
-                    stringResource(R.string.vertical_offset)
-                val minOverlayOffset = DRIVE_MODE_DEFAULT_OVERLAY_OFFSET
-                val maxOverlayOffset =
-                    90f - DRIVE_MODE_DEFAULT_OVERLAY_OFFSET
-                Text(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 42.dp),
-                    textAlign = TextAlign.Left,
-                    text = "$overlayOffsetTitle: " +
+                                        //  drive mode overlay offset slider
+                                        val overlayOffsetTitle =
+                                            stringResource(R.string.vertical_offset)
+                                        val minOverlayOffset = DRIVE_MODE_DEFAULT_OVERLAY_OFFSET
+                                        val maxOverlayOffset =
+                                            90f - DRIVE_MODE_DEFAULT_OVERLAY_OFFSET
+                                        Text(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 42.dp),
+                                            textAlign = TextAlign.Left,
+                                            text = "$overlayOffsetTitle: " +
                             mainScreenState.driveModeOverlayOffset.toOverlayPercentString(
-                                min = -minOverlayOffset,
-                                mid = 0f,
-                                max = maxOverlayOffset,
-                                minPercent = 0f,
-                                midPercent = minOverlayOffset,
-                                maxPercent = 100f
-                            ),
-                    color = AppTheme.colors.contentPrimary
-                )
-                ValueSlider(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 36.dp),
+                                                        min = -minOverlayOffset,
+                                                        mid = 0f,
+                                                        max = maxOverlayOffset,
+                                                        minPercent = 0f,
+                                                        midPercent = minOverlayOffset,
+                                                        maxPercent = 100f
+                                                    ),
+                                            color = AppTheme.colors.contentPrimary
+                                        )
+                                        ValueSlider(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 36.dp),
                     value = mainScreenState.driveModeOverlayOffset,
-                    valueRange = -minOverlayOffset..maxOverlayOffset,
-                    onValueChange = { newValue ->
+                                            valueRange = -minOverlayOffset..maxOverlayOffset,
+                                            onValueChange = { newValue ->
                         updateMainScreenState(mainScreenState.copy(driveModeOverlayOffset = newValue))
                         scope.launch(Dispatchers.IO) {
-                            dataStore.saveValue(
-                                GeneralPrefs.DM_OVERLAY_OFFSET,
-                                newValue
-                            )
-                        }
-                    },
-                    enabled = true,
+                                                    dataStore.saveValue(
+                                                        GeneralPrefs.DM_OVERLAY_OFFSET,
+                                                        newValue
+                                                    )
+                                                }
+                                            },
+                                            enabled = true,
                     defaultMark = MainScreenState.Default.driveModeOverlayOffset,
-                    step = 1f
-                )
-            }
-        }
+                                            step = 1f
+                                        )
+                                    }
+                                }
 
-        Spacer(Modifier.height(16.dp))
-        RenderGroupDivider()
-        Spacer(Modifier.height(24.dp))
+                                Spacer(Modifier.height(16.dp))
+                                RenderGroupDivider()
+                                Spacer(Modifier.height(24.dp))
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Min)
-                .padding(horizontal = 42.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(AppTheme.colors.addSplitTop)
-        ) {
-            Text(
-                modifier = Modifier
-                    .clickable {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(IntrinsicSize.Min)
+                                        .padding(horizontal = 42.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(AppTheme.colors.addSplitTop)
+                                ) {
+                                    Text(
+                                        modifier = Modifier
+                                            .clickable {
                         openConfigurator(false)
-                    }
-                    .weight(1f)
-                    .padding(
-                        horizontal = 4.dp,
-                        vertical = 14.dp
-                    ),
-                text = stringResource(R.string.configurator),
-                color = AppTheme.colors.contentPrimary,
-                style = AppTheme.typography.buttonTitle,
-                textAlign = TextAlign.Center
-            )
+                                            }
+                                            .weight(1f)
+                                            .padding(
+                                                horizontal = 4.dp,
+                                                vertical = 14.dp
+                                            ),
+                                        text = stringResource(R.string.configurator),
+                                        color = AppTheme.colors.contentPrimary,
+                                        style = AppTheme.typography.buttonTitle,
+                                        textAlign = TextAlign.Center
+                                    )
 
-            Spacer(
-                Modifier
-                    .fillMaxHeight()
-                    .width(1.dp)
-                    .padding(vertical = 10.dp)
-                    .background(AppTheme.colors.contentPrimary.copy(.2f))
-            )
+                                    Spacer(
+                                        Modifier
+                                            .fillMaxHeight()
+                                            .width(1.dp)
+                                            .padding(vertical = 10.dp)
+                                            .background(AppTheme.colors.contentPrimary.copy(.2f))
+                                    )
 
-            Box(
-                modifier = Modifier
-                    .clickable {
+                                    Box(
+                                        modifier = Modifier
+                                            .clickable {
                         openConfigurator(true)
-                    }
-                    .padding(horizontal = 32.dp)
-                    .fillMaxHeight(),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Favorite,
-                    tint = AppTheme.colors.contentPrimary,
-                    contentDescription = stringResource(R.string.back)
-                )
-            }
-        }
+                                            }
+                                            .padding(horizontal = 32.dp)
+                                            .fillMaxHeight(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Favorite,
+                                            tint = AppTheme.colors.contentPrimary,
+                                            contentDescription = stringResource(R.string.back)
+                                        )
+                                    }
+                                }
 
-        Spacer(Modifier.height(28.dp))
+                                Spacer(Modifier.height(28.dp))
 
-        BaseButton(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.Start)
-                .padding(horizontal = 42.dp),
-            title = stringResource(R.string.system_parameters),
-            backgroundColor = AppTheme.colors.addSplitBottom
-        ) {
+                                BaseButton(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .align(Alignment.Start)
+                                        .padding(horizontal = 42.dp),
+                                    title = stringResource(R.string.system_parameters),
+                                    backgroundColor = AppTheme.colors.addSplitBottom
+                                ) {
             openSystemParams()
-        }
+                                }
 
-        Spacer(Modifier.height(24.dp))
-        RenderGroupDivider()
-        Spacer(Modifier.height(24.dp))
+                                Spacer(Modifier.height(24.dp))
+                                RenderGroupDivider()
+                                Spacer(Modifier.height(24.dp))
 
         RenderDocumentationBlock()
 
-        RenderGroupTitle("ADB")
+                                RenderGroupTitle("ADB")
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    start = 42.dp,
-                    end = 42.dp,
-                    top = 14.dp,
-                    bottom = 14.dp
-                ),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            StatusLamp(state = adbConnectionState)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(
+                                            start = 42.dp,
+                                            end = 42.dp,
+                                            top = 14.dp,
+                                            bottom = 14.dp
+                                        ),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    StatusLamp(state = adbConnectionState)
 
-            Spacer(Modifier.width(20.dp))
+                                    Spacer(Modifier.width(20.dp))
 
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    modifier = Modifier,
-                    text = when (adbConnectionState) {
-                        DisplayAdbState.Connected -> stringResource(R.string.connected)
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text(
+                                            modifier = Modifier,
+                                            text = when (adbConnectionState) {
+                                                DisplayAdbState.Connected -> stringResource(R.string.connected)
 
-                        DisplayAdbState.Connecting -> stringResource(R.string.connecting)
+                                                DisplayAdbState.Connecting -> stringResource(R.string.connecting)
 
-                        DisplayAdbState.Disconnected -> stringResource(R.string.disconnected)
+                                                DisplayAdbState.Disconnected -> stringResource(R.string.disconnected)
 
-                        is DisplayAdbState.Error -> stringResource(R.string.error)
-                    },
-                    style = AppTheme.typography.statusTitle,
-                    color = AppTheme.colors.contentPrimary
-                )
+                                                is DisplayAdbState.Error -> stringResource(R.string.error)
+                                            },
+                                            style = AppTheme.typography.statusTitle,
+                                            color = AppTheme.colors.contentPrimary
+                                        )
 
-                val conState = adbConnectionState
-                if (conState is DisplayAdbState.Error) {
-                    Text(
-                        text = conState.message,
-                        style = AppTheme.typography.dialogSubtitle,
-                        color = AppTheme.colors.contentPrimary,
-                        overflow = TextOverflow.Ellipsis,
-                        maxLines = 2
-                    )
-                }
-            }
-        }
-        Spacer(Modifier.height(12.dp))
+                                        val conState = adbConnectionState
+                                        if (conState is DisplayAdbState.Error) {
+                                            Text(
+                                                text = conState.message,
+                                                style = AppTheme.typography.dialogSubtitle,
+                                                color = AppTheme.colors.contentPrimary,
+                                                overflow = TextOverflow.Ellipsis,
+                                                maxLines = 2
+                                            )
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.height(12.dp))
 
-        var inputPortDialog by remember { mutableStateOf(false) }
-        if (inputPortDialog) {
-            InputPortDialog(
+                                var inputPortDialog by remember { mutableStateOf(false) }
+                                if (inputPortDialog) {
+                                    InputPortDialog(
                 title = when (mainScreenState.adbHelperPort) {
-                    7777, 5555 -> ""
+                                            7777, 5555 -> ""
                     else -> mainScreenState.adbHelperPort.toString()
-                },
-                uiScaleState = uiScale,
-                onFinishInput = { newPort ->
+                                        },
+                                        uiScaleState = uiScale,
+                                        onFinishInput = { newPort ->
                     updateMainScreenState(
                         mainScreenState.copy(
                             adbHelperPort = newPort,
                             enableAdbHelper = true
                         )
                     )
-                    scope.launch(Dispatchers.IO) {
-                        dataStore.saveValue(
-                            GeneralPrefs.ADB_HELPER_PORT,
-                            newPort
-                        )
-                        dataStore.saveValue(
-                            GeneralPrefs.ENABLE_ADB_HELPER,
-                            true
-                        )
-                    }
-                    inputPortDialog = false
-                },
-                onDismiss = {
-                    inputPortDialog = false
-                }
-            )
-        }
+                                            scope.launch(Dispatchers.IO) {
+                                                dataStore.saveValue(
+                                                    GeneralPrefs.ADB_HELPER_PORT,
+                                                    newPort
+                                                )
+                                                dataStore.saveValue(
+                                                    GeneralPrefs.ENABLE_ADB_HELPER,
+                                                    true
+                                                )
+                                            }
+                                            inputPortDialog = false
+                                        },
+                                        onDismiss = {
+                                            inputPortDialog = false
+                                        }
+                                    )
+                                }
 
-        val offText = stringResource(R.string.off)
+                                val offText = stringResource(R.string.off)
         val list = remember(mainScreenState.adbHelperPort) {
-            listOf(
-                HugeTogglerItem(text = "Atlas", subtitle = "5555"),
-                HugeTogglerItem(text = "Preface", subtitle = "7777"),
-                HugeTogglerItem(
-                    text = "Custom",
-                    subtitle = when {
+                                    listOf(
+                                        HugeTogglerItem(text = "Atlas", subtitle = "5555"),
+                                        HugeTogglerItem(text = "Preface", subtitle = "7777"),
+                                        HugeTogglerItem(
+                                            text = "Custom",
+                                            subtitle = when {
                         mainScreenState.adbHelperPort != 7777 &&
                                 mainScreenState.adbHelperPort != 5555 &&
                                 mainScreenState.adbHelperPort != -1 -> mainScreenState.adbHelperPort.toString()
 
-                        else -> null
-                    }
-                ),
-                HugeTogglerItem(text = offText),
-            )
-        }
-        Box(
-            Modifier
-                .padding(horizontal = 42.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(AppTheme.colors.surfaceMenu)
-                .padding(2.dp)
-        ) {
+                                                else -> null
+                                            }
+                                        ),
+                                        HugeTogglerItem(text = offText),
+                                    )
+                                }
+                                Box(
+                                    Modifier
+                                        .padding(horizontal = 42.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(AppTheme.colors.surfaceMenu)
+                                        .padding(2.dp)
+                                ) {
             if (mainScreenState.adbHelperPort != -1) {
-                HugeSegmentToggler(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    selectedIndex = when {
+                                        HugeSegmentToggler(
+                                            modifier = Modifier
+                                                .fillMaxWidth(),
+                                            selectedIndex = when {
                         mainScreenState.adbHelperPort == 5555 && mainScreenState.enableAdbHelper -> 0
                         mainScreenState.adbHelperPort == 7777 && mainScreenState.enableAdbHelper -> 1
                         mainScreenState.adbHelperPort > 0 && mainScreenState.enableAdbHelper -> 2
                         !mainScreenState.enableAdbHelper -> 3
-                        else -> 0
-                    },
-                    fontSize = 14,
-                    activeBackground = AppTheme.colors.contentAccent,
-                    itemContentColor = AppTheme.colors.contentPrimary,
-                    items = list,
-                    onReSelect = {
-                        if (it == 2) inputPortDialog = true
-                    }
-                ) {
-                    when (it) {
+                                                else -> 0
+                                            },
+                                            fontSize = 14,
+                                            activeBackground = AppTheme.colors.contentAccent,
+                                            itemContentColor = AppTheme.colors.contentPrimary,
+                                            items = list,
+                                            onReSelect = {
+                                                if (it == 2) inputPortDialog = true
+                                            }
+                                        ) {
+                                            when (it) {
                         0 -> {
                             updateMainScreenState(
                                 mainScreenState.copy(
@@ -1593,14 +1593,14 @@ class MainActivity : ComponentActivity() {
                                 )
                             )
                             scope.launch(Dispatchers.IO) {
-                                dataStore.saveValue(
-                                    GeneralPrefs.ADB_HELPER_PORT,
-                                    5555
-                                )
-                                dataStore.saveValue(
-                                    GeneralPrefs.ENABLE_ADB_HELPER,
-                                    true
-                                )
+                                                    dataStore.saveValue(
+                                                        GeneralPrefs.ADB_HELPER_PORT,
+                                                        5555
+                                                    )
+                                                    dataStore.saveValue(
+                                                        GeneralPrefs.ENABLE_ADB_HELPER,
+                                                        true
+                                                    )
                             }
                         }
 
@@ -1612,18 +1612,18 @@ class MainActivity : ComponentActivity() {
                                 )
                             )
                             scope.launch(Dispatchers.IO) {
-                                dataStore.saveValue(
-                                    GeneralPrefs.ADB_HELPER_PORT,
-                                    7777
-                                )
-                                dataStore.saveValue(
-                                    GeneralPrefs.ENABLE_ADB_HELPER,
-                                    true
-                                )
+                                                    dataStore.saveValue(
+                                                        GeneralPrefs.ADB_HELPER_PORT,
+                                                        7777
+                                                    )
+                                                    dataStore.saveValue(
+                                                        GeneralPrefs.ENABLE_ADB_HELPER,
+                                                        true
+                                                    )
                             }
-                        }
+                                                }
 
-                        2 -> inputPortDialog = true
+                                                2 -> inputPortDialog = true
 
                         3 -> {
                             updateMainScreenState(
@@ -1632,92 +1632,92 @@ class MainActivity : ComponentActivity() {
                                 )
                             )
                             scope.launch(Dispatchers.IO) {
-                                dataStore.saveValue(
-                                    GeneralPrefs.ENABLE_ADB_HELPER,
-                                    false
-                                )
+                                                    dataStore.saveValue(
+                                                        GeneralPrefs.ENABLE_ADB_HELPER,
+                                                        false
+                                                    )
                             }
-                        }
-                    }
-                }
-            }
-        }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
 
-        Spacer(Modifier.height(14.dp))
+                                Spacer(Modifier.height(14.dp))
 
-        Text(
-            text = stringResource(R.string.launcher_extra_features_desc),
-            modifier = Modifier.padding(horizontal = 42.dp),
-            color = AppTheme.colors.contentPrimary.copy(.4f),
-            style = AppTheme.typography.dialogSubtitle
-        )
+                                Text(
+                                    text = stringResource(R.string.launcher_extra_features_desc),
+                                    modifier = Modifier.padding(horizontal = 42.dp),
+                                    color = AppTheme.colors.contentPrimary.copy(.4f),
+                                    style = AppTheme.typography.dialogSubtitle
+                                )
 
-        Spacer(Modifier.height(24.dp))
-        RenderGroupDivider()
-        Spacer(Modifier.height(24.dp))
+                                Spacer(Modifier.height(24.dp))
+                                RenderGroupDivider()
+                                Spacer(Modifier.height(24.dp))
 
-        RenderGroupTitle(stringResource(R.string.general))
+                                RenderGroupTitle(stringResource(R.string.general))
 
-        var uiScaleDialog by rememberSaveable { mutableStateOf(false) }
-        if (uiScaleDialog) {
-            UiScaleDialog(
-                uiScaleState = uiScale,
-                onChangeUiScale = { newValue ->
+                                var uiScaleDialog by rememberSaveable { mutableStateOf(false) }
+                                if (uiScaleDialog) {
+                                    UiScaleDialog(
+                                        uiScaleState = uiScale,
+                                        onChangeUiScale = { newValue ->
                     updateUiScale(newValue)
                     scope.launch(Dispatchers.IO) {
-                        dataStore.saveValue(
-                            GeneralPrefs.APP_UI_SCALE,
-                            newValue
-                        )
-                    }
-                },
-                onDismiss = { uiScaleDialog = false }
-            )
-        }
+                                                dataStore.saveValue(
+                                                    GeneralPrefs.APP_UI_SCALE,
+                                                    newValue
+                                                )
+                                            }
+                                        },
+                                        onDismiss = { uiScaleDialog = false }
+                                    )
+                                }
 
-        RenderListButton(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.interface_scale),
-            subtitle = "${uiScale.roundScale()}x"
-        ) {
-            uiScaleDialog = true
-        }
+                                RenderListButton(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.interface_scale),
+                                    subtitle = "${uiScale.roundScale()}x"
+                                ) {
+                                    uiScaleDialog = true
+                                }
 
-        Spacer(Modifier.height(12.dp))
+                                Spacer(Modifier.height(12.dp))
 
-        // is md target broadcast
-        RenderSwitcher(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.broadcast_intents),
-            subtitle = stringResource(R.string.broadcast_intents_desc),
+                                // is md target broadcast
+                                RenderSwitcher(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.broadcast_intents),
+                                    subtitle = stringResource(R.string.broadcast_intents_desc),
             value = mainScreenState.fullBroadcast,
-            enable = true,
-            groupDivider = false,
-            onChange = {
+                                    enable = true,
+                                    groupDivider = false,
+                                    onChange = {
                 updateMainScreenState(mainScreenState.copy(fullBroadcast = it))
                 scope.launch(Dispatchers.IO) {
-                    dataStore.saveValue(GeneralPrefs.FULL_BROADCAST, it)
-                }
-            }
-        )
+                                            dataStore.saveValue(GeneralPrefs.FULL_BROADCAST, it)
+                                        }
+                                    }
+                                )
 
-        Spacer(Modifier.height(12.dp))
+                                Spacer(Modifier.height(12.dp))
 
-        // track keycode event
-        RenderSwitcher(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.track_keycode_event),
-            subtitle = stringResource(R.string.low_level_key_events),
+                                // track keycode event
+                                RenderSwitcher(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.track_keycode_event),
+                                    subtitle = stringResource(R.string.low_level_key_events),
             value = mainScreenState.trackKeyEvents,
-            enable = true,
-            groupDivider = false,
-            onChange = {
+                                    enable = true,
+                                    groupDivider = false,
+                                    onChange = {
                 updateMainScreenState(mainScreenState.copy(trackKeyEvents = it))
                 scope.launch(Dispatchers.IO) {
-                    dataStore.saveValue(GeneralPrefs.TRACK_KEY_EVENTS, it)
-                }
-            }
-        )
+                                            dataStore.saveValue(GeneralPrefs.TRACK_KEY_EVENTS, it)
+                                        }
+                                    }
+                                )
 
         // debug options
         RenderDebugSettingsBlock(
@@ -1739,73 +1739,73 @@ class MainActivity : ComponentActivity() {
                 )
                 scope.launch(Dispatchers.IO) { dataStore.saveValue(pref, value) }
             }
-        )
+                                )
 
-        Spacer(Modifier.height(12.dp))
+                                Spacer(Modifier.height(12.dp))
 
-        // suppression mode
-        RenderSwitcher(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.suppression_mode),
-            subtitle = stringResource(R.string.suppression_mode_desc),
+                                // suppression mode
+                                RenderSwitcher(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.suppression_mode),
+                                    subtitle = stringResource(R.string.suppression_mode_desc),
             value = mainScreenState.suppressionMode,
-            enable = true,
-            groupDivider = false,
-            onChange = { newValue ->
-                if (newValue) {
+                                    enable = true,
+                                    groupDivider = false,
+                                    onChange = { newValue ->
+                                        if (newValue) {
                     showActionBindLockConfirmDialog()
-                } else {
+                                        } else {
                     updateMainScreenState(mainScreenState.copy(suppressionMode = false))
                     scope.launch(Dispatchers.IO) {
-                        dataStore.saveValue(
-                            GeneralPrefs.SUPPRESSION_MODE,
-                            false
-                        )
-                    }
-                }
-            }
-        )
+                                                dataStore.saveValue(
+                                                    GeneralPrefs.SUPPRESSION_MODE,
+                                                    false
+                                                )
+                                            }
+                                        }
+                                    }
+                                )
 
-        Spacer(Modifier.height(16.dp))
-        RenderGroupDivider()
-        Spacer(Modifier.height(24.dp))
+                                Spacer(Modifier.height(16.dp))
+                                RenderGroupDivider()
+                                Spacer(Modifier.height(24.dp))
 
-        RenderGroupTitle(stringResource(R.string.import_export_settings))
+                                RenderGroupTitle(stringResource(R.string.import_export_settings))
 
-        RenderListButton(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.import_settings),
-            subtitle = stringResource(R.string.import_settings_desc)
-        ) {
-            runCatching {
-                openGibbLauncher.launch(
-                    arrayOf(
-                        "application/gibb",
-                        "application/octet-stream",
-                        "*/*"
-                    )
-                )
-            }.onFailure { Timber.e(it) }
-        }
+                                RenderListButton(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.import_settings),
+                                    subtitle = stringResource(R.string.import_settings_desc)
+                                ) {
+                                        runCatching {
+                                            openGibbLauncher.launch(
+                                                arrayOf(
+                                                    "application/gibb",
+                                                    "application/octet-stream",
+                                                    "*/*"
+                                                )
+                                            )
+                                        }.onFailure { Timber.e(it) }
+                                }
 
-        Spacer(Modifier.height(12.dp))
+                                Spacer(Modifier.height(12.dp))
 
-        var exportSettingsDialog by remember { mutableStateOf(false) }
-        if (exportSettingsDialog) {
+                                var exportSettingsDialog by remember { mutableStateOf(false) }
+                                if (exportSettingsDialog) {
             RenderSettingsExportDialog(uiScale, canAccessibility) {
-                exportSettingsDialog = false
-            }
-        }
+                                        exportSettingsDialog = false
+                                    }
+                                }
 
-        RenderListButton(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.export_settings),
-            subtitle = stringResource(R.string.export_settings_desc)
-        ) {
-            exportSettingsDialog = true
-        }
+                                RenderListButton(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    title = stringResource(R.string.export_settings),
+                                    subtitle = stringResource(R.string.export_settings_desc)
+                                ) {
+                                    exportSettingsDialog = true
+                                }
 
-        Spacer(Modifier.height(90.dp))
+                                Spacer(Modifier.height(90.dp))
     }
 
     // Launcher to open system file picker for .gibb using SAF
