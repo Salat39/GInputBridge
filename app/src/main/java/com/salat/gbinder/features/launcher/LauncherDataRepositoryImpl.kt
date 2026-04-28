@@ -194,7 +194,7 @@ class LauncherDataRepositoryImpl(
                 GlobalState.devicePackagesChangedFlow.collect { event ->
 
                     // Delete from my apps if system package removed
-                    if (event is PackagesChangedEvent.Removed) {
+                    if (event is PackagesChangedEvent.Removed && !systemApps.isPackageInstalled(event.packageName)) {
                         withContext(Dispatchers.IO) {
                             val storedItems = storage.getAll()
                             if (storedItems.any { it.packageName == event.packageName }) {
@@ -284,12 +284,11 @@ class LauncherDataRepositoryImpl(
         Timber.d("[LAUNCHER DATA] my apps updated")
     }
 
-
     private suspend fun mergeHiddenFrozenItems(items: List<LauncherItem>): List<LauncherItem> {
         val config = settingsConfig.value ?: return items
         if (config.showFrozenApps) return items
 
-        val storedItems = storage.getAll()
+        val storedItems = storage.getAll().sortedBy { it.order }
         if (storedItems.isEmpty()) return items
 
         val appsByPackages = rawAllApps.associateBy { it.packageName + (it.launcherActivity ?: "") }

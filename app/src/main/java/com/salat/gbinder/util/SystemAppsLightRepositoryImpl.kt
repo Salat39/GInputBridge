@@ -147,7 +147,8 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
             val activityName = info.activityInfo.name
             val isFrozen = pm.isDisabledByUser(packageName)
             if (isFrozen && !includeDisabledUserApps) continue
-            if (!isFrozen && (!info.activityInfo.enabled || info.activityInfo.applicationInfo.enabled != true)) continue
+            if (!info.activityInfo.enabled) continue
+            if (!isFrozen && info.activityInfo.applicationInfo.enabled != true) continue
 
             // if (packageName.lowercase() in pkgBlock) continue
             if (activityName.lowercase() in actBlock) continue
@@ -225,7 +226,8 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
         runCatching { packageManager.getPackageInfo(HAV_YAM_PACKAGE, 0) }.getOrNull()
             ?.let { pkgInfo ->
                 val packageName = pkgInfo.packageName
-                if (pm.isDisabledByUser(packageName)) return@let
+                val isFrozen = pm.isDisabledByUser(packageName)
+                if (isFrozen && !includeDisabledUserApps) return@let
                 val appName = pkgInfo.applicationInfo?.loadLabel(pm).toString()
                 val (resId, density, vc) = chooseIconResTriple(
                     pm,
@@ -259,6 +261,7 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
                                 actBlock,
                                 null
                             ),
+                            isFrozen = isFrozen,
                             isSystem = isSystem
                         )
                     )

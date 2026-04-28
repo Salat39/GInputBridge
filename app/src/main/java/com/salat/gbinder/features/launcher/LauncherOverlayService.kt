@@ -939,7 +939,7 @@ class LauncherOverlayService : Service() {
                 RenderAppActionsMenu(
                     packageName = item.app.packageName,
                     isFrozen = liveAllApp.isFrozen,
-                    canUninstall = config.allowSystemAppUninstall || !item.app.isSystem,
+                    canUninstall = config.allowSystemAppUninstall || !liveAllApp.isSystem,
                     enableAdbHelper = config.enableAdbHelper,
                     launchedStatus = item.launchedStatus,
                     onOpen = {
@@ -1322,12 +1322,14 @@ class LauncherOverlayService : Service() {
                 modifier = Modifier
                     .weight(1f)
                     .wrapContentHeight()
-                    .clickable { onOpen() },
+                    .clickable(enabled = !isFrozen) { onOpen() },
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
                 Spacer(Modifier.height(14.dp))
-                val color = AppTheme.colors.menuIcon
+                val color = if (isFrozen) {
+                    AppTheme.colors.menuIcon.copy(.3f)
+                } else AppTheme.colors.menuIcon
                 Icon(
                     painter = painterResource(R.drawable.ic_open_window),
                     tint = color,
