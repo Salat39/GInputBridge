@@ -17,4 +17,10 @@ sealed class LauncherOverlaySignal() {
         val packageName: String,
         val isSystem: Boolean
     ) : LauncherOverlaySignal()
+
+    data class ConfirmUnfreezeAndLaunch(
+        val packageName: String,
+        val launchActivity: String?,
+        val appDisplayName: String
+    ) : LauncherOverlaySignal()
 }

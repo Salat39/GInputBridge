@@ -16,28 +16,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.salat.gbinder.R
-import com.salat.gbinder.components.launchApp
-import com.salat.gbinder.components.toast
 import com.salat.gbinder.entity.DisplayLauncherApp
 import com.salat.gbinder.entity.DisplayLauncherConfig
-import timber.log.Timber
 
 @Composable
 fun ColumnScope.RenderLauncherAllApps(
     items: List<DisplayLauncherApp>,
     config: DisplayLauncherConfig,
     gridState: LazyGridState,
-    onLongClick: (item: DisplayLauncherApp, offset: Offset) -> Unit,
-    onCancelLauncher: () -> Unit
+    onClick: (DisplayLauncherApp) -> Unit,
+    onLongClick: (item: DisplayLauncherApp, offset: Offset) -> Unit
 ) = Box(
     modifier = Modifier
         .fillMaxWidth()
         .weight(1f)
 ) {
-    val context = LocalContext.current
     val frozenIconColorFilter = remember {
         ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
     }
@@ -63,15 +57,7 @@ fun ColumnScope.RenderLauncherAllApps(
                 textPadding = config.iconTextPadding,
                 enableMultiline = config.iconTextMultiline,
                 frozenIconColorFilter = frozenIconColorFilter,
-                onClick = {
-                    if (app.isFrozen) {
-                        context.toast(context.getString(R.string.app_frozen_launch_blocked))
-                        return@RenderLauncherAllAppCell
-                    }
-                    Timber.d("[LAUNCHER] open ${app.id}")
-                    context.launchApp(app.packageName, app.launcherActivity)
-                    onCancelLauncher()
-                },
+                onClick = { onClick(app) },
                 onLongClick = { offset -> onLongClick(app, offset) }
             )
         }

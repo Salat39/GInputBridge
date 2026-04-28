@@ -103,6 +103,7 @@ import com.salat.gbinder.R
 import com.salat.gbinder.adb.data.entity.AdbConnectionState
 import com.salat.gbinder.adb.domain.repository.AdbRepository
 import com.salat.gbinder.components.ComposeWindowLifecycleOwner
+import com.salat.gbinder.components.inMainToast
 import com.salat.gbinder.components.launchApp
 import com.salat.gbinder.components.launchStringIntent
 import com.salat.gbinder.components.openAccessibilitySettings
@@ -435,6 +436,68 @@ class LauncherOverlayService : Service() {
                 }
             }
 
+        suspend fun onFrozenAppAdbLaunch(
+            packageName: String,
+            launchActivity: String?,
+            appDisplayName: String
+        ) = withContext(Dispatchers.Main) {
+            minimizeOverlayForSystemDialog()
+            stateKeeper.sendLauncherOverlaySignal(
+                LauncherOverlaySignal.ConfirmUnfreezeAndLaunch(
+                    packageName = packageName,
+                    launchActivity = launchActivity,
+                    appDisplayName = appDisplayName
+                )
+            )
+        }
+
+        fun isAdbConnected() = adb.connectionState.value == AdbConnectionState.Connected
+
+        val context = LocalContext.current
+        fun launchAllApp(app: DisplayLauncherApp) {
+            if (app.isFrozen) {
+                serviceScope.launch(Dispatchers.IO) {
+                    if (isAdbConnected()) {
+                        onFrozenAppAdbLaunch(
+                            app.packageName,
+                            app.launcherActivity,
+                            app.appName
+                        )
+                    } else {
+                        inMainToast(context.getString(R.string.app_frozen_launch_blocked))
+                    }
+                }
+                return
+            }
+            Timber.d("[LAUNCHER] open ${app.id}")
+            context.launchApp(app.packageName, app.launcherActivity)
+            hideLauncherOverlay()
+        }
+
+        fun launchMyApp(app: DisplayLauncherItem) {
+            if (app.type != DisplayLauncherItemType.MACRO && app.isFrozen) {
+                serviceScope.launch(Dispatchers.IO) {
+                    if (isAdbConnected()) {
+                        onFrozenAppAdbLaunch(
+                            app.packageName,
+                            app.launchActivity,
+                            app.title
+                        )
+                    } else {
+                        inMainToast(context.getString(R.string.app_frozen_launch_blocked))
+                    }
+                }
+                return
+            }
+            if (app.type == DisplayLauncherItemType.MACRO) {
+                context.launchStringIntent(app.data)
+            } else {
+                context.launchApp(app.packageName, app.launchActivity)
+            }
+            Timber.d("[LAUNCHER] open ${app.id}")
+            hideLauncherOverlay()
+        }
+
         // Scale calc
         val borderRadius = remember { (16f * config.uiScale).roundToInt() }
         val elevation = remember { (4f * config.uiScale).roundToInt() }
@@ -542,6 +605,19 @@ class LauncherOverlayService : Service() {
                                     togglePackageFreeze(it.packageName, isFrozen = false)
                                     restoreOverlayIfNeeded()
                                 }
+
+                                is LauncherActivitySignal.ApplyUnfreezeAndLaunch ->
+                                    serviceScope.launch(Dispatchers.IO) {
+                                        runCatching {
+                                            adb.enableAndLaunchApp(
+                                                it.packageName,
+                                                it.launchActivity
+                                            )
+                                        }.onFailure { e -> Timber.e(e) }
+                                        withContext(Dispatchers.Main) {
+                                            hideLauncherOverlay()
+                                        }
+                                    }
                             }
                         }
                     }
@@ -641,6 +717,7 @@ class LauncherOverlayService : Service() {
                                                         config = config,
                                                         lockMode = lockMode,
                                                         gridState = myAppsGridState,
+                                                        onClick = ::launchMyApp,
                                                         onLongClick = { item, offset ->
                                                             when (item.type) {
                                                                 DisplayLauncherItemType.GROUP -> {
@@ -659,10 +736,7 @@ class LauncherOverlayService : Service() {
                                                                 )
                                                             }
                                                         },
-                                                        onHideApp = { item ->
-                                                            removeItemById(item.id)
-                                                        },
-                                                        onCancelLauncher = ::hideLauncherOverlay,
+                                                        onHideApp = { item -> removeItemById(item.id) },
                                                         onMoveItem = { fromIndex, toIndex ->
                                                             uiItems = uiItems
                                                                 .toMutableList()
@@ -697,8 +771,8 @@ class LauncherOverlayService : Service() {
                                                     items = list,
                                                     config = config,
                                                     gridState = allAppsGridState,
-                                                    onLongClick = ::onOpenAllAppMenu,
-                                                    onCancelLauncher = ::hideLauncherOverlay
+                                                    onClick = ::launchAllApp,
+                                                    onLongClick = ::onOpenAllAppMenu
                                                 )
                                             }
                                         }
@@ -707,14 +781,9 @@ class LauncherOverlayService : Service() {
 
                                 // Recents
                                 if (config.recentsEnable) {
-                                    val context = LocalContext.current
                                     RenderRecents(
                                         config = config,
-                                        onClick = { app ->
-                                            Timber.d("[LAUNCHER] open ${app.id}")
-                                            context.launchApp(app.packageName, app.launcherActivity)
-                                            hideLauncherOverlay()
-                                        },
+                                        onClick = ::launchAllApp,
                                         onLongClick = ::onOpenAllAppMenu
                                     )
                                 }
@@ -803,7 +872,6 @@ class LauncherOverlayService : Service() {
 
         // My apps menu popup
         myAppItemMenu?.let { item ->
-            val context = LocalContext.current
             OverlayPopupMenu(
                 offset = item.offset,
                 onDismiss = { myAppItemMenu = null },
@@ -832,16 +900,7 @@ class LauncherOverlayService : Service() {
                         canUninstall = config.allowSystemAppUninstall || !item.app.isSystem,
                         enableAdbHelper = config.enableAdbHelper,
                         launchedStatus = item.launchedStatus,
-                        onOpen = {
-                            // TODO create a single source of truth
-                            if (item.app.type == DisplayLauncherItemType.MACRO) {
-                                context.launchStringIntent(item.app.data)
-                            } else {
-                                context.launchApp(item.app.packageName, item.app.launchActivity)
-                            }
-                            Timber.d("[LAUNCHER] open ${item.app.id}")
-                            hideLauncherOverlay()
-                        },
+                        onOpen = { launchMyApp(item.app) },
                         onForceStop = {
                             myAppItemMenu = myAppItemMenu?.copy(
                                 launchedStatus = AppLaunchedState.NO
@@ -927,7 +986,6 @@ class LauncherOverlayService : Service() {
 
         // All apps menu popup
         allAppItemMenu?.let { item ->
-            val context = LocalContext.current
             val allAppsList by data.allApps.collectAsStateWithLifecycle()
             val liveAllApp =
                 allAppsList.find { it.packageName == item.app.packageName } ?: item.app
@@ -942,12 +1000,7 @@ class LauncherOverlayService : Service() {
                     canUninstall = config.allowSystemAppUninstall || !liveAllApp.isSystem,
                     enableAdbHelper = config.enableAdbHelper,
                     launchedStatus = item.launchedStatus,
-                    onOpen = {
-                        // TODO create a single source of truth
-                        Timber.d("[LAUNCHER] open ${item.app.id}")
-                        context.launchApp(item.app.packageName, item.app.launcherActivity)
-                        hideLauncherOverlay()
-                    },
+                    onOpen = { launchAllApp(item.app) },
                     onForceStop = {
                         allAppItemMenu = allAppItemMenu?.copy(
                             launchedStatus = AppLaunchedState.NO
@@ -1322,14 +1375,12 @@ class LauncherOverlayService : Service() {
                 modifier = Modifier
                     .weight(1f)
                     .wrapContentHeight()
-                    .clickable(enabled = !isFrozen) { onOpen() },
+                    .clickable(onClick = onOpen),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
                 Spacer(Modifier.height(14.dp))
-                val color = if (isFrozen) {
-                    AppTheme.colors.menuIcon.copy(.3f)
-                } else AppTheme.colors.menuIcon
+                val color = AppTheme.colors.menuIcon
                 Icon(
                     painter = painterResource(R.drawable.ic_open_window),
                     tint = color,

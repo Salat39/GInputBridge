@@ -386,6 +386,27 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         return execute("pm enable $pkg")
     }
 
+    override suspend fun enableAndLaunchApp(packageName: String, launchActivity: String?): String {
+        val pkg = packageName.trim()
+        if (pkg.isEmpty() || pkg.equals("unknown", ignoreCase = true) || !isValidPackageName(pkg)) {
+            return "no valid package names"
+        }
+        val enableOut = enablePackage(pkg)
+        val trimmedActivity = launchActivity?.trim()?.takeUnless { it.isEmpty() }
+        val launchCmd = if (trimmedActivity != null) {
+            val fqcn = if (trimmedActivity.startsWith(".")) {
+                pkg + trimmedActivity
+            } else {
+                trimmedActivity
+            }
+            "am start --user 0 -n $pkg/$fqcn"
+        } else {
+            "monkey -p $pkg -c android.intent.category.LAUNCHER 1"
+        }
+        val launchOut = execute(launchCmd)
+        return "$enableOut\n$launchOut"
+    }
+
     override suspend fun disableUserPackage(packageName: String): String {
         val pkg = packageName.trim()
         if (pkg.isEmpty() || pkg.equals("unknown", ignoreCase = true) || !isValidPackageName(pkg)) {

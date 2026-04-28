@@ -194,7 +194,9 @@ class LauncherDataRepositoryImpl(
                 GlobalState.devicePackagesChangedFlow.collect { event ->
 
                     // Delete from my apps if system package removed
-                    if (event is PackagesChangedEvent.Removed && !systemApps.isPackageInstalled(event.packageName)) {
+                    if (event is PackagesChangedEvent.Removed
+                        && !systemApps.isPackageInstalled(event.packageName)
+                    ) {
                         withContext(Dispatchers.IO) {
                             val storedItems = storage.getAll()
                             if (storedItems.any { it.packageName == event.packageName }) {

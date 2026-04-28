@@ -2,10 +2,10 @@ package com.salat.gbinder.adb.domain.repository
 
 import com.salat.gbinder.adb.data.entity.AdbConnectionState
 import com.salat.gbinder.entity.AdbRecentTaskInfo
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 
 interface AdbRepository {
-    val connectionState: Flow<AdbConnectionState>
+    val connectionState: StateFlow<AdbConnectionState>
 
     suspend fun execute(command: String): String
 
@@ -20,6 +20,8 @@ interface AdbRepository {
     suspend fun forceStop(vararg packageNames: String): String
 
     suspend fun enablePackage(packageName: String): String
+
+    suspend fun enableAndLaunchApp(packageName: String, launchActivity: String?): String
 
     suspend fun disableUserPackage(packageName: String): String
 

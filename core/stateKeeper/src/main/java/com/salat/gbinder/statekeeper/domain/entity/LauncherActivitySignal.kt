@@ -20,4 +20,7 @@ sealed class LauncherActivitySignal() {
 
     class CancelIcon(val id: Long, val packageName: String) : LauncherActivitySignal()
     class ApplyFreezeApp(val packageName: String) : LauncherActivitySignal()
+
+    class ApplyUnfreezeAndLaunch(val packageName: String, val launchActivity: String?) :
+        LauncherActivitySignal()
 }

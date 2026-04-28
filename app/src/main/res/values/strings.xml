@@ -393,6 +393,7 @@
     <string name="show_frozen_apps">Show frozen apps</string>
     <string name="show_frozen_apps_desc">Show apps that cannot be launched in the all-apps grid.</string>
     <string name="app_frozen_launch_blocked">App is frozen</string>
+    <string name="confirm_unfreeze_launch_prefix">Do you want to unfreeze and launch</string>
     <string name="allow_system_app_uninstall">Allow uninstalling system apps</string>
     <string name="allow_system_app_uninstall_desc">Enable only if you know what you are doing. This is a safeguard against dangerous actions inside the system.</string>
     <string name="recent_apps">Recent apps</string>

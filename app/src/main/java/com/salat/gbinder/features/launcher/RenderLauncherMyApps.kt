@@ -32,14 +32,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.salat.gbinder.R
-import com.salat.gbinder.components.launchApp
-import com.salat.gbinder.components.launchStringIntent
-import com.salat.gbinder.components.toast
 import com.salat.gbinder.entity.DisplayLauncherConfig
 import com.salat.gbinder.entity.DisplayLauncherItem
 import com.salat.gbinder.entity.DisplayLauncherItemType
@@ -47,7 +42,6 @@ import com.salat.gbinder.ui.reordable.ReorderableItem
 import com.salat.gbinder.ui.reordable.ScrollMoveMode
 import com.salat.gbinder.ui.reordable.rememberReorderableLazyGridState
 import com.salat.gbinder.ui.theme.AppTheme
-import timber.log.Timber
 
 @Composable
 fun ColumnScope.RenderLauncherMyApps(
@@ -55,9 +49,9 @@ fun ColumnScope.RenderLauncherMyApps(
     config: DisplayLauncherConfig,
     lockMode: Boolean,
     gridState: LazyGridState,
+    onClick: (item: DisplayLauncherItem) -> Unit,
     onLongClick: (item: DisplayLauncherItem, offset: Offset) -> Unit,
     onHideApp: (item: DisplayLauncherItem) -> Unit,
-    onCancelLauncher: () -> Unit,
     onMoveItem: (fromIndex: Int, toIndex: Int) -> Unit,
     onReorderDrop: () -> Unit
 ) = Column(
@@ -65,8 +59,6 @@ fun ColumnScope.RenderLauncherMyApps(
         .fillMaxWidth()
         .weight(1f)
 ) {
-    val context = LocalContext.current
-    val data = items
 
     // Reorderable state bound to your existing LazyGridState
     val reorderState = rememberReorderableLazyGridState(
@@ -89,7 +81,7 @@ fun ColumnScope.RenderLauncherMyApps(
         horizontalArrangement = Arrangement.spacedBy(config.iconInnerSpace.dp),
     ) {
         items(
-            items = data,
+            items = items,
             key = { it.id },
             span = { item ->
                 if (item.type == DisplayLauncherItemType.GROUP) {
@@ -128,19 +120,7 @@ fun ColumnScope.RenderLauncherMyApps(
                             lockMode = lockMode,
                             enableClick = lockMode,
                             onHideApp = onHideApp,
-                            onClick = {
-                                if (app.type != DisplayLauncherItemType.MACRO && app.isFrozen) {
-                                    context.toast(context.getString(R.string.app_frozen_launch_blocked))
-                                    return@RenderLauncherMyAppCell
-                                }
-                                if (app.type == DisplayLauncherItemType.MACRO) {
-                                    context.launchStringIntent(app.data)
-                                } else {
-                                    context.launchApp(app.packageName, app.launchActivity)
-                                }
-                                Timber.d("[LAUNCHER] open ${app.id}")
-                                onCancelLauncher()
-                            },
+                            onClick = { onClick(app) },
                             onLongClick = { offset -> onLongClick(app, offset) }
                         )
                     }

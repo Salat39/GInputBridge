@@ -39,6 +39,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle
@@ -183,6 +187,7 @@ class LauncherEntryActivity : ComponentActivity() {
     private fun RenderOverlayDialogs(uiScale: Float) {
         var editGroupNameDialog by remember { mutableStateOf<Pair<Long, String>?>(null) }
         var freezeConfirmationDialog by remember { mutableStateOf<FreezeConfirmationState?>(null) }
+        var unfreezeLaunchDialog by remember { mutableStateOf<UnfreezeLaunchConfirmationState?>(null) }
 
         LaunchedEffect(Unit) {
             stateKeeper.launcherOverlaySignalFlow.collect { signal ->
@@ -192,6 +197,13 @@ class LauncherEntryActivity : ComponentActivity() {
 
                     is LauncherOverlaySignal.ConfirmFreezeApp -> freezeConfirmationDialog =
                         FreezeConfirmationState(signal.packageName, signal.isSystem)
+
+                    is LauncherOverlaySignal.ConfirmUnfreezeAndLaunch -> unfreezeLaunchDialog =
+                        UnfreezeLaunchConfirmationState(
+                            signal.packageName,
+                            signal.launchActivity,
+                            signal.appDisplayName
+                        )
 
                     else -> Unit
                 }
@@ -233,6 +245,25 @@ class LauncherEntryActivity : ComponentActivity() {
                     onDismiss = {
                         stateKeeper.sendLauncherActivitySignal(LauncherActivitySignal.OnResume)
                         freezeConfirmationDialog = null
+                    }
+                )
+            }
+
+            unfreezeLaunchDialog?.let { state ->
+                UnfreezeLaunchConfirmationDialog(
+                    state = state,
+                    uiScale = uiScale,
+                    onConfirm = { packageName, launchActivity ->
+                        val action = LauncherActivitySignal.ApplyUnfreezeAndLaunch(
+                            packageName,
+                            launchActivity
+                        )
+                        stateKeeper.sendLauncherActivitySignal(action)
+                        unfreezeLaunchDialog = null
+                    },
+                    onDismiss = {
+                        stateKeeper.sendLauncherActivitySignal(LauncherActivitySignal.OnResume)
+                        unfreezeLaunchDialog = null
                     }
                 )
             }
@@ -314,6 +345,66 @@ class LauncherEntryActivity : ComponentActivity() {
                         } else {
                             AppTheme.colors.contentPrimary.copy(alpha = .45f)
                         },
+                        style = AppTheme.typography.alertDialogButton
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun UnfreezeLaunchConfirmationDialog(
+        state: UnfreezeLaunchConfirmationState,
+        uiScale: Float,
+        onConfirm: (String, String?) -> Unit,
+        onDismiss: () -> Unit
+    ) {
+        BaseDialog(
+            uiScaleState = uiScale,
+            maxWidth = 560,
+            onDismiss = onDismiss
+        ) {
+            Column(modifier = Modifier.padding(top = 22.dp)) {
+                Text(
+                    text = buildAnnotatedString {
+                        append(stringResource(R.string.confirm_unfreeze_launch_prefix))
+                        append(" ")
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                            append(state.appDisplayName)
+                        }
+                        append("?")
+                    },
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                    color = AppTheme.colors.contentPrimary,
+                    style = AppTheme.typography.dialogListTitle
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 10.dp, end = 10.dp, bottom = 8.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Text(
+                        text = stringResource(R.string.no),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .clickable { onDismiss() }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        color = AppTheme.colors.contentAccent,
+                        style = AppTheme.typography.alertDialogButton
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.yes),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .clickable {
+                                onConfirm(state.packageName, state.launchActivity)
+                            }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        color = AppTheme.colors.deleteButton.copy(alpha = .9f),
                         style = AppTheme.typography.alertDialogButton
                     )
                 }

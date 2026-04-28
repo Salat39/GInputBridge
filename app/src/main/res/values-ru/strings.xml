@@ -384,6 +384,7 @@
     <string name="show_frozen_apps">Показывать замороженные приложения</string>
     <string name="show_frozen_apps_desc">Отображать отключенные приложения в общей сетке приложений</string>
     <string name="app_frozen_launch_blocked">Приложение заморожено</string>
+    <string name="confirm_unfreeze_launch_prefix">Вы хотите разморозить и запустить</string>
     <string name="allow_system_app_uninstall">Разрешить удаление системных приложений</string>
     <string name="allow_system_app_uninstall_desc">Включайте только если точно знаете что делаете. Защита от опасных действий внутри системы</string>
     <string name="recent_apps">Недавние приложения</string>
