@@ -61,7 +61,7 @@ fun RenderLauncherAllAppCell(
             .onGloballyPositioned { coordinates ->
                 rootOffset = Offset(coordinates.positionInRoot().x, coordinates.positionInRoot().y)
             }
-            .pointerInput(Unit) {
+            .pointerInput(app) {
                 detectTapGestures(
                     onLongPress = {
                         onLongClick(
