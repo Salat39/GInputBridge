@@ -54,6 +54,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -99,6 +100,7 @@ import coil.request.ImageRequest
 import coil.size.Precision
 import com.salat.gbinder.BuildConfig
 import com.salat.gbinder.R
+import com.salat.gbinder.adb.data.entity.AdbConnectionState
 import com.salat.gbinder.adb.domain.repository.AdbRepository
 import com.salat.gbinder.components.ComposeWindowLifecycleOwner
 import com.salat.gbinder.components.launchApp
@@ -535,6 +537,11 @@ class LauncherOverlayService : Service() {
                                     data.clearIcon(it.id, it.packageName)
                                     restoreOverlayIfNeeded()
                                 }
+
+                                is LauncherActivitySignal.ApplyFreezeApp -> {
+                                    togglePackageFreeze(it.packageName, isFrozen = false)
+                                    restoreOverlayIfNeeded()
+                                }
                             }
                         }
                     }
@@ -821,6 +828,8 @@ class LauncherOverlayService : Service() {
                 } else {
                     RenderAppActionsMenu(
                         packageName = item.app.packageName,
+                        isFrozen = item.app.isFrozen,
+                        canUninstall = config.allowSystemAppUninstall || !item.app.isSystem,
                         enableAdbHelper = config.enableAdbHelper,
                         launchedStatus = item.launchedStatus,
                         onOpen = {
@@ -837,7 +846,17 @@ class LauncherOverlayService : Service() {
                             myAppItemMenu = myAppItemMenu?.copy(
                                 launchedStatus = AppLaunchedState.NO
                             )
-                        }
+                        },
+                        onToggleFreeze = if (item.app.type == DisplayLauncherItemType.APP) {
+                            {
+                                requestTogglePackageFreeze(
+                                    packageName = item.app.packageName,
+                                    isFrozen = item.app.isFrozen,
+                                    isSystem = item.app.isSystem
+                                )
+                                myAppItemMenu = null
+                            }
+                        } else null
                     ) {
                         myAppItemMenu = null
                     }
@@ -845,43 +864,8 @@ class LauncherOverlayService : Service() {
                     RenderMenuDivider()
                 }
 
-                // Rename
-                OptionsMenuItem(
-                    icon = R.drawable.ic_rename,
-                    title = stringResource(R.string.rename),
-                    textColor = Color.White,
-                    scale = .97f
-                ) {
-                    minimizeOverlayForSystemDialog()
-                    stateKeeper.sendLauncherOverlaySignal(
-                        LauncherOverlaySignal.ChangeGroupName(
-                            id = item.app.id,
-                            title = item.app.title
-                        )
-                    )
-                    myAppItemMenu = null
-                }
-
-                // Change icon
-                OptionsMenuItem(
-                    icon = R.drawable.ic_pic_change,
-                    title = stringResource(R.string.change_icon),
-                    textColor = Color.White,
-                    scale = .97f
-                ) {
-                    skipCloseOnNextOnPause = true
-                    minimizeOverlayForSystemDialog()
-                    val action = LauncherOverlaySignal.ChangeAppIconById(
-                        item.app.id,
-                        item.app.customIcon != null
-                    )
-                    stateKeeper.sendLauncherOverlaySignal(action)
-                    myAppItemMenu = null
-                }
-
                 if (item.app.type == DisplayLauncherItemType.APP) {
                     item.appData?.let { appData ->
-                        // Activities
                         val showActivities = appData.availableActivity.isNotEmpty()
                         if (showActivities) {
                             RenderActivitiesMenu(
@@ -894,13 +878,48 @@ class LauncherOverlayService : Service() {
                             }
                         }
                     }
+                }
 
-                    if (item.app.iconRef != null) {
-                        RenderMenuDivider()
-
-                        RenderSystemActionsMenu(item.app.packageName) {
+                RenderAppLabelAndIconMenu(
+                    packageName = item.app.packageName,
+                    isFrozen = item.app.isFrozen,
+                    enableAdbHelper = config.enableAdbHelper,
+                    onRename = {
+                        minimizeOverlayForSystemDialog()
+                        stateKeeper.sendLauncherOverlaySignal(
+                            LauncherOverlaySignal.ChangeGroupName(
+                                id = item.app.id,
+                                title = item.app.title
+                            )
+                        )
+                        myAppItemMenu = null
+                    },
+                    onChangeIcon = {
+                        skipCloseOnNextOnPause = true
+                        minimizeOverlayForSystemDialog()
+                        val action = LauncherOverlaySignal.ChangeAppIconById(
+                            item.app.id,
+                            item.app.customIcon != null
+                        )
+                        stateKeeper.sendLauncherOverlaySignal(action)
+                        myAppItemMenu = null
+                    },
+                    onToggleFreeze = if (item.app.type == DisplayLauncherItemType.APP) {
+                        {
+                            requestTogglePackageFreeze(
+                                packageName = item.app.packageName,
+                                isFrozen = item.app.isFrozen,
+                                isSystem = item.app.isSystem
+                            )
                             myAppItemMenu = null
                         }
+                    } else null
+                )
+
+                if (item.app.type == DisplayLauncherItemType.APP && item.app.iconRef != null) {
+                    RenderMenuDivider()
+                    RenderSystemActionsMenu(item.app.packageName) {
+                        myAppItemMenu = null
                     }
                 }
             }
@@ -909,6 +928,9 @@ class LauncherOverlayService : Service() {
         // All apps menu popup
         allAppItemMenu?.let { item ->
             val context = LocalContext.current
+            val allAppsList by data.allApps.collectAsStateWithLifecycle()
+            val liveAllApp =
+                allAppsList.find { it.packageName == item.app.packageName } ?: item.app
             OverlayPopupMenu(
                 offset = item.offset,
                 onDismiss = { allAppItemMenu = null },
@@ -916,6 +938,8 @@ class LauncherOverlayService : Service() {
             ) {
                 RenderAppActionsMenu(
                     packageName = item.app.packageName,
+                    isFrozen = liveAllApp.isFrozen,
+                    canUninstall = config.allowSystemAppUninstall || !item.app.isSystem,
                     enableAdbHelper = config.enableAdbHelper,
                     launchedStatus = item.launchedStatus,
                     onOpen = {
@@ -928,6 +952,14 @@ class LauncherOverlayService : Service() {
                         allAppItemMenu = allAppItemMenu?.copy(
                             launchedStatus = AppLaunchedState.NO
                         )
+                    },
+                    onToggleFreeze = {
+                        requestTogglePackageFreeze(
+                            packageName = liveAllApp.packageName,
+                            isFrozen = liveAllApp.isFrozen,
+                            isSystem = liveAllApp.isSystem
+                        )
+                        allAppItemMenu = null
                     }
                 ) {
                     allAppItemMenu = null
@@ -963,22 +995,29 @@ class LauncherOverlayService : Service() {
                     }
                 }
 
-                // Change icon
-                OptionsMenuItem(
-                    icon = R.drawable.ic_pic_change,
-                    title = stringResource(R.string.change_icon),
-                    textColor = Color.White,
-                    scale = .97f
-                ) {
-                    skipCloseOnNextOnPause = true
-                    minimizeOverlayForSystemDialog()
-                    val action = LauncherOverlaySignal.ChangeAppIconByPackage(
-                        item.app.packageName,
-                        item.app.customIcon != null
-                    )
-                    stateKeeper.sendLauncherOverlaySignal(action)
-                    allAppItemMenu = null
-                }
+                RenderAppLabelAndIconMenu(
+                    packageName = item.app.packageName,
+                    isFrozen = liveAllApp.isFrozen,
+                    enableAdbHelper = config.enableAdbHelper,
+                    onChangeIcon = {
+                        skipCloseOnNextOnPause = true
+                        minimizeOverlayForSystemDialog()
+                        val action = LauncherOverlaySignal.ChangeAppIconByPackage(
+                            item.app.packageName,
+                            liveAllApp.customIcon != null
+                        )
+                        stateKeeper.sendLauncherOverlaySignal(action)
+                        allAppItemMenu = null
+                    },
+                    onToggleFreeze = {
+                        requestTogglePackageFreeze(
+                            packageName = liveAllApp.packageName,
+                            isFrozen = liveAllApp.isFrozen,
+                            isSystem = liveAllApp.isSystem
+                        )
+                        allAppItemMenu = null
+                    }
+                )
 
                 if (showAddInMyApps || showActivities) RenderMenuDivider()
 
@@ -1005,6 +1044,40 @@ class LauncherOverlayService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun requestTogglePackageFreeze(
+        packageName: String,
+        isFrozen: Boolean,
+        isSystem: Boolean
+    ) {
+        if (packageName.isBlank()) return
+
+        if (isFrozen) {
+            togglePackageFreeze(packageName, isFrozen = true)
+        } else {
+            minimizeOverlayForSystemDialog()
+            stateKeeper.sendLauncherOverlaySignal(
+                LauncherOverlaySignal.ConfirmFreezeApp(
+                    packageName = packageName,
+                    isSystem = isSystem
+                )
+            )
+        }
+    }
+
+    private fun togglePackageFreeze(packageName: String, isFrozen: Boolean) {
+        if (packageName.isBlank()) return
+
+        serviceScope.launch(Dispatchers.IO) {
+            runCatching {
+                if (isFrozen) {
+                    adb.enablePackage(packageName)
+                } else {
+                    adb.disableUserPackage(packageName)
+                }
+            }.onFailure { Timber.e(it) }
+        }
+    }
 
     /* @Composable
     private fun PrewarmIcons(list: List<DisplayLauncherApp>, config: DisplayLauncherConfig) {
@@ -1055,7 +1128,9 @@ class LauncherOverlayService : Service() {
                     launchActivity = "",
                     data = "",
                     isCall = false,
-                    isSplit = false
+                    isSplit = false,
+                    isFrozen = false,
+                    isSystem = false
                 )
             )
         }
@@ -1088,7 +1163,9 @@ class LauncherOverlayService : Service() {
                     launchActivity = "",
                     data = intent,
                     isCall = intent.isPhoneCallIntent,
-                    isSplit = intent.isSplitIntent
+                    isSplit = intent.isSplitIntent,
+                    isFrozen = false,
+                    isSystem = false
                 )
             )
         }
@@ -1108,7 +1185,9 @@ class LauncherOverlayService : Service() {
                     launchActivity = this@createMyApp.launcherActivity ?: "",
                     data = "",
                     isCall = false,
-                    isSplit = false
+                    isSplit = false,
+                    isFrozen = this@createMyApp.isFrozen,
+                    isSystem = this@createMyApp.isSystem
                 )
             )
         }
@@ -1218,13 +1297,21 @@ class LauncherOverlayService : Service() {
     @Composable
     private fun RenderAppActionsMenu(
         packageName: String,
+        isFrozen: Boolean,
+        canUninstall: Boolean,
         enableAdbHelper: Boolean,
         launchedStatus: AppLaunchedState,
         onOpen: () -> Unit,
         onForceStop: () -> Unit,
+        onToggleFreeze: (() -> Unit)? = null,
         onAction: () -> Unit
     ) {
         val context = LocalContext.current
+        val adbState by adb.connectionState.collectAsStateWithLifecycle(
+            initialValue = AdbConnectionState.Disconnected
+        )
+        val adbConnected = adbState is AdbConnectionState.Connected
+        val showUnfreeze = isFrozen && adbConnected && onToggleFreeze != null
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1252,7 +1339,7 @@ class LauncherOverlayService : Service() {
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    modifier = Modifier,
+                    modifier = Modifier.padding(horizontal = 10.dp),
                     text = stringResource(R.string.open),
                     color = color,
                     style = AppTheme.typography.cardFormatTitle,
@@ -1262,48 +1349,50 @@ class LauncherOverlayService : Service() {
                 Spacer(Modifier.height(12.dp))
             }
 
-            Spacer(
-                Modifier
-                    .fillMaxHeight()
-                    .width(1.dp)
-                    .padding(vertical = 6.dp)
-                    .background(AppTheme.colors.surfaceMenuDivider.copy(.5f))
-            )
+            if (canUninstall) {
+                Spacer(
+                    Modifier
+                        .fillMaxHeight()
+                        .width(1.dp)
+                        .padding(vertical = 6.dp)
+                        .background(AppTheme.colors.surfaceMenuDivider.copy(.5f))
+                )
 
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .wrapContentHeight()
-                    .clickable {
-                        skipCloseOnNextOnPause = true
-                        minimizeOverlayForSystemDialog()
-                        context.requestUninstall(packageName)
-                        onAction()
-                    },
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Spacer(Modifier.height(14.dp))
-                val color = AppTheme.colors.deleteButton
-                Icon(
-                    painter = painterResource(R.drawable.ic_delete),
-                    tint = color,
-                    contentDescription = "menu icon",
+                Column(
                     modifier = Modifier
-                        .alpha(.9f)
-                        .size(22.dp)
-                        .mirror()
-                )
-                Spacer(Modifier.height(3.dp))
-                Text(
-                    modifier = Modifier,
-                    text = stringResource(R.string.confirm_delete_title),
-                    color = color,
-                    style = AppTheme.typography.cardFormatTitle,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 1
-                )
-                Spacer(Modifier.height(12.dp))
+                        .weight(1f)
+                        .wrapContentHeight()
+                        .clickable {
+                            skipCloseOnNextOnPause = true
+                            minimizeOverlayForSystemDialog()
+                            context.requestUninstall(packageName)
+                            onAction()
+                        },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Spacer(Modifier.height(14.dp))
+                    val color = AppTheme.colors.deleteButton
+                    Icon(
+                        painter = painterResource(R.drawable.ic_delete),
+                        tint = color,
+                        contentDescription = "menu icon",
+                        modifier = Modifier
+                            .alpha(.9f)
+                            .size(22.dp)
+                            .mirror()
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        modifier = Modifier.padding(horizontal = 10.dp),
+                        text = stringResource(R.string.confirm_delete_title),
+                        color = color,
+                        style = AppTheme.typography.cardFormatTitle,
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
             }
 
             if (enableAdbHelper) {
@@ -1316,21 +1405,28 @@ class LauncherOverlayService : Service() {
                 )
 
                 val isLaunched = launchedStatus == AppLaunchedState.LAUNCHED
+                val actionEnabled = showUnfreeze || (isLaunched && adbConnected)
                 Column(
                     modifier = Modifier
                         .weight(1f)
                         .wrapContentHeight()
-                        .clickable(enabled = isLaunched) {
-                            serviceScope.launch(Dispatchers.IO) {
-                                adb.forceStop(packageName)
+                        .clickable(enabled = actionEnabled) {
+                            if (showUnfreeze) {
+                                onToggleFreeze()
+                            } else {
+                                serviceScope.launch(Dispatchers.IO) {
+                                    adb.forceStop(packageName)
+                                }
+                                onForceStop()
                             }
-                            onForceStop()
                         },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
                     Spacer(Modifier.height(14.dp))
-                    val color = if (isLaunched) {
+                    val color = if (showUnfreeze) {
+                        AppTheme.colors.greenAccent
+                    } else if (isLaunched) {
                         if (AppTheme.colors.isDark) {
                             AppTheme.colors.contentWarning
                         } else AppTheme.colors.statusWarning
@@ -1340,19 +1436,32 @@ class LauncherOverlayService : Service() {
                         } else AppTheme.colors.menuIcon.copy(.3f)
                     }
                     Icon(
-                        painter = painterResource(R.drawable.ic_warning),
+                        painter = painterResource(
+                            if (showUnfreeze) {
+                                R.drawable.ic_unlock
+                            } else {
+                                R.drawable.ic_warning
+                            }
+                        ),
                         tint = color,
                         contentDescription = "menu icon",
                         modifier = Modifier
                             .offset(y = 1.dp)
                             .alpha(.9f)
                             .size(22.dp)
+                            .then(if (showUnfreeze) Modifier.padding(2.dp) else Modifier)
                             .mirror()
                     )
                     Spacer(Modifier.height(3.dp))
                     Text(
-                        modifier = Modifier,
-                        text = stringResource(R.string.stop),
+                        modifier = Modifier.padding(horizontal = 10.dp),
+                        text = stringResource(
+                            if (showUnfreeze) {
+                                R.string.unfreeze_app
+                            } else {
+                                R.string.stop
+                            }
+                        ),
                         color = color,
                         style = AppTheme.typography.cardFormatTitle,
                         overflow = TextOverflow.Ellipsis,
@@ -1613,6 +1722,85 @@ class LauncherOverlayService : Service() {
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun RenderAppLabelAndIconMenu(
+        packageName: String,
+        isFrozen: Boolean,
+        enableAdbHelper: Boolean,
+        onRename: (() -> Unit)? = null,
+        onChangeIcon: () -> Unit,
+        onToggleFreeze: (() -> Unit)? = null
+    ) {
+        val adbState by adb.connectionState.collectAsStateWithLifecycle(
+            initialValue = AdbConnectionState.Disconnected
+        )
+        val showFreeze = enableAdbHelper && packageName.isNotBlank() &&
+                adbState is AdbConnectionState.Connected && onToggleFreeze != null
+        var expanded by remember { mutableStateOf(false) }
+        val editIcon = rememberVectorPainter(image = Icons.Filled.Build)
+        RenderOptionsMenuItem(
+            icon = editIcon,
+            title = stringResource(R.string.launcher_context_edit),
+            offsetX = 1f,
+            textColor = Color.White,
+            iconColor = Color.White,
+            scale = .88f
+        ) { expanded = !expanded }
+        AnimatedVisibility(
+            visible = expanded,
+            enter = fadeIn(tween(120)),
+            exit = fadeOut(tween(120))
+        ) {
+            Box(
+                modifier = Modifier
+                    .padding(top = 4.dp, start = 10.dp, end = 10.dp, bottom = 10.dp)
+                    .background(
+                        AppTheme.colors.surfaceMenuDivider,
+                        RoundedCornerShape(12.dp)
+                    )
+            ) {
+                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    onRename?.let { rename ->
+                        OptionsMenuItem(
+                            icon = R.drawable.ic_rename,
+                            title = stringResource(R.string.rename),
+                            textColor = Color.White,
+                            scale = .97f
+                        ) { rename() }
+                    }
+                    OptionsMenuItem(
+                        icon = R.drawable.ic_pic_change,
+                        title = stringResource(R.string.change_icon),
+                        textColor = Color.White,
+                        scale = .97f
+                    ) { onChangeIcon() }
+                    if (showFreeze) {
+                        val deleteLikeRed = AppTheme.colors.deleteButton
+                        val unfreezeGreen = AppTheme.colors.greenAccent
+                        val freezeMenuColor = if (isFrozen) unfreezeGreen else deleteLikeRed
+                        OptionsMenuItem(
+                            icon = if (isFrozen) {
+                                R.drawable.ic_unlock
+                            } else {
+                                R.drawable.ic_lock
+                            },
+                            title = stringResource(
+                                if (isFrozen) {
+                                    R.string.unfreeze_app
+                                } else {
+                                    R.string.freeze_app
+                                }
+                            ),
+                            iconColor = freezeMenuColor,
+                            textColor = freezeMenuColor,
+                            scale = .85f
+                        ) { onToggleFreeze() }
                     }
                 }
             }

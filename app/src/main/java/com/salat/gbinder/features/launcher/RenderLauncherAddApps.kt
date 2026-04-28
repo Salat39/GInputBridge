@@ -70,17 +70,18 @@ fun ColumnScope.RenderLauncherAddApps(
     var listItems by remember { mutableStateOf<List<AddListItem>>(emptyList()) }
 
     // build all list
-    LaunchedEffect(Unit) {
-        scope.launch(Dispatchers.Default) {
+    LaunchedEffect(myApps, allApps) {
+        val preparedItems = withContext(Dispatchers.Default) {
             val selectedApps = myApps
                 .filter { it.type == DisplayLauncherItemType.APP }
                 .map { it.packageName + it.launchActivity }
-            val selectedActivity = myApps
+                .toHashSet()
+            val selectedActivitiesSet = myApps
                 .filter { it.type == DisplayLauncherItemType.ACTIVITY }
                 .map { it.launchActivity }
-            val selectedActivitiesSet = selectedActivity.toHashSet()
+                .toHashSet()
 
-            listItems = buildList {
+            buildList {
                 allApps.forEachIndexed { index, app ->
                     val isShowActivity =
                         false // intersects(app.availableActivity, selectedActivity)
@@ -102,8 +103,10 @@ fun ColumnScope.RenderLauncherAddApps(
                             title = app.appName,
                             packageName = app.packageName,
                             launchActivity = app.launcherActivity,
+                            isFrozen = app.isFrozen,
                             isSingleActivity = app.availableActivity.size < 2,
-                            selectedCount = initialSelectedCount
+                            selectedCount = initialSelectedCount,
+                            isSystem = app.isSystem
                         )
                     )
 
@@ -118,7 +121,8 @@ fun ColumnScope.RenderLauncherAddApps(
                                     title = activity.afterLastDot(),
                                     isShow = isShowActivity,
                                     launchActivity = activity,
-                                    packageName = app.packageName
+                                    packageName = app.packageName,
+                                    isSystem = app.isSystem
                                 )
                             )
                         }
@@ -126,6 +130,7 @@ fun ColumnScope.RenderLauncherAddApps(
                 }
             }.toList()
         }
+        listItems = preparedItems
     }
 
     fun saveAndExit() = scope.launch(Dispatchers.Default) {
@@ -182,7 +187,9 @@ fun ColumnScope.RenderLauncherAddApps(
                                     launchActivity = item.launchActivity ?: "",
                                     data = "",
                                     isCall = false,
-                                    isSplit = false
+                                    isSplit = false,
+                                    isFrozen = item.isFrozen,
+                                    isSystem = item.isSystem
                                 )
                             )
                         }
@@ -202,7 +209,9 @@ fun ColumnScope.RenderLauncherAddApps(
                                     launchActivity = item.launchActivity,
                                     data = "",
                                     isCall = false,
-                                    isSplit = false
+                                    isSplit = false,
+                                    isFrozen = false,
+                                    isSystem = item.isSystem
                                 )
                             )
                         }

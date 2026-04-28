@@ -364,6 +364,11 @@
     <string name="add_to_my_apps">Добавить в мои приложения</string>
     <string name="enter_new_title_my_apps">Введите новый заголовок, который будет отображаться во вкладке «Мои приложения».</string>
     <string name="change_icon">Изменить иконку</string>
+    <string name="launcher_context_edit">Изменить</string>
+    <string name="freeze_app">Заморозить</string>
+    <string name="unfreeze_app">Разморозить</string>
+    <string name="confirm_freeze_app_message">Вы уверены, что хотите заморозить это приложение? Оно станет недоступным для запуска.</string>
+    <string name="confirm_freeze_system_app_message">Внимание: это системное приложение. Его отключение может привести к некорректной работе системы. Вы уверены, что хотите его заморозить? После этого оно станет недоступным для запуска.</string>   <string name="yes">Да</string>
     <string name="divider_current_view">Ваши разделители сейчас выглядят так</string>
     <string name="divider_title_preview">Превью заголовка раздела</string>
     <string name="divider_text_size">Размер текста разделителя</string>
@@ -376,6 +381,11 @@
     <string name="select_settings_to_export">Выберите разделы настроек для экспорта. При импорте вы сможете указать, какие из них нужно восстановить.</string>
     <string name="show_recent_apps">Показывать недавние приложения</string>
     <string name="show_recent_apps_desc">В нижней части лаунчера будет отображаться раздел с историей приложений, которые были запущены ранее. Функция не работает без включения сервиса специальных возможностей.</string>
+    <string name="show_frozen_apps">Показывать замороженные приложения</string>
+    <string name="show_frozen_apps_desc">Отображать отключенные приложения в общей сетке приложений</string>
+    <string name="app_frozen_launch_blocked">Приложение заморожено</string>
+    <string name="allow_system_app_uninstall">Разрешить удаление системных приложений</string>
+    <string name="allow_system_app_uninstall_desc">Включайте только если точно знаете что делаете. Защита от опасных действий внутри системы</string>
     <string name="recent_apps">Недавние приложения</string>
     <string name="accessibility_service_disabled">Сервис специальных возможностей не работает</string>
     <string name="close">Закрыть</string>

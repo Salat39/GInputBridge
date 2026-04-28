@@ -17,8 +17,19 @@ fun LauncherItemType.toDisplayType(): DisplayLauncherItemType = when (this) {
     LauncherItemType.MACRO -> DisplayLauncherItemType.MACRO
 }
 
-fun LauncherItem.toDisplayItem(context: Context, allPackages: Map<String, DisplayLauncherApp>) =
-    DisplayLauncherItem(
+fun LauncherItem.toDisplayItem(
+    context: Context,
+    allPackages: Map<String, DisplayLauncherApp>
+): DisplayLauncherItem {
+    val appInfo = when (type) {
+        LauncherItemType.APP -> allPackages[packageName + launchActivity]
+        LauncherItemType.ACTIVITY -> allPackages[packageName + launchActivity]
+            ?: allPackages.firstByPrefix(packageName)?.second
+        LauncherItemType.GROUP,
+        LauncherItemType.MACRO -> null
+    }
+
+    return DisplayLauncherItem(
         type = type.toDisplayType(),
         id = id,
         order = order,
@@ -35,8 +46,11 @@ fun LauncherItem.toDisplayItem(context: Context, allPackages: Map<String, Displa
         launchActivity = launchActivity,
         data = data,
         isCall = data.isPhoneCallIntent,
-        isSplit = data.isSplitIntent
+        isSplit = data.isSplitIntent,
+        isFrozen = appInfo?.isFrozen ?: false,
+        isSystem = appInfo?.isSystem ?: false
     )
+}
 
 fun List<LauncherItem>.toDisplayItems(
     context: Context,
@@ -87,7 +101,9 @@ fun InstalledAppInfoRef.toDisplayLauncherApp(
         ?.let { IconUriUtils.iconFileNameToContentUri(context, it) },
     isMedia = isMedia,
     launcherActivity = launcherActivity,
-    availableActivity = availableActivity
+    availableActivity = availableActivity,
+    isFrozen = isFrozen,
+    isSystem = isSystem
 )
 
 fun List<InstalledAppInfoRef>.toDisplayLauncherApps(
@@ -103,7 +119,9 @@ fun DisplayLauncherApp.toInstalledAppInfoRef() = InstalledAppInfoRef(
     iconRef = iconRef.toDataIcon(),
     isMedia = isMedia,
     launcherActivity = launcherActivity,
-    availableActivity = availableActivity
+    availableActivity = availableActivity,
+    isFrozen = isFrozen,
+    isSystem = isSystem
 )
 
 fun List<DisplayLauncherApp>.toInstalledAppInfoRefs(): List<InstalledAppInfoRef> =

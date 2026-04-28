@@ -35,6 +35,7 @@ fun RenderSwitcher(
     subtitleColor: Color = AppTheme.colors.contentPrimary.copy(.4f),
     subtitleStyle: TextStyle = AppTheme.typography.dialogSubtitle,
     switchScale: Float = .8f,
+    isNegative: Boolean = false,
     onChange: (Boolean) -> Unit = {}
 ) {
     RenderSwitcherContent(
@@ -49,6 +50,7 @@ fun RenderSwitcher(
         subtitleColor = subtitleColor,
         subtitleStyle = subtitleStyle,
         switchScale = switchScale,
+        isNegative = isNegative,
         onChange = onChange
     )
 }
@@ -66,6 +68,7 @@ fun RenderSwitcher(
     subtitleColor: Color = AppTheme.colors.contentPrimary.copy(.4f),
     subtitleStyle: TextStyle = AppTheme.typography.dialogSubtitle,
     switchScale: Float = .8f,
+    isNegative: Boolean = false,
     onChange: (Boolean) -> Unit = {}
 ) {
     RenderSwitcherContent(
@@ -80,6 +83,7 @@ fun RenderSwitcher(
         subtitleColor = subtitleColor,
         subtitleStyle = subtitleStyle,
         switchScale = switchScale,
+        isNegative = isNegative,
         onChange = onChange
     )
 }
@@ -97,6 +101,7 @@ private fun RenderSwitcherContent(
     subtitleColor: Color = AppTheme.colors.contentPrimary.copy(.4f),
     subtitleStyle: TextStyle = AppTheme.typography.dialogSubtitle,
     switchScale: Float = .8f,
+    isNegative: Boolean = false,
     onChange: (Boolean) -> Unit = {}
 ) {
     Row(
@@ -147,6 +152,7 @@ private fun RenderSwitcherContent(
                 scale = switchScale,
                 checked = value,
                 enabled = enable,
+                isNegative = isNegative,
                 onCheckedChange = null
             )
         } ?: run { Spacer(Modifier.width(52.dp)) }

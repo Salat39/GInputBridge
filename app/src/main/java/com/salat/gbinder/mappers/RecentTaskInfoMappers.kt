@@ -12,6 +12,7 @@ fun AdbRecentTaskInfo.toDisplay(app: DisplayLauncherApp): DisplayRecentTaskInfo 
         iconRef = app.iconRef,
         customIcon = app.customIcon,
         isMedia = app.isMedia,
+        isFrozen = app.isFrozen,
         launcherActivity = app.launcherActivity,
         availableActivity = app.availableActivity,
 

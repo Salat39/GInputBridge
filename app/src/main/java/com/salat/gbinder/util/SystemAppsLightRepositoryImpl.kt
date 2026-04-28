@@ -36,6 +36,17 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
         iconQuality: Int
     ): List<InstalledAppInfoRef> = context.getInstalledAppsRefs(roundIcon, mediaSort, iconQuality)
 
+    override suspend fun getLauncherApps(
+        roundIcon: Boolean,
+        mediaSort: Boolean,
+        iconQuality: Int
+    ): List<InstalledAppInfoRef> = context.getInstalledAppsRefs(
+        roundIcon = roundIcon,
+        mediaSort = mediaSort,
+        iconQuality = iconQuality,
+        includeDisabledUserApps = true
+    )
+
     override suspend fun getApps(
         roundIcon: Boolean,
         iconQuality: Int,
@@ -88,10 +99,7 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
         if (packageName.isBlank()) return false
         val pm = context.packageManager
         return try {
-            val ai = pm.getApplicationInfo(packageName, 0)
-            val flags = ai.flags
-            ((flags and ApplicationInfo.FLAG_SYSTEM) != 0) ||
-                    ((flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0)
+            pm.getApplicationInfo(packageName, 0).isSystemApp()
         } catch (_: PackageManager.NameNotFoundException) {
             false
         } catch (_: SecurityException) {
@@ -99,17 +107,28 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
         }
     }
 
+    private fun ApplicationInfo?.isSystemApp(): Boolean {
+        if (this == null) return false
+        return ((flags and ApplicationInfo.FLAG_SYSTEM) != 0) ||
+                ((flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0)
+    }
+
     private fun Context.getInstalledAppsRefs(
         roundIcon: Boolean,
         mediaSort: Boolean,
-        iconQuality: Int
+        iconQuality: Int,
+        includeDisabledUserApps: Boolean = false
     ): List<InstalledAppInfoRef> {
         // Builds the list of launchable apps with stable ids and icon references for the UI.
         val pm = packageManager
         val launcherIntent = Intent(Intent.ACTION_MAIN, null).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)
         }
-        val resolveInfos = pm.queryIntentActivities(launcherIntent, 0)
+        val resolveInfos = if (includeDisabledUserApps) {
+            pm.queryLauncherActivities(launcherIntent, true)
+        } else {
+            pm.queryLauncherActivities(launcherIntent, false)
+        }
         val appList = mutableListOf<InstalledAppInfoRef>()
         val actCache = mutableMapOf<String, List<String>>()
 
@@ -126,6 +145,9 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
         for (info in resolveInfos) {
             val packageName = info.activityInfo.packageName
             val activityName = info.activityInfo.name
+            val isFrozen = pm.isDisabledByUser(packageName)
+            if (isFrozen && !includeDisabledUserApps) continue
+            if (!isFrozen && (!info.activityInfo.enabled || info.activityInfo.applicationInfo.enabled != true)) continue
 
             // if (packageName.lowercase() in pkgBlock) continue
             if (activityName.lowercase() in actBlock) continue
@@ -178,6 +200,7 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
             val vcFinal = readVersionCode(pm, finalPkgForIcon)
 
             val isMedia = pm.isMediaApp(packageName, appInfo)
+            val isSystem = appInfo.isSystemApp()
             val iconRef = IconRef(finalPkgForIcon, finalResId, density, vcFinal)
             val id = ComponentName(packageName, activityName).flattenToString()
 
@@ -191,7 +214,9 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
                     launcherActivity = activityName,
                     availableActivity = actCache.getOrPut(packageName) {
                         pm.listLaunchableActivities(packageName, actBlock, activityName)
-                    }
+                    },
+                    isFrozen = isFrozen,
+                    isSystem = isSystem
                 )
             )
         }
@@ -200,6 +225,7 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
         runCatching { packageManager.getPackageInfo(HAV_YAM_PACKAGE, 0) }.getOrNull()
             ?.let { pkgInfo ->
                 val packageName = pkgInfo.packageName
+                if (pm.isDisabledByUser(packageName)) return@let
                 val appName = pkgInfo.applicationInfo?.loadLabel(pm).toString()
                 val (resId, density, vc) = chooseIconResTriple(
                     pm,
@@ -216,6 +242,7 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
                 }
 
                 val isMedia = pm.isMediaApp(packageName, appInfo)
+                val isSystem = appInfo.isSystemApp()
                 val id = packageName
                 val shouldAdd = (iconQuality == 0) || (finalResId != 0)
                 if (shouldAdd) {
@@ -231,7 +258,8 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
                                 packageName,
                                 actBlock,
                                 null
-                            )
+                            ),
+                            isSystem = isSystem
                         )
                     )
                 }
@@ -290,6 +318,7 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
                 }
 
                 val isMedia = pm.isMediaApp(pkgName, appInfo)
+                val isSystem = appInfo.isSystemApp()
                 InstalledAppInfoRef(
                     id = id,
                     packageName = pkgName,
@@ -297,7 +326,8 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
                     iconRef = IconRef(pkgName, finalResId, density, vc),
                     isMedia = isMedia,
                     launcherActivity = activityName,
-                    availableActivity = pm.listLaunchableActivities(pkgName, actBlock, activityName)
+                    availableActivity = pm.listLaunchableActivities(pkgName, actBlock, activityName),
+                    isSystem = isSystem
                 )
             } catch (_: Exception) {
                 Timber.e("App not found: $pkgName")
@@ -355,6 +385,29 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
             }
         } catch (_: Exception) {
             0L
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun PackageManager.queryLauncherActivities(
+        intent: Intent,
+        includeDisabled: Boolean
+    ): List<android.content.pm.ResolveInfo> {
+        val flags = if (includeDisabled) PackageManager.MATCH_DISABLED_COMPONENTS else 0
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(flags.toLong()))
+        } else {
+            queryIntentActivities(intent, flags)
+        }
+    }
+
+    private fun PackageManager.isDisabledByUser(packageName: String): Boolean {
+        return try {
+            getApplicationEnabledSetting(packageName) == PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER
+        } catch (_: IllegalArgumentException) {
+            false
+        } catch (_: Exception) {
+            false
         }
     }
 

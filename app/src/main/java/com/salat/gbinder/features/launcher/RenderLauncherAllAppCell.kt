@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,27 +16,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.style.Hyphens
-import androidx.compose.ui.text.style.LineBreak
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.salat.gbinder.R
 import com.salat.gbinder.entity.DisplayLauncherApp
 import com.salat.gbinder.entity.DisplayLauncherItemType
 import com.salat.gbinder.ui.DrawableImage
-import com.salat.gbinder.ui.theme.AppTheme
 import com.salat.gbinder.util.rememberTimeLockedBoolean
 
 @Composable
@@ -53,11 +48,13 @@ fun RenderLauncherAllAppCell(
     shortcutSize: Int = 0,
     shortcutType: DisplayLauncherItemType? = null,
     sizeSensitive: Boolean = true,
+    frozenIconColorFilter: ColorFilter,
     onClick: () -> Unit = {},
     onLongClick: (offset: Offset) -> Unit
 ) {
     var clickLock by rememberTimeLockedBoolean(1000L)
     var rootOffset by remember { mutableStateOf(Offset.Zero) }
+    val frozenModifier = if (app.isFrozen) Modifier.alpha(.6f) else Modifier
 
     Column(
         modifier = Modifier
@@ -117,8 +114,10 @@ fun RenderLauncherAllAppCell(
                 contentDescription = app.appName,
                 modifier = Modifier
                     .size(cellSize.dp)
-                    .then(if (iconRound != 0) Modifier.clip(RoundedCornerShape(iconRound.dp)) else Modifier),
-                contentScale = ContentScale.Crop
+                    .then(if (iconRound != 0) Modifier.clip(RoundedCornerShape(iconRound.dp)) else Modifier)
+                    .then(frozenModifier),
+                contentScale = ContentScale.Crop,
+                colorFilter = if (app.isFrozen) frozenIconColorFilter else null
             )
 
             // Settings preview
@@ -141,18 +140,13 @@ fun RenderLauncherAllAppCell(
         if (enableText) {
             Spacer(Modifier.height(textPadding.dp))
 
-            Text(
-                text = app.appName,
-                style = AppTheme.typography.overlayLauncherIconTitle.copy(
-                    lineBreak = LineBreak.Simple,
-                    hyphens = Hyphens.None,
-                    fontSize = textSize.sp,
-                    lineHeight = textSize.sp
-                ),
-                maxLines = if (enableMultiline) 2 else 1,
-                textAlign = TextAlign.Center,
-                overflow = TextOverflow.Ellipsis,
+            LauncherAppTitle(
+                title = app.appName,
+                isFrozen = app.isFrozen,
+                textSize = textSize,
+                enableMultiline = enableMultiline,
                 modifier = Modifier
+                    .then(frozenModifier)
             )
         }
     }

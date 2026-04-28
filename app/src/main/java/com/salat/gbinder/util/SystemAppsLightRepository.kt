@@ -9,6 +9,12 @@ interface SystemAppsLightRepository {
         iconQuality: Int
     ): List<InstalledAppInfoRef>
 
+    suspend fun getLauncherApps(
+        roundIcon: Boolean,
+        mediaSort: Boolean,
+        iconQuality: Int
+    ): List<InstalledAppInfoRef>
+
     suspend fun getApps(
         roundIcon: Boolean,
         iconQuality: Int,

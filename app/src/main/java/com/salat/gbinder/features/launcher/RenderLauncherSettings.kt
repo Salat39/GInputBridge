@@ -30,6 +30,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -463,17 +465,20 @@ fun ColumnScope.RenderLauncherSettings(
                 iconRound = config.iconRound,
                 textSize = config.iconTextSize,
                 textPadding = config.iconTextPadding,
+                enableMultiline = false,
                 enableShortcuts = config.enableShortcuts && (index == 0 || index == 1),
                 shortcutSize = config.shortcutSize,
                 shortcutType = if (index == 0) {
                     DisplayLauncherItemType.ACTIVITY
                 } else DisplayLauncherItemType.MACRO,
-                enableMultiline = false,
                 sizeSensitive = false,
+                frozenIconColorFilter = remember {
+                    ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
+                },
                 onClick = {
                     context.toast(context.getString(R.string.icon_view_preview))
                 },
-                onLongClick = { }
+                onLongClick = { },
             )
         }
     }
@@ -897,6 +902,45 @@ fun ColumnScope.RenderLauncherSettings(
         onChange = {
             scope.launch {
                 storage.dataStore.saveValue(LauncherPrefs.LAUNCHER_RECENTS_ENABLE, it)
+            }
+        }
+    )
+
+    Spacer(Modifier.height(26.dp))
+
+    RenderSwitcher(
+        modifier = Modifier.padding(horizontal = 18.dp),
+        title = stringResource(R.string.show_frozen_apps),
+        subtitle = stringResource(R.string.show_frozen_apps_desc),
+        value = config.showFrozenApps,
+        enable = true,
+        groupDivider = false,
+        subtitleColor = AppTheme.colors.contentPrimary.copy(.7f),
+        titleStyle = AppTheme.typography.overlayLauncherSettingsTitle,
+        subtitleStyle = AppTheme.typography.overlayLauncherSettingsSubtitle,
+        onChange = {
+            scope.launch {
+                storage.dataStore.saveValue(LauncherPrefs.LAUNCHER_SHOW_FROZEN_APPS, it)
+            }
+        }
+    )
+
+    Spacer(Modifier.height(26.dp))
+
+    RenderSwitcher(
+        modifier = Modifier.padding(horizontal = 18.dp),
+        title = stringResource(R.string.allow_system_app_uninstall),
+        subtitle = stringResource(R.string.allow_system_app_uninstall_desc),
+        value = config.allowSystemAppUninstall,
+        enable = true,
+        isNegative = true,
+        groupDivider = false,
+        subtitleColor = AppTheme.colors.contentPrimary.copy(.7f),
+        titleStyle = AppTheme.typography.overlayLauncherSettingsTitle,
+        subtitleStyle = AppTheme.typography.overlayLauncherSettingsSubtitle,
+        onChange = {
+            scope.launch {
+                storage.dataStore.saveValue(LauncherPrefs.LAUNCHER_ALLOW_SYSTEM_APP_UNINSTALL, it)
             }
         }
     )

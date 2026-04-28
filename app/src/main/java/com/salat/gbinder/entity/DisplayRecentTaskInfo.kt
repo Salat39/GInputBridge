@@ -12,6 +12,7 @@ data class DisplayRecentTaskInfo(
     val iconRef: DisplayIconRef,
     val customIcon: Uri?,
     val isMedia: Boolean,
+    val isFrozen: Boolean = false,
     val launcherActivity: String? = null,
     val availableActivity: List<String> = emptyList(),
 

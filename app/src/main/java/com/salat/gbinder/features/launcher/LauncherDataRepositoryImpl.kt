@@ -16,6 +16,7 @@ import com.salat.gbinder.entity.DisplayLauncherItemType
 import com.salat.gbinder.entity.LauncherItem
 import com.salat.gbinder.entity.LauncherItemType
 import com.salat.gbinder.entity.PackagesChangedEvent
+import com.salat.gbinder.mappers.firstByPrefix
 import com.salat.gbinder.mappers.toDataItems
 import com.salat.gbinder.mappers.toDisplayItems
 import com.salat.gbinder.mappers.toDisplayLauncherApps
@@ -45,10 +46,13 @@ class LauncherDataRepositoryImpl(
     private val _allApps = MutableStateFlow<List<DisplayLauncherApp>>(emptyList())
     override val allApps = _allApps.asStateFlow()
 
+    private var rawAllApps: List<DisplayLauncherApp> = emptyList()
+
     private val _settingsConfig = MutableStateFlow<DisplayLauncherConfig?>(null)
     override val settingsConfig = _settingsConfig.asStateFlow()
 
     private var baseQuality: Int? = null
+    private var baseShowFrozenApps: Boolean? = null
 
     init {
         ioScope.launch {
@@ -81,7 +85,9 @@ class LauncherDataRepositoryImpl(
                         LauncherPrefs.LAUNCHER_AUTO_LIGHT_THEME,
                         LauncherPrefs.LAUNCHER_AUTO_LIGHT_THEME_START,
                         LauncherPrefs.LAUNCHER_AUTO_LIGHT_THEME_END,
-                        GeneralPrefs.ENABLE_ADB_HELPER
+                        GeneralPrefs.ENABLE_ADB_HELPER,
+                        LauncherPrefs.LAUNCHER_SHOW_FROZEN_APPS,
+                        LauncherPrefs.LAUNCHER_ALLOW_SYSTEM_APP_UNINSTALL
                     ),
                     listOf(
                         if (BuildConfig.DEBUG) .85f else DEFAULT_UI_SCALE,
@@ -109,7 +115,9 @@ class LauncherDataRepositoryImpl(
                         false, // auto light theme
                         DEFAULT_AUTO_LIGHT_THEME_START, // auto light theme start
                         DEFAULT_AUTO_LIGHT_THEME_END, // auto light theme end
-                        false // adb helper
+                        false, // adb helper
+                        true, // show frozen apps in all-apps grid
+                        false // allow system app uninstall
                     )
                 )
                     .flowOn(Dispatchers.IO)
@@ -143,6 +151,8 @@ class LauncherDataRepositoryImpl(
                                 autoLightThemeStart = prefs[23] as Int,
                                 autoLightThemeEnd = prefs[24] as Int,
                                 enableAdbHelper = prefs[25] as Boolean,
+                                showFrozenApps = prefs[26] as Boolean,
+                                allowSystemAppUninstall = prefs[27] as Boolean,
                             )
                         }
                     }
@@ -158,13 +168,24 @@ class LauncherDataRepositoryImpl(
                         // TODO UPDATE MY APP BY CHANGE QUALITY
 
                         val needUpdate = baseQuality != config.iconQuality && baseQuality != null
+                        val needVisibilityUpdate = baseShowFrozenApps != config.showFrozenApps &&
+                                baseShowFrozenApps != null
                         // Use a single rebuild point to avoid duplication
-                        if (allApps.value.isEmpty() || needUpdate) {
+                        if (rawAllApps.isEmpty() || needUpdate) {
                             rebuildAllApps(config)
                             rebuildMyApps()
                             clearOldIcons()
+                        } else if (needVisibilityUpdate) {
+                            _allApps.update {
+                                filterVisibleLauncherApps(
+                                    rawAllApps,
+                                    config.showFrozenApps
+                                )
+                            }
+                            rebuildMyApps()
                         }
                         baseQuality = config.iconQuality
+                        baseShowFrozenApps = config.showFrozenApps
                     }
             }
 
@@ -173,12 +194,11 @@ class LauncherDataRepositoryImpl(
                 GlobalState.devicePackagesChangedFlow.collect { event ->
 
                     // Delete from my apps if system package removed
-                    if (event is PackagesChangedEvent.Removed &&
-                        myAppsItems.value?.find { it.packageName == event.packageName } != null
-                    ) {
+                    if (event is PackagesChangedEvent.Removed) {
                         withContext(Dispatchers.IO) {
-                            storage.getAll().filter { it.packageName != event.packageName }.let {
-                                storage.save(it)
+                            val storedItems = storage.getAll()
+                            if (storedItems.any { it.packageName == event.packageName }) {
+                                storage.save(storedItems.filter { it.packageName != event.packageName })
                             }
                         }
                     }
@@ -195,8 +215,9 @@ class LauncherDataRepositoryImpl(
     override suspend fun saveMyApps(items: List<DisplayLauncherItem>) {
         withContext(Dispatchers.IO) {
             val saveItems = items.toDataItems(context, true)
-            storage.save(saveItems)
-            saveItems.applyMyApps()
+            val mergedItems = mergeHiddenFrozenItems(saveItems)
+            storage.save(mergedItems)
+            mergedItems.applyMyApps()
         }
     }
 
@@ -212,9 +233,10 @@ class LauncherDataRepositoryImpl(
 
             // All apps preparing
             val apps = systemApps
-                .getAllApps(DEFAULT_LAUNCHER_ICON_IS_ROUND, false, config.iconQuality)
+                .getLauncherApps(DEFAULT_LAUNCHER_ICON_IS_ROUND, false, config.iconQuality)
                 .toDisplayLauncherApps(context, packagesCustomIcons)
-            _allApps.update { apps }
+            rawAllApps = apps
+            _allApps.update { filterVisibleLauncherApps(apps, config.showFrozenApps) }
             Timber.d("[LAUNCHER DATA] all apps updated")
         }
 
@@ -225,13 +247,15 @@ class LauncherDataRepositoryImpl(
         storage.parse(myAppsJson ?: "").applyMyApps()
     }
 
-    private fun clearOldIcons() {
-        val allAppsIcons: List<Uri> = allApps.value.filter { it.customIcon != null }.map {
+    private suspend fun clearOldIcons() {
+        val allAppsIcons: List<Uri> = rawAllApps.filter { it.customIcon != null }.map {
             it.customIcon!!
         }
-        val myAppsIcons: List<Uri> = myAppsItems.value?.filter { it.customIcon != null }?.map {
-            it.customIcon!!
-        } ?: emptyList()
+        val myAppsIcons = withContext(Dispatchers.IO) {
+            storage.getAll().mapNotNull { item ->
+                item.customIcon?.let { IconUriUtils.iconFileNameToContentUri(context, it) }
+            }
+        }
 
         val used = buildList {
             addAll(allAppsIcons)
@@ -245,16 +269,69 @@ class LauncherDataRepositoryImpl(
     private suspend fun List<LauncherItem>.applyMyApps() = withContext(Dispatchers.Default) {
         // TODO APPLY CUSTOM ICONS FROM DISC?
 
+        val config = settingsConfig.value
         val allAppsByPackages =
-            _allApps.value.associateBy { it.packageName + (it.launcherActivity ?: "") }
+            rawAllApps.associateBy { it.packageName + (it.launcherActivity ?: "") }
 
         val newMyApps = this@applyMyApps.toDisplayItems(
             context = context,
             sortedByOrder = true,
             allPackages = allAppsByPackages
-        )
+        ).let { items ->
+            filterVisibleLauncherItems(items, config?.showFrozenApps ?: true)
+        }
         _myAppsItems.update { newMyApps }
         Timber.d("[LAUNCHER DATA] my apps updated")
+    }
+
+
+    private suspend fun mergeHiddenFrozenItems(items: List<LauncherItem>): List<LauncherItem> {
+        val config = settingsConfig.value ?: return items
+        if (config.showFrozenApps) return items
+
+        val storedItems = storage.getAll()
+        if (storedItems.isEmpty()) return items
+
+        val appsByPackages = rawAllApps.associateBy { it.packageName + (it.launcherActivity ?: "") }
+        val hiddenStoredItems = storedItems
+            .filter { it.isHiddenFrozen(appsByPackages) }
+            .map { it.id }
+            .toHashSet()
+        if (hiddenStoredItems.isEmpty()) return items
+
+        val iterator = items.iterator()
+        val merged = buildList {
+            storedItems.forEach { item ->
+                if (item.id in hiddenStoredItems) {
+                    add(item)
+                } else if (iterator.hasNext()) {
+                    add(iterator.next())
+                }
+            }
+            while (iterator.hasNext()) {
+                add(iterator.next())
+            }
+        }
+
+        var order = 0
+        return merged.map { item ->
+            order++
+            item.copy(order = order)
+        }
+    }
+
+    private fun LauncherItem.isHiddenFrozen(
+        allPackages: Map<String, DisplayLauncherApp>
+    ): Boolean {
+        val appInfo = when (type) {
+            LauncherItemType.APP -> allPackages[packageName + launchActivity]
+            LauncherItemType.ACTIVITY -> allPackages[packageName + launchActivity]
+                ?: allPackages.firstByPrefix(packageName)?.second
+
+            LauncherItemType.GROUP,
+            LauncherItemType.MACRO -> null
+        }
+        return appInfo?.isFrozen == true
     }
 
     override suspend fun applyIcon(id: Long, packageName: String, image: Uri) {

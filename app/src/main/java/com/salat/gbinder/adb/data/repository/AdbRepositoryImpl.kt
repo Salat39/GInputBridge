@@ -378,6 +378,22 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         return execute(sb.toString())
     }
 
+    override suspend fun enablePackage(packageName: String): String {
+        val pkg = packageName.trim()
+        if (pkg.isEmpty() || pkg.equals("unknown", ignoreCase = true) || !isValidPackageName(pkg)) {
+            return "no valid package names"
+        }
+        return execute("pm enable $pkg")
+    }
+
+    override suspend fun disableUserPackage(packageName: String): String {
+        val pkg = packageName.trim()
+        if (pkg.isEmpty() || pkg.equals("unknown", ignoreCase = true) || !isValidPackageName(pkg)) {
+            return "no valid package names"
+        }
+        return execute("pm disable-user --user 0 $pkg")
+    }
+
     override suspend fun minimize(taskId: Int) {
         if (taskId == -1 || taskId == 0) return
         execute("am stack remove $taskId")

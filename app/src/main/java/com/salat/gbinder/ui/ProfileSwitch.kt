@@ -15,17 +15,19 @@ fun ProfileSwitch(
     scale: Float = .75f,
     checked: Boolean,
     enabled: Boolean = true,
+    isNegative: Boolean = false,
     onCheckedChange: ((Boolean) -> Unit)?,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() }
 ) {
+    val accent = if (isNegative) AppTheme.colors.statusError else AppTheme.colors.contentAccent
     val colors = SwitchDefaults.colors(
         checkedThumbColor = AppTheme.colors.surfaceSettingsLayer1, // background in enable
-        checkedTrackColor = AppTheme.colors.contentAccent,
+        checkedTrackColor = accent,
         uncheckedThumbColor = AppTheme.colors.sliderPassive,
         uncheckedTrackColor = AppTheme.colors.surfaceSettingsLayer1, // background in disable
         uncheckedBorderColor = AppTheme.colors.sliderPassive,
         disabledCheckedThumbColor = AppTheme.colors.surfaceSettingsLayer1,
-        disabledCheckedTrackColor = AppTheme.colors.contentAccent.copy(.5f),
+        disabledCheckedTrackColor = accent.copy(.5f),
         disabledUncheckedThumbColor = AppTheme.colors.sliderPassive.copy(.5f),
         disabledUncheckedTrackColor = AppTheme.colors.surfaceSettingsLayer1.copy(.5f),
         disabledUncheckedBorderColor = AppTheme.colors.sliderPassive.copy(.5f)

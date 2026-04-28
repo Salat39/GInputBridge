@@ -7,5 +7,7 @@ data class InstalledAppInfoRef(
     val iconRef: IconRef,
     val isMedia: Boolean,
     val launcherActivity: String?,
-    val availableActivity: List<String>
+    val availableActivity: List<String>,
+    val isFrozen: Boolean = false,
+    val isSystem: Boolean = false
 )

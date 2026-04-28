@@ -19,6 +19,10 @@ interface AdbRepository {
 
     suspend fun forceStop(vararg packageNames: String): String
 
+    suspend fun enablePackage(packageName: String): String
+
+    suspend fun disableUserPackage(packageName: String): String
+
     suspend fun minimize(taskId: Int)
 
     suspend fun getForegroundAppPackageName(): String?

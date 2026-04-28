@@ -32,6 +32,9 @@ object LauncherPrefs {
     val LAUNCHER_AUTO_LIGHT_THEME = booleanPreferencesKey("LAUNCHER_AUTO_LIGHT_THEME")
     val LAUNCHER_AUTO_LIGHT_THEME_START = intPreferencesKey("LAUNCHER_AUTO_LIGHT_THEME_START")
     val LAUNCHER_AUTO_LIGHT_THEME_END = intPreferencesKey("LAUNCHER_AUTO_LIGHT_THEME_END")
+    val LAUNCHER_SHOW_FROZEN_APPS = booleanPreferencesKey("LAUNCHER_SHOW_FROZEN_APPS")
+    val LAUNCHER_ALLOW_SYSTEM_APP_UNINSTALL =
+        booleanPreferencesKey("LAUNCHER_ALLOW_SYSTEM_APP_UNINSTALL")
 
     val ALL_KEYS
         get() = listOf(
@@ -61,5 +64,7 @@ object LauncherPrefs {
             LAUNCHER_AUTO_LIGHT_THEME,
             LAUNCHER_AUTO_LIGHT_THEME_START,
             LAUNCHER_AUTO_LIGHT_THEME_END,
+            LAUNCHER_SHOW_FROZEN_APPS,
+            LAUNCHER_ALLOW_SYSTEM_APP_UNINSTALL
         )
 }

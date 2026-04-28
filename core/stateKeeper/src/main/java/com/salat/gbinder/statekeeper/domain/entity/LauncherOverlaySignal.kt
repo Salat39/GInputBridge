@@ -12,4 +12,9 @@ sealed class LauncherOverlaySignal() {
         val packageName: String,
         val withClear: Boolean
     ) : LauncherOverlaySignal()
+
+    data class ConfirmFreezeApp(
+        val packageName: String,
+        val isSystem: Boolean
+    ) : LauncherOverlaySignal()
 }

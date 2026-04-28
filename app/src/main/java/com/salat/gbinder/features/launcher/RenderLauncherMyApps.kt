@@ -24,17 +24,22 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.salat.gbinder.R
 import com.salat.gbinder.components.launchApp
 import com.salat.gbinder.components.launchStringIntent
+import com.salat.gbinder.components.toast
 import com.salat.gbinder.entity.DisplayLauncherConfig
 import com.salat.gbinder.entity.DisplayLauncherItem
 import com.salat.gbinder.entity.DisplayLauncherItemType
@@ -69,6 +74,9 @@ fun ColumnScope.RenderLauncherMyApps(
         scrollMoveMode = ScrollMoveMode.INSERT,
         onMove = { from, to -> onMoveItem(from.index, to.index) }
     )
+    val frozenIconColorFilter = remember {
+        ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
+    }
 
     LazyVerticalGrid(
         state = gridState,
@@ -116,10 +124,15 @@ fun ColumnScope.RenderLauncherMyApps(
                             enableShortcuts = config.enableShortcuts,
                             shortcutSize = config.shortcutSize,
                             enableMultiline = config.iconTextMultiline,
+                            frozenIconColorFilter = frozenIconColorFilter,
                             lockMode = lockMode,
                             enableClick = lockMode,
                             onHideApp = onHideApp,
                             onClick = {
+                                if (app.type != DisplayLauncherItemType.MACRO && app.isFrozen) {
+                                    context.toast(context.getString(R.string.app_frozen_launch_blocked))
+                                    return@RenderLauncherMyAppCell
+                                }
                                 if (app.type == DisplayLauncherItemType.MACRO) {
                                     context.launchStringIntent(app.data)
                                 } else {

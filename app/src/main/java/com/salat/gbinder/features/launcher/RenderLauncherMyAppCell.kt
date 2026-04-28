@@ -17,7 +17,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,9 +25,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -36,12 +37,7 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.Hyphens
-import androidx.compose.ui.text.style.LineBreak
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.CachePolicy
 import coil.request.ImageRequest
@@ -66,6 +62,7 @@ fun RenderLauncherMyAppCell(
     shortcutSize: Int,
     enableMultiline: Boolean,
     sizeSensitive: Boolean = true,
+    frozenIconColorFilter: ColorFilter,
     lockMode: Boolean,
     enableClick: Boolean,
     onHideApp: (item: DisplayLauncherItem) -> Unit,
@@ -74,6 +71,7 @@ fun RenderLauncherMyAppCell(
 ) {
     var clickLock by rememberTimeLockedBoolean(1000L)
     var rootOffset by remember { mutableStateOf(Offset.Zero) }
+    val frozenModifier = if (app.isFrozen) Modifier.alpha(.6f) else Modifier
 
     Column(
         modifier = Modifier
@@ -141,8 +139,10 @@ fun RenderLauncherMyAppCell(
                     contentDescription = app.title,
                     modifier = Modifier
                         .size(cellSize.dp)
-                        .then(if (iconRound != 0) Modifier.clip(RoundedCornerShape(iconRound.dp)) else Modifier),
-                    contentScale = ContentScale.Crop
+                        .then(if (iconRound != 0) Modifier.clip(RoundedCornerShape(iconRound.dp)) else Modifier)
+                        .then(frozenModifier),
+                    contentScale = ContentScale.Crop,
+                    colorFilter = if (app.isFrozen) frozenIconColorFilter else null
                 )
             } else {
                 Box(
@@ -216,18 +216,13 @@ fun RenderLauncherMyAppCell(
         if (enableText) {
             Spacer(Modifier.height(textPadding.dp))
 
-            Text(
-                text = app.title,
-                style = AppTheme.typography.overlayLauncherIconTitle.copy(
-                    lineBreak = LineBreak.Simple,
-                    hyphens = Hyphens.None,
-                    fontSize = textSize.sp,
-                    lineHeight = textSize.sp
-                ),
-                maxLines = if (enableMultiline) 2 else 1,
-                textAlign = TextAlign.Center,
-                overflow = TextOverflow.Ellipsis,
+            LauncherAppTitle(
+                title = app.title,
+                isFrozen = app.isFrozen,
+                textSize = textSize,
+                enableMultiline = enableMultiline,
                 modifier = Modifier
+                    .then(frozenModifier)
             )
         }
     }

@@ -372,6 +372,12 @@
     <string name="add_to_my_apps">Add to my apps</string>
     <string name="enter_new_title_my_apps">Enter a new title to be displayed in the \"My apps\" tab</string>
     <string name="change_icon">Change icon</string>
+    <string name="launcher_context_edit">Edit</string>
+    <string name="freeze_app">Freeze</string>
+    <string name="unfreeze_app">Unfreeze</string>
+    <string name="confirm_freeze_app_message">Are you sure you want to freeze this app? It will no longer be available for launch.</string>
+    <string name="confirm_freeze_system_app_message">Warning, this is a system app. Disabling it may cause the system to work incorrectly! Are you sure you want to freeze this app? It will no longer be available for launch.</string>
+    <string name="yes">Yes</string>
     <string name="divider_current_view">Your dividers currently look like this</string>
     <string name="divider_title_preview">Preview of the test section title</string>
     <string name="divider_text_size">Divider text size</string>
@@ -384,6 +390,11 @@
     <string name="select_settings_to_export">Select the settings sections to export. During import, you can specify which ones to restore.</string>
     <string name="show_recent_apps">Show recent apps</string>
     <string name="show_recent_apps_desc">A section displaying the history of previously launched apps will appear at the bottom of the launcher. This feature requires the accessibility service to be enabled.</string>
+    <string name="show_frozen_apps">Show frozen apps</string>
+    <string name="show_frozen_apps_desc">Show apps that cannot be launched in the all-apps grid.</string>
+    <string name="app_frozen_launch_blocked">App is frozen</string>
+    <string name="allow_system_app_uninstall">Allow uninstalling system apps</string>
+    <string name="allow_system_app_uninstall_desc">Enable only if you know what you are doing. This is a safeguard against dangerous actions inside the system.</string>
     <string name="recent_apps">Recent apps</string>
     <string name="accessibility_service_disabled">The accessibility service is disabled</string>
     <string name="close">Close</string>

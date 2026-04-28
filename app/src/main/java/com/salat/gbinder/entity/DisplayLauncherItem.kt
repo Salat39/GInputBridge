@@ -15,7 +15,9 @@ data class DisplayLauncherItem(
     val launchActivity: String,
     val data: String,
     val isCall: Boolean,
-    val isSplit: Boolean
+    val isSplit: Boolean,
+    val isFrozen: Boolean,
+    val isSystem: Boolean = false
 )
 
 val List<DisplayLauncherItem>.biggestId: Long

@@ -11,11 +11,16 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.salat.gbinder.R
 import com.salat.gbinder.components.launchApp
+import com.salat.gbinder.components.toast
 import com.salat.gbinder.entity.DisplayLauncherApp
 import com.salat.gbinder.entity.DisplayLauncherConfig
 import timber.log.Timber
@@ -33,6 +38,9 @@ fun ColumnScope.RenderLauncherAllApps(
         .weight(1f)
 ) {
     val context = LocalContext.current
+    val frozenIconColorFilter = remember {
+        ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
+    }
 
     LazyVerticalGrid(
         state = gridState,
@@ -54,7 +62,12 @@ fun ColumnScope.RenderLauncherAllApps(
                 textSize = config.iconTextSize,
                 textPadding = config.iconTextPadding,
                 enableMultiline = config.iconTextMultiline,
+                frozenIconColorFilter = frozenIconColorFilter,
                 onClick = {
+                    if (app.isFrozen) {
+                        context.toast(context.getString(R.string.app_frozen_launch_blocked))
+                        return@RenderLauncherAllAppCell
+                    }
                     Timber.d("[LAUNCHER] open ${app.id}")
                     context.launchApp(app.packageName, app.launcherActivity)
                     onCancelLauncher()

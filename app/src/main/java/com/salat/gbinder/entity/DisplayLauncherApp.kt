@@ -13,5 +13,7 @@ data class DisplayLauncherApp(
     val customIcon: Uri?,
     val isMedia: Boolean,
     val launcherActivity: String? = null,
-    val availableActivity: List<String> = emptyList()
+    val availableActivity: List<String> = emptyList(),
+    val isFrozen: Boolean = false,
+    val isSystem: Boolean = false
 )

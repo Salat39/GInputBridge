@@ -15,8 +15,10 @@ sealed class AddListItem() {
         val title: String,
         val packageName: String,
         val launchActivity: String?,
+        val isFrozen: Boolean,
         val isSingleActivity: Boolean,
-        val selectedCount: Int
+        val selectedCount: Int,
+        val isSystem: Boolean = false
     ) : AddListItem()
 
     @Immutable
@@ -27,6 +29,7 @@ sealed class AddListItem() {
         val isShow: Boolean,
         val title: String,
         val launchActivity: String,
-        val packageName: String
+        val packageName: String,
+        val isSystem: Boolean = false
     ) : AddListItem()
 }

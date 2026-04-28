@@ -13,28 +13,37 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import com.salat.gbinder.BuildConfig
 import com.salat.gbinder.DEFAULT_UI_SCALE
 import com.salat.gbinder.R
 import com.salat.gbinder.components.extractPackageName
@@ -49,17 +58,19 @@ import com.salat.gbinder.ui.BaseDialog
 import com.salat.gbinder.ui.clickableNoRipple
 import com.salat.gbinder.ui.theme.AppTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class LauncherEntryActivity() : ComponentActivity() {
+class LauncherEntryActivity : ComponentActivity() {
 
     companion object {
         private const val BACK_HANDLER = true
         private const val HALF_SECOND_MS = 500L
+        private const val FREEZE_SYSTEM_CONFIRM_DELAY_SECONDS = 12
     }
 
     @Inject
@@ -99,7 +110,9 @@ class LauncherEntryActivity() : ComponentActivity() {
         stateKeeper.setLauncherActivityEnabled(true)
 
         // Render dialog ui
-        val uiScale = stateKeeper.uiScales.value?.second ?: DEFAULT_UI_SCALE
+        val uiScale = if (BuildConfig.DEBUG) {
+            1f
+        } else stateKeeper.uiScales.value?.second ?: DEFAULT_UI_SCALE
         setContent {
             AppTheme(darkTheme = true) {
                 RenderOverlayDialogs(uiScale)
@@ -169,12 +182,16 @@ class LauncherEntryActivity() : ComponentActivity() {
     @Composable
     private fun RenderOverlayDialogs(uiScale: Float) {
         var editGroupNameDialog by remember { mutableStateOf<Pair<Long, String>?>(null) }
+        var freezeConfirmationDialog by remember { mutableStateOf<FreezeConfirmationState?>(null) }
 
         LaunchedEffect(Unit) {
             stateKeeper.launcherOverlaySignalFlow.collect { signal ->
                 when (signal) {
                     is LauncherOverlaySignal.ChangeGroupName -> editGroupNameDialog =
                         signal.id to signal.title
+
+                    is LauncherOverlaySignal.ConfirmFreezeApp -> freezeConfirmationDialog =
+                        FreezeConfirmationState(signal.packageName, signal.isSystem)
 
                     else -> Unit
                 }
@@ -202,6 +219,104 @@ class LauncherEntryActivity() : ComponentActivity() {
                         editGroupNameDialog = null
                     }
                 )
+            }
+
+            freezeConfirmationDialog?.let { state ->
+                FreezeConfirmationDialog(
+                    state = state,
+                    uiScale = uiScale,
+                    onConfirm = { packageName ->
+                        val action = LauncherActivitySignal.ApplyFreezeApp(packageName)
+                        stateKeeper.sendLauncherActivitySignal(action)
+                        freezeConfirmationDialog = null
+                    },
+                    onDismiss = {
+                        stateKeeper.sendLauncherActivitySignal(LauncherActivitySignal.OnResume)
+                        freezeConfirmationDialog = null
+                    }
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun FreezeConfirmationDialog(
+        state: FreezeConfirmationState,
+        uiScale: Float,
+        onConfirm: (String) -> Unit,
+        onDismiss: () -> Unit
+    ) {
+        var remainingSeconds by remember(state) {
+            mutableIntStateOf(if (state.isSystem) FREEZE_SYSTEM_CONFIRM_DELAY_SECONDS else 0)
+        }
+
+        LaunchedEffect(state) {
+            while (remainingSeconds > 0) {
+                delay(1000)
+                remainingSeconds -= 1
+            }
+        }
+
+        val canConfirm = remainingSeconds == 0
+        val message = stringResource(
+            if (state.isSystem) {
+                R.string.confirm_freeze_system_app_message
+            } else {
+                R.string.confirm_freeze_app_message
+            }
+        )
+        val confirmTitle = if (remainingSeconds > 0) {
+            "${stringResource(R.string.yes)} ($remainingSeconds)"
+        } else {
+            stringResource(R.string.yes)
+        }
+
+        BaseDialog(
+            uiScaleState = uiScale,
+            maxWidth = 560,
+            onDismiss = onDismiss
+        ) {
+            Column(modifier = Modifier.padding(top = 22.dp)) {
+                Text(
+                    text = message,
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                    color = if (state.isSystem) {
+                        AppTheme.colors.warning
+                    } else AppTheme.colors.contentPrimary,
+                    style = AppTheme.typography.dialogListTitle
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 10.dp, end = 10.dp, bottom = 8.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Text(
+                        text = stringResource(R.string.no),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .clickable { onDismiss() }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        color = AppTheme.colors.contentAccent,
+                        style = AppTheme.typography.alertDialogButton
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = confirmTitle,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .clickable(enabled = canConfirm) { onConfirm(state.packageName) }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        color = if (canConfirm) {
+                            AppTheme.colors.deleteButton.copy(alpha = .9f)
+                        } else {
+                            AppTheme.colors.contentPrimary.copy(alpha = .45f)
+                        },
+                        style = AppTheme.typography.alertDialogButton
+                    )
+                }
             }
         }
     }
@@ -258,6 +373,7 @@ class LauncherEntryActivity() : ComponentActivity() {
         }
     }
 
+    @Suppress("AssignedValueIsNeverRead")
     @Composable
     private fun RenderImagePicker(uiScale: Float) {
         val context = LocalContext.current
