@@ -4,7 +4,9 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.content.pm.ResolveInfo
 import android.os.Build
 import android.service.media.MediaBrowserService
 import com.salat.gbinder.entity.IconRef
@@ -19,7 +21,6 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
         private const val DEBUG_M_PACKAGE = "debug.monjaro"
         private const val M_CONFIG_PACKAGE = "ru.monjaro.mconfig"
         private const val LAUNCHER3_PACKAGE = "com.android.launcher3"
-        private const val YAN_PACKAGE = "ru.yandex.yandexnavi"
     }
 
     // private val excludedPackages = emptySet<String>()
@@ -124,11 +125,10 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
         val launcherIntent = Intent(Intent.ACTION_MAIN, null).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)
         }
-        val resolveInfos = if (includeDisabledUserApps) {
-            pm.queryLauncherActivities(launcherIntent, true)
-        } else {
-            pm.queryLauncherActivities(launcherIntent, false)
-        }
+        val resolveInfos = pm.queryLauncherActivitiesFiltered(
+            intent = launcherIntent,
+            includeDisabledUserApps = includeDisabledUserApps
+        )
         val appList = mutableListOf<InstalledAppInfoRef>()
         val actCache = mutableMapOf<String, List<String>>()
 
@@ -147,8 +147,6 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
             val activityName = info.activityInfo.name
             val isFrozen = pm.isDisabledByUser(packageName)
             if (isFrozen && !includeDisabledUserApps) continue
-            if (!info.activityInfo.enabled) continue
-            if (!isFrozen && info.activityInfo.applicationInfo.enabled != true) continue
 
             // if (packageName.lowercase() in pkgBlock) continue
             if (activityName.lowercase() in actBlock) continue
@@ -165,7 +163,7 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
             if (!seen.add(dedupeKey)) continue
 
             val appName = info.loadLabel(pm).toString()
-            val appInfo = runCatching { pm.getApplicationInfo(packageName, 0) }.getOrNull()
+            val appInfo = pm.getApplicationInfoCompat(packageName, includeDisabledUserApps)
 
             // Round icon defined on activity/alias (API 25+)
             val actRoundResId = readRoundIconResId(info.activityInfo)
@@ -223,7 +221,7 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
         }
 
         // HAV_YAM_PACKAGE case
-        runCatching { packageManager.getPackageInfo(HAV_YAM_PACKAGE, 0) }.getOrNull()
+        pm.getPackageInfoCompat(HAV_YAM_PACKAGE, includeDisabledUserApps)
             ?.let { pkgInfo ->
                 val packageName = pkgInfo.packageName
                 val isFrozen = pm.isDisabledByUser(packageName)
@@ -236,7 +234,7 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
                     iconQuality
                 )
 
-                val appInfo = runCatching { pm.getApplicationInfo(packageName, 0) }.getOrNull()
+                val appInfo = pm.getApplicationInfoCompat(packageName, includeDisabledUserApps)
                 val finalResId = when {
                     iconQuality == 0 -> 0
                     resId != 0 -> resId
@@ -391,17 +389,134 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
         }
     }
 
+    private fun PackageManager.queryLauncherActivitiesFiltered(
+        intent: Intent,
+        includeDisabledUserApps: Boolean
+    ): List<ResolveInfo> {
+        val enabledResolveInfos = queryLauncherActivities(intent, false)
+        if (!includeDisabledUserApps) return enabledResolveInfos
+
+        val enabledKeys = enabledResolveInfos.asSequence()
+            .map { it.componentKey() }
+            .toHashSet()
+
+        val disabledResolveInfos = queryLauncherActivities(intent, true)
+            .asSequence()
+            .filter { it.componentKey() !in enabledKeys }
+            .filter { isUserDisabledLauncherEntry(it) }
+            .filterNot { isManifestDisabledOnlyLauncherEntry(it) }
+            .toList()
+
+        return enabledResolveInfos + disabledResolveInfos
+    }
+
     @Suppress("DEPRECATION")
     private fun PackageManager.queryLauncherActivities(
         intent: Intent,
         includeDisabled: Boolean
-    ): List<android.content.pm.ResolveInfo> {
-        val flags = if (includeDisabled) PackageManager.MATCH_DISABLED_COMPONENTS else 0
+    ): List<ResolveInfo> {
+        val flags = if (includeDisabled) {
+            PackageManager.MATCH_DISABLED_COMPONENTS or
+                    PackageManager.MATCH_DISABLED_UNTIL_USED_COMPONENTS
+        } else {
+            0
+        }
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(flags.toLong()))
         } else {
             queryIntentActivities(intent, flags)
         }
+    }
+
+    private fun PackageManager.getApplicationInfoCompat(
+        packageName: String,
+        includeDisabledUserApps: Boolean
+    ): ApplicationInfo? {
+        val flags = if (includeDisabledUserApps) {
+            PackageManager.MATCH_DISABLED_COMPONENTS or
+                    PackageManager.MATCH_DISABLED_UNTIL_USED_COMPONENTS
+        } else {
+            0
+        }
+
+        return runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                getApplicationInfo(
+                    packageName,
+                    PackageManager.ApplicationInfoFlags.of(flags.toLong())
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                getApplicationInfo(packageName, flags)
+            }
+        }.getOrNull()
+    }
+
+    private fun PackageManager.getPackageInfoCompat(
+        packageName: String,
+        includeDisabledUserApps: Boolean
+    ): PackageInfo? {
+        val flags = if (includeDisabledUserApps) {
+            PackageManager.MATCH_DISABLED_COMPONENTS or
+                    PackageManager.MATCH_DISABLED_UNTIL_USED_COMPONENTS
+        } else {
+            0
+        }
+
+        return runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(flags.toLong()))
+            } else {
+                @Suppress("DEPRECATION")
+                getPackageInfo(packageName, flags)
+            }
+        }.getOrNull()
+    }
+
+    private fun PackageManager.isUserDisabledLauncherEntry(info: ResolveInfo): Boolean {
+        val packageName = info.activityInfo.packageName
+        val componentName = ComponentName(packageName, info.activityInfo.name)
+        val appEnabledSetting = getApplicationEnabledSettingSafe(packageName)
+        val componentEnabledSetting = getComponentEnabledSettingSafe(componentName)
+
+        return appEnabledSetting == PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER ||
+                appEnabledSetting == PackageManager.COMPONENT_ENABLED_STATE_DISABLED_UNTIL_USED ||
+                componentEnabledSetting == PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER ||
+                componentEnabledSetting == PackageManager.COMPONENT_ENABLED_STATE_DISABLED_UNTIL_USED ||
+                isDisabledByUser(packageName)
+    }
+
+    private fun PackageManager.isManifestDisabledOnlyLauncherEntry(info: ResolveInfo): Boolean {
+        val packageName = info.activityInfo.packageName
+        val componentName = ComponentName(packageName, info.activityInfo.name)
+        val componentEnabledSetting = getComponentEnabledSettingSafe(componentName)
+
+        return !info.activityInfo.enabled &&
+                componentEnabledSetting == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
+    }
+
+    private fun PackageManager.getApplicationEnabledSettingSafe(packageName: String): Int {
+        return try {
+            getApplicationEnabledSetting(packageName)
+        } catch (_: IllegalArgumentException) {
+            PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
+        } catch (_: Exception) {
+            PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
+        }
+    }
+
+    private fun PackageManager.getComponentEnabledSettingSafe(componentName: ComponentName): Int {
+        return try {
+            getComponentEnabledSetting(componentName)
+        } catch (_: IllegalArgumentException) {
+            PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
+        } catch (_: Exception) {
+            PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
+        }
+    }
+
+    private fun ResolveInfo.componentKey(): String {
+        return "${activityInfo.packageName}|${activityInfo.name}"
     }
 
     private fun PackageManager.isDisabledByUser(packageName: String): Boolean {
@@ -427,9 +542,6 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
     ): Boolean {
         if (applicationInfo?.enabled != true) return false
 
-        // Exclude Yandex Navigator v25 from media detection to avoid false-positive activation tracking.
-        // if (packageName == YAN_PACKAGE && isYandexNaviMajorVersion(25)) return false
-
         val mediaIntent = Intent(MediaBrowserService.SERVICE_INTERFACE).apply {
             `package` = packageName
         }
@@ -437,21 +549,6 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
         if (browserServices.isNotEmpty()) return true
 
         return false
-    }
-
-    private fun PackageManager.isYandexNaviMajorVersion(major: Int): Boolean {
-        return try {
-            val pkgInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                getPackageInfo(YAN_PACKAGE, PackageManager.PackageInfoFlags.of(0))
-            } else {
-                @Suppress("DEPRECATION")
-                getPackageInfo(YAN_PACKAGE, 0)
-            }
-            val versionName = pkgInfo.versionName ?: return false
-            versionName.substringBefore('.').toIntOrNull() == major
-        } catch (_: Exception) {
-            false
-        }
     }
 
     // Collect all startable activities for this package: exported+enabled declared ones
