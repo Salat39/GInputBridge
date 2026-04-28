@@ -426,6 +426,53 @@ internal fun RenderKeyBinds(
                             )
                         }
 
+                        DisplayKeyAction.APP_CAROUSEL -> Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val appListText = item.appCarouselSummaries.orEmpty()
+                            val rawText = context.getString(
+                                R.string.app_carousel_switching_list,
+                                appListText
+                            )
+                            val baseStart = rawText.indexOf(appListText)
+                            val baseEnd =
+                                if (baseStart >= 0) baseStart + appListText.length else -1
+                            val tokens: List<String> = appListText
+                                .split(',')
+                                .map { it.trim() }
+                                .filter { it.isNotEmpty() }
+
+                            val annotated = buildAnnotatedString {
+                                append(rawText)
+                                if (baseStart >= 0) {
+                                    var searchFrom = baseStart
+                                    for (t in tokens) {
+                                        val idx = rawText.indexOf(
+                                            t,
+                                            startIndex = searchFrom
+                                        )
+                                        if (idx >= baseStart && idx + t.length <= baseEnd) {
+                                            addStyle(
+                                                style = SpanStyle(
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = AppTheme.colors.contentLightAccent
+                                                ),
+                                                start = idx,
+                                                end = idx + t.length
+                                            )
+                                            searchFrom = idx + t.length
+                                        }
+                                    }
+                                }
+                            }
+                            Text(
+                                text = annotated,
+                                style = AppTheme.typography.cardFormatTitle,
+                                color = AppTheme.colors.contentPrimary
+                            )
+                        }
+
                         DisplayKeyAction.APP_LAUNCHER -> Row(
                             modifier = Modifier.weight(1f),
                             verticalAlignment = Alignment.CenterVertically

@@ -110,6 +110,13 @@
     <string name="kbd_pattern_short2">короткое</string>
     <string name="kbd_action_launch_title">Запуск приложения</string>
     <string name="kbd_action_launch_desc">При срабатывании будет запускать указанное приложение</string>
+    <string name="kbd_app_carousel_action_title">Карусель приложений</string>
+    <string name="kbd_app_carousel_action_desc">При срабатывании будет последовательно запускать приложения из списка</string>
+    <string name="kbd_title_app_carousel_pick">Карусель приложений</string>
+    <string name="kbd_desc_app_carousel_pick">Выберите приложения, которые вы хотите запускать</string>
+    <string name="kbd_title_app_carousel_order">Порядок запуска</string>
+    <string name="kbd_desc_app_carousel_order">Перетащите элементы для настройки порядка запуска приложений в каруселе</string>
+    <string name="app_carousel_switching_list">Карусель приложений: %s</string>
     <string name="key_service_operation">Работа службы клавиш</string>
     <string name="key_listener_active">Слушатель клавиш активен</string>
     <string name="launch_delay">Задержка запуска</string>

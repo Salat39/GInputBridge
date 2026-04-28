@@ -5,6 +5,7 @@ import androidx.compose.runtime.Immutable
 @Immutable
 enum class DisplayKeyAction {
     LAUNCH_APP,
+    APP_CAROUSEL,
     LAUNCH_LINK,
     APP_LAUNCHER,
     TOGGLE_DM,

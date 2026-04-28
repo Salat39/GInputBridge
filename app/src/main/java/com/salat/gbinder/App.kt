@@ -264,6 +264,9 @@ class App : Application(), ImageLoaderFactory {
     private val toggleDriveModeTaskMutex = Mutex()
     private val carouselAudioSourceMutex = Mutex()
 
+    // App carouse launch history
+    private val appCarouselLastByCarouselId = ConcurrentHashMap<Int, String>()
+
     // Notify by drive mode changed
     private var canNotify = false
 
@@ -2054,6 +2057,8 @@ class App : Application(), ImageLoaderFactory {
 
                 KeyBindAction.CAROUSEL_AUDIO_SOURCE -> bind.carouselAudioSource()
 
+                KeyBindAction.APP_CAROUSEL -> bind.appCarousel()
+
                 KeyBindAction.APP_LAUNCHER -> toggleLauncher()
 
                 KeyBindAction.TASK_MANAGER -> callTaskManager()
@@ -2279,6 +2284,28 @@ class App : Application(), ImageLoaderFactory {
             }
         }.onFailure { Timber.e(it) }
     }
+
+    private fun KeyBindConfig.appCarousel() = runCatching {
+        val parts = value.split('|')
+        val carouselId = parts.firstOrNull()?.toIntOrNull() ?: return@runCatching
+        val packages = parts.drop(1).map { it.trim() }.filter { it.isNotEmpty() }
+        if (packages.isEmpty()) return@runCatching
+        val last = appCarouselLastByCarouselId[carouselId]
+        val visible = currentVisibleApp.takeIf { it.isNotBlank() }
+        val target = when {
+            visible != null && visible in packages -> {
+                val idx = packages.indexOf(visible)
+                packages[(idx + 1) % packages.size]
+            }
+            last != null && last in packages -> {
+                val idx = packages.indexOf(last)
+                packages[(idx + 1) % packages.size]
+            }
+            else -> packages.first()
+        }
+        appCarouselLastByCarouselId[carouselId] = target
+        launchApp(target)
+    }.onFailure { Timber.e(it) }
 
     private fun carouselPauseOldSourceBeforeSwitch(oldSource: MediaCenterConstant.AudioSource) {
         when (oldSource) {

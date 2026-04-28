@@ -9,6 +9,7 @@ data class DisplayKeyBind(
     val action: DisplayKeyAction,
     val type: String,
     val app: DeviceAppInfo?,
+    val appCarouselSummaries: String?,
     val link: DeviceLinkInfo?,
     val phone: String?,
     val driveModes: String?,

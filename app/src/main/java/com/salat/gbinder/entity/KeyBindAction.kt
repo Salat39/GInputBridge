@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class KeyBindAction {
     LAUNCH_APP,
+    APP_CAROUSEL,
     LAUNCH_LINK,
     APP_LAUNCHER,
     TOGGLE_DM,

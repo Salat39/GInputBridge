@@ -2361,6 +2361,7 @@ class MainActivity : ComponentActivity() {
                 action = action.action.toDisplayKeyAction(),
                 type = bindName.toBindType(context),
                 app = resolveBindApp(action.action, action.value),
+                appCarouselSummaries = resolveBindAppCarousel(action.action, action.value),
                 link = resolveBindLink(action.action, action.value),
                 phone = resolveBindPhone(action.action, action.value),
                 driveModes = resolveBindDriveModes(action.action, action.value),
@@ -2386,6 +2387,19 @@ class MainActivity : ComponentActivity() {
                 .toAllDisplay()
                 .firstOrNull()
         } else null
+
+    private suspend fun resolveBindAppCarousel(action: KeyBindAction, value: String): String? {
+        if (action != KeyBindAction.APP_CAROUSEL) return null
+        val parts = value.split('|')
+        if (parts.size < 2) return ""
+        val packages = parts.drop(1)
+        return packages.mapNotNull { pkg ->
+            systemApps.getApps(APP_ICON_ROUND, APP_ICON_QUALITY, pkg)
+                .toAllDisplay()
+                .firstOrNull()
+                ?.appName
+        }.joinToString(", ")
+    }
 
     private suspend fun resolveBindLink(action: KeyBindAction, value: String): DeviceLinkInfo? {
         if (action != KeyBindAction.LAUNCH_LINK) return null
@@ -2477,6 +2491,7 @@ class MainActivity : ComponentActivity() {
 
     private fun KeyBindAction.toDisplayKeyAction() = when (this) {
         KeyBindAction.LAUNCH_APP -> DisplayKeyAction.LAUNCH_APP
+        KeyBindAction.APP_CAROUSEL -> DisplayKeyAction.APP_CAROUSEL
         KeyBindAction.LAUNCH_LINK -> DisplayKeyAction.LAUNCH_LINK
         KeyBindAction.APP_LAUNCHER -> DisplayKeyAction.APP_LAUNCHER
         KeyBindAction.TOGGLE_DM -> DisplayKeyAction.TOGGLE_DM

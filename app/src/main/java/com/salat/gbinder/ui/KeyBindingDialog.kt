@@ -113,10 +113,13 @@ private enum class KeyBindingDialogStep {
     SET_CAROUSEL_DRIVE_MODE,
     SET_CAROUSEL_AUDIO_SOURCE,
     SET_CAROUSEL_CAR_LAMP,
+    SET_APP_CAROUSEL_PICK,
+    SET_APP_CAROUSEL_ORDER,
 }
 
 private enum class KeyBindingDialogActions {
     APP_LAUNCH,
+    APP_CAROUSEL,
     LINK_LAUNCH,
     APP_LAUNCHER,
     DRIVE_MODE_CHOOSE,
@@ -168,15 +171,16 @@ fun KeyBindingDialog(
             KeyBindingDialogActions.APP_LAUNCH,
             KeyBindingDialogActions.LINK_LAUNCH,
             KeyBindingDialogActions.APP_LAUNCHER,
+            KeyBindingDialogActions.APP_CAROUSEL,
             KeyBindingDialogActions.DRIVE_MODE_CHOOSE,
             KeyBindingDialogActions.AUDIO_SOURCE_CHOOSE,
             KeyBindingDialogActions.CAR_LAMP,
             KeyBindingDialogActions.PHONE_CALL,
             KeyBindingDialogActions.CAMERAS_360,
             // KeyBindingDialogActions.TASK_MANAGER,
+            KeyBindingDialogActions.NAVIGATE_TO_PAST_APP,
             KeyBindingDialogActions.ANDROID_BACK,
             KeyBindingDialogActions.ANDROID_HOME,
-            KeyBindingDialogActions.NAVIGATE_TO_PAST_APP,
         )
     }
     val dmActions = remember {
@@ -192,6 +196,8 @@ fun KeyBindingDialog(
     var carouselLightModes by remember { mutableStateOf<List<DraggableLampItem>>(emptyList()) }
     var carouselAudioSources by remember { mutableStateOf<List<DraggableAudioSourceItem>>(emptyList()) }
     var numberValue: TextFieldValue by remember { mutableStateOf(TextFieldValue("")) }
+    var carouselPickSelected by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var carouselOrderedPackages by remember { mutableStateOf<List<String>>(emptyList()) }
 
     val pickShortcut = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -248,7 +254,7 @@ fun KeyBindingDialog(
     LaunchedEffect(true) {
         withContext(Dispatchers.IO) {
             val installedApps = systemApps.getAllApps(APP_ICON_ROUND, false, APP_ICON_QUALITY)
-            apps = installedApps.toAllDisplay()
+            apps = installedApps.toAllDisplay().distinctBy { it.packageName }
         }
         // Debug test bind set
         if (BuildConfig.DEBUG) {
@@ -274,6 +280,8 @@ fun KeyBindingDialog(
                 KeyBindingDialogStep.SET_CAROUSEL_AUDIO_SOURCE -> stringResource(R.string.carousel)
                 KeyBindingDialogStep.SET_CALL_PHONE_NUMBER -> stringResource(R.string.call)
                 KeyBindingDialogStep.SET_CAROUSEL_CAR_LAMP -> stringResource(R.string.headlight_mode)
+                KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> stringResource(R.string.kbd_title_app_carousel_pick)
+                KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> stringResource(R.string.kbd_title_app_carousel_order)
             },
             modifier = Modifier.padding(horizontal = 24.dp),
             color = AppTheme.colors.contentPrimary,
@@ -302,6 +310,8 @@ fun KeyBindingDialog(
                     KeyBindingDialogStep.SET_CAROUSEL_AUDIO_SOURCE -> stringResource(R.string.audio_source_carousel_subtitle)
                     KeyBindingDialogStep.SET_CALL_PHONE_NUMBER -> stringResource(R.string.enter_phone_number)
                     KeyBindingDialogStep.SET_CAROUSEL_CAR_LAMP -> stringResource(R.string.drag_modes_to_switch)
+                    KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> stringResource(R.string.kbd_desc_app_carousel_pick)
+                    KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> stringResource(R.string.kbd_desc_app_carousel_order)
                 },
                 modifier = Modifier.padding(horizontal = 23.dp),
                 color = AppTheme.colors.contentPrimary.copy(.4f),
@@ -376,12 +386,11 @@ fun KeyBindingDialog(
                         .weight(1f, false)
                         .verticalScroll(rememberScrollState())
                         .then(
-                            if(isLandscape) Modifier else {
+                            if (isLandscape) Modifier else {
                                 Modifier.heightIn(min = 180.dp)
                             }
                         )
-                        .padding(vertical = 26.dp)
-                    ,
+                        .padding(vertical = 26.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
@@ -455,6 +464,12 @@ fun KeyBindingDialog(
                                 when (action) {
                                     KeyBindingDialogActions.APP_LAUNCH -> {
                                         step = KeyBindingDialogStep.SET_APP
+                                    }
+
+                                    KeyBindingDialogActions.APP_CAROUSEL -> {
+                                        carouselPickSelected = emptySet()
+                                        carouselOrderedPackages = emptyList()
+                                        step = KeyBindingDialogStep.SET_APP_CAROUSEL_PICK
                                     }
 
                                     KeyBindingDialogActions.LINK_LAUNCH -> runCatching {
@@ -576,6 +591,8 @@ fun KeyBindingDialog(
                                 text = when (action) {
                                     KeyBindingDialogActions.APP_LAUNCH -> stringResource(R.string.kbd_action_launch_title)
 
+                                    KeyBindingDialogActions.APP_CAROUSEL -> stringResource(R.string.kbd_app_carousel_action_title)
+
                                     KeyBindingDialogActions.LINK_LAUNCH -> stringResource(R.string.launch_shortcut)
 
                                     KeyBindingDialogActions.APP_LAUNCHER -> stringResource(R.string.launcher_name)
@@ -607,6 +624,8 @@ fun KeyBindingDialog(
                             Text(
                                 text = when (action) {
                                     KeyBindingDialogActions.APP_LAUNCH -> stringResource(R.string.kbd_action_launch_desc)
+
+                                    KeyBindingDialogActions.APP_CAROUSEL -> stringResource(R.string.kbd_app_carousel_action_desc)
 
                                     KeyBindingDialogActions.LINK_LAUNCH -> stringResource(R.string.launch_shortcut_desc)
 
@@ -741,6 +760,175 @@ fun KeyBindingDialog(
                             )
 
                             Spacer(Modifier.width(12.dp))
+                        }
+                    }
+                }
+            }
+
+            KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> if (apps == null || apps?.isEmpty() == true) {
+                RenderScan()
+            } else {
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) {
+                    item(key = -1) {
+                        Spacer(
+                            Modifier
+                                .height(.8.dp)
+                        )
+                    }
+                    itemsIndexed(
+                        items = apps as List<DeviceAppInfo>,
+                        key = { index, _ -> index }
+                    ) { _, item ->
+
+                        fun setSelected(checked: Boolean) {
+                            carouselPickSelected =
+                                if (checked) carouselPickSelected + item.packageName
+                                else carouselPickSelected - item.packageName
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { setSelected(item.packageName !in carouselPickSelected) }
+                                .padding(vertical = 8.dp)
+                                .padding(end = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Spacer(Modifier.width(16.dp))
+
+                            item.icon.let { icon ->
+                                DrawableImage(
+                                    icon = icon,
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                )
+                                Spacer(Modifier.width(10.dp))
+                            }
+
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    text = item.appName,
+                                    style = AppTheme.typography.dialogListTitle,
+                                    overflow = TextOverflow.Ellipsis,
+                                    maxLines = 1,
+                                    color = AppTheme.colors.contentPrimary
+                                )
+                                Text(
+                                    text = item.packageName,
+                                    style = AppTheme.typography.dialogSubtitle,
+                                    overflow = TextOverflow.Ellipsis,
+                                    maxLines = 1,
+                                    color = AppTheme.colors.contentPrimary.copy(.5f)
+                                )
+                            }
+
+                            Spacer(Modifier.width(8.dp))
+
+                            ProfileSwitch(
+                                checked = item.packageName in carouselPickSelected,
+                                onCheckedChange = { checked -> setSelected(checked) }
+                            )
+
+                            Spacer(Modifier.width(12.dp))
+                        }
+                    }
+                }
+            }
+
+            KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> {
+                val lazyListState = rememberLazyListState()
+                val reorderableLazyListState =
+                    rememberReorderableLazyListState(lazyListState) { from, to ->
+                        val fromIdx = from.index
+                        val toIdx = to.index
+                        val cur = carouselOrderedPackages
+                        if (fromIdx !in cur.indices || toIdx !in cur.indices || fromIdx == toIdx) return@rememberReorderableLazyListState
+                        carouselOrderedPackages = cur.toMutableList().apply {
+                            val moved = removeAt(fromIdx)
+                            val insertAt = if (toIdx > fromIdx) toIdx else toIdx
+                            add(insertAt, moved)
+                        }
+                    }
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    state = lazyListState
+                ) {
+                    itemsIndexed(
+                        items = carouselOrderedPackages,
+                        key = { _, pkg -> pkg }
+                    ) { index, pkg ->
+                        val item = apps?.find { it.packageName == pkg }
+                        ReorderableItem(
+                            state = reorderableLazyListState,
+                            key = pkg
+                        ) { _ ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(AppTheme.colors.surfaceBackground)
+                                    .padding(vertical = 12.dp)
+                                    .padding(end = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Spacer(Modifier.width(24.dp))
+
+                                item?.icon?.let { icon ->
+                                    DrawableImage(
+                                        icon = icon,
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                    )
+                                    Spacer(Modifier.width(10.dp))
+                                }
+
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        text = "${index + 1}. ${item?.appName ?: pkg}",
+                                        style = AppTheme.typography.cardTitle,
+                                        overflow = TextOverflow.Ellipsis,
+                                        maxLines = 1,
+                                        color = AppTheme.colors.contentPrimary
+                                    )
+
+                                    Spacer(Modifier.height(4.dp))
+
+                                    Text(
+                                        text = pkg,
+                                        style = AppTheme.typography.idTitle,
+                                        color = AppTheme.colors.contentPrimary.copy(.5f)
+                                    )
+                                }
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .draggableHandle()
+                                        .padding(vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Spacer(Modifier.width(36.dp))
+
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_drag_handle),
+                                        contentDescription = null,
+                                        tint = AppTheme.colors.contentPrimary.copy(.5f),
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                    )
+
+                                    Spacer(Modifier.width(16.dp))
+                                }
+                            }
                         }
                     }
                 }
@@ -1520,6 +1708,12 @@ fun KeyBindingDialog(
                                 KeyBindingDialogStep.SET_KEY_BIND
 
                             KeyBindingDialogStep.SET_APP -> step = KeyBindingDialogStep.SET_ACTION
+                            KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> step =
+                                KeyBindingDialogStep.SET_ACTION
+
+                            KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> step =
+                                KeyBindingDialogStep.SET_APP_CAROUSEL_PICK
+
                             KeyBindingDialogStep.SET_LINK -> step = KeyBindingDialogStep.SET_ACTION
                             KeyBindingDialogStep.DRIVE_MODE_WARNING -> step =
                                 KeyBindingDialogStep.SET_ACTION
@@ -1550,6 +1744,8 @@ fun KeyBindingDialog(
                         KeyBindingDialogStep.SET_KEY_BIND -> android.R.string.cancel
                         KeyBindingDialogStep.SET_ACTION -> R.string.back
                         KeyBindingDialogStep.SET_APP -> R.string.back
+                        KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> R.string.back
+                        KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> R.string.back
                         KeyBindingDialogStep.SET_LINK -> R.string.back
                         KeyBindingDialogStep.DRIVE_MODE_WARNING -> R.string.back
                         KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD -> R.string.back
@@ -1569,6 +1765,8 @@ fun KeyBindingDialog(
                         KeyBindingDialogStep.SET_KEY_BIND -> bind != null
                         KeyBindingDialogStep.SET_ACTION -> true
                         KeyBindingDialogStep.SET_APP -> apps?.any { it.isSelected } == true
+                        KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> carouselPickSelected.size >= 2
+                        KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> carouselOrderedPackages.size >= 2
                         KeyBindingDialogStep.SET_LINK -> link != null
                         KeyBindingDialogStep.DRIVE_MODE_WARNING -> true
                         KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD -> false
@@ -1617,6 +1815,51 @@ fun KeyBindingDialog(
                                         }
                                     }
                                 }
+
+                                KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> {
+                                    carouselOrderedPackages = (apps ?: emptyList())
+                                        .filter { it.packageName in carouselPickSelected }
+                                        .map { it.packageName }
+                                    step = KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER
+                                }
+
+                                KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER ->
+                                    scope.launch(Dispatchers.IO) {
+                                        try {
+                                            val name =
+                                                bind?.bind?.let { keyBindStorage.getBindName(it) }
+                                                    ?: ""
+
+                                            val bindsJson = keyBindStorage.getCode()
+                                            val binds = keyBindStorage.parseBinds(bindsJson)
+                                            val maxId = binds.values
+                                                .filter { it.action == KeyBindAction.APP_CAROUSEL }
+                                                .mapNotNull {
+                                                    it.value.split('|').firstOrNull()?.toIntOrNull()
+                                                }
+                                                .maxOrNull() ?: 0
+                                            val newId = maxId + 1
+                                            val pkgs = carouselOrderedPackages
+                                            if (pkgs.size >= 2) {
+                                                val value = buildString {
+                                                    append(newId)
+                                                    for (p in pkgs) {
+                                                        append('|')
+                                                        append(p)
+                                                    }
+                                                }
+                                                keyBindStorage.saveBinds(
+                                                    name,
+                                                    KeyBindConfig(
+                                                        action = KeyBindAction.APP_CAROUSEL,
+                                                        value = value
+                                                    )
+                                                )
+                                            }
+                                            onDismiss()
+                                        } catch (_: Exception) {
+                                        }
+                                    }
 
                                 KeyBindingDialogStep.SET_LINK -> {
                                     scope.launch(Dispatchers.IO) {
@@ -1773,6 +2016,8 @@ fun KeyBindingDialog(
                             KeyBindingDialogStep.SET_KEY_BIND -> R.string.next
                             KeyBindingDialogStep.SET_ACTION -> R.string.next
                             KeyBindingDialogStep.SET_APP -> android.R.string.ok
+                            KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> R.string.next
+                            KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> android.R.string.ok
                             KeyBindingDialogStep.SET_LINK -> android.R.string.ok
                             KeyBindingDialogStep.DRIVE_MODE_WARNING -> android.R.string.ok
                             KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD -> R.string.next

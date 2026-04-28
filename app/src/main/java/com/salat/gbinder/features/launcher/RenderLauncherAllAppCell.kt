@@ -54,7 +54,7 @@ fun RenderLauncherAllAppCell(
 ) {
     var clickLock by rememberTimeLockedBoolean(1000L)
     var rootOffset by remember { mutableStateOf(Offset.Zero) }
-    val frozenModifier = if (app.isFrozen) Modifier.alpha(.6f) else Modifier
+    val frozenModifier = if (app.isFrozen) Modifier.alpha(DISABLED_APP_TRANSPARENCY) else Modifier
 
     Column(
         modifier = Modifier
