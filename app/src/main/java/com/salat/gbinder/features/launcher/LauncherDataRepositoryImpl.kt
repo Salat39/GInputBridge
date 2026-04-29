@@ -274,11 +274,13 @@ class LauncherDataRepositoryImpl(
         val config = settingsConfig.value
         val allAppsByPackages =
             rawAllApps.associateBy { it.packageName + (it.launcherActivity ?: "") }
+        val allAppsByPackage = rawAllApps.associateBy { it.packageName }
 
         val newMyApps = this@applyMyApps.toDisplayItems(
             context = context,
             sortedByOrder = true,
-            allPackages = allAppsByPackages
+            allPackages = allAppsByPackages,
+            allPackagesByPackage = allAppsByPackage
         ).let { items ->
             filterVisibleLauncherItems(items, config?.showFrozenApps ?: true)
         }
@@ -294,8 +296,9 @@ class LauncherDataRepositoryImpl(
         if (storedItems.isEmpty()) return items
 
         val appsByPackages = rawAllApps.associateBy { it.packageName + (it.launcherActivity ?: "") }
+        val appsByPackage = rawAllApps.associateBy { it.packageName }
         val hiddenStoredItems = storedItems
-            .filter { it.isHiddenFrozen(appsByPackages) }
+            .filter { it.isHiddenFrozen(appsByPackages, appsByPackage) }
             .map { it.id }
             .toHashSet()
         if (hiddenStoredItems.isEmpty()) return items
@@ -322,15 +325,15 @@ class LauncherDataRepositoryImpl(
     }
 
     private fun LauncherItem.isHiddenFrozen(
-        allPackages: Map<String, DisplayLauncherApp>
+        allPackages: Map<String, DisplayLauncherApp>,
+        allPackagesByPackage: Map<String, DisplayLauncherApp>
     ): Boolean {
         val appInfo = when (type) {
             LauncherItemType.APP -> allPackages[packageName + launchActivity]
             LauncherItemType.ACTIVITY -> allPackages[packageName + launchActivity]
                 ?: allPackages.firstByPrefix(packageName)?.second
-
-            LauncherItemType.GROUP,
-            LauncherItemType.MACRO -> null
+            LauncherItemType.MACRO -> allPackagesByPackage[packageName]
+            LauncherItemType.GROUP -> null
         }
         return appInfo?.isFrozen == true
     }

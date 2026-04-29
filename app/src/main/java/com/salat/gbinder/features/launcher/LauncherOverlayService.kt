@@ -439,14 +439,16 @@ class LauncherOverlayService : Service() {
         suspend fun onFrozenAppAdbLaunch(
             packageName: String,
             launchActivity: String?,
-            appDisplayName: String
+            appDisplayName: String,
+            intentData: String? = null
         ) = withContext(Dispatchers.Main) {
             minimizeOverlayForSystemDialog()
             stateKeeper.sendLauncherOverlaySignal(
                 LauncherOverlaySignal.ConfirmUnfreezeAndLaunch(
                     packageName = packageName,
                     launchActivity = launchActivity,
-                    appDisplayName = appDisplayName
+                    appDisplayName = appDisplayName,
+                    intentData = intentData
                 )
             )
         }
@@ -475,13 +477,14 @@ class LauncherOverlayService : Service() {
         }
 
         fun launchMyApp(app: DisplayLauncherItem) {
-            if (app.type != DisplayLauncherItemType.MACRO && app.isFrozen) {
+            if (app.isFrozen) {
                 serviceScope.launch(Dispatchers.IO) {
                     if (isAdbConnected()) {
                         onFrozenAppAdbLaunch(
                             app.packageName,
                             app.launchActivity,
-                            app.title
+                            app.title,
+                            intentData = if (app.type == DisplayLauncherItemType.MACRO) app.data else null
                         )
                     } else {
                         inMainToast(context.getString(R.string.app_frozen_launch_blocked))
@@ -496,6 +499,17 @@ class LauncherOverlayService : Service() {
             }
             Timber.d("[LAUNCHER] open ${app.id}")
             hideLauncherOverlay()
+        }
+
+        suspend fun unfreezeAndLaunchMacro(packageName: String, intentData: String) {
+            if (packageName.isBlank() || intentData.isBlank()) return
+
+            adb.enablePackage(packageName)
+            waitPackageReadyAfterUnfreeze(packageName)
+
+            withContext(Dispatchers.Main) {
+                launchStringIntent(intentData)
+            }
         }
 
         // Scale calc
@@ -609,10 +623,17 @@ class LauncherOverlayService : Service() {
                                 is LauncherActivitySignal.ApplyUnfreezeAndLaunch ->
                                     serviceScope.launch(Dispatchers.IO) {
                                         runCatching {
-                                            adb.enableAndLaunchApp(
-                                                it.packageName,
-                                                it.launchActivity
-                                            )
+                                            if (it.intentData != null) {
+                                                unfreezeAndLaunchMacro(
+                                                    packageName = it.packageName,
+                                                    intentData = it.intentData!!
+                                                )
+                                            } else {
+                                                adb.enableAndLaunchApp(
+                                                    it.packageName,
+                                                    it.launchActivity
+                                                )
+                                            }
                                         }.onFailure { e -> Timber.e(e) }
                                         withContext(Dispatchers.Main) {
                                             hideLauncherOverlay()
@@ -906,16 +927,14 @@ class LauncherOverlayService : Service() {
                                 launchedStatus = AppLaunchedState.NO
                             )
                         },
-                        onToggleFreeze = if (item.app.type == DisplayLauncherItemType.APP) {
-                            {
-                                requestTogglePackageFreeze(
-                                    packageName = item.app.packageName,
-                                    isFrozen = item.app.isFrozen,
-                                    isSystem = item.app.isSystem
-                                )
-                                myAppItemMenu = null
-                            }
-                        } else null
+                        onToggleFreeze = {
+                            requestTogglePackageFreeze(
+                                packageName = item.app.packageName,
+                                isFrozen = item.app.isFrozen,
+                                isSystem = item.app.isSystem
+                            )
+                            myAppItemMenu = null
+                        }
                     ) {
                         myAppItemMenu = null
                     }
@@ -963,16 +982,14 @@ class LauncherOverlayService : Service() {
                         stateKeeper.sendLauncherOverlaySignal(action)
                         myAppItemMenu = null
                     },
-                    onToggleFreeze = if (item.app.type == DisplayLauncherItemType.APP) {
-                        {
-                            requestTogglePackageFreeze(
-                                packageName = item.app.packageName,
-                                isFrozen = item.app.isFrozen,
-                                isSystem = item.app.isSystem
-                            )
-                            myAppItemMenu = null
-                        }
-                    } else null
+                    onToggleFreeze = {
+                        requestTogglePackageFreeze(
+                            packageName = item.app.packageName,
+                            isFrozen = item.app.isFrozen,
+                            isSystem = item.app.isSystem
+                        )
+                        myAppItemMenu = null
+                    }
                 )
 
                 if (item.app.type == DisplayLauncherItemType.APP && item.app.iconRef != null) {
@@ -1794,7 +1811,8 @@ class LauncherOverlayService : Service() {
             initialValue = AdbConnectionState.Disconnected
         )
         val showFreeze = enableAdbHelper && packageName.isNotBlank() &&
-                adbState is AdbConnectionState.Connected && onToggleFreeze != null
+                adbState is AdbConnectionState.Connected && onToggleFreeze != null &&
+                !isFrozen // show only "freeze" action, "unfreeze" in header
         var expanded by remember { mutableStateOf(false) }
         val editIcon = rememberVectorPainter(image = Icons.Filled.Build)
         RenderOptionsMenuItem(

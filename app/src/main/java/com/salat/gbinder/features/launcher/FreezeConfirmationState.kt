@@ -8,5 +8,6 @@ internal data class FreezeConfirmationState(
 internal data class UnfreezeLaunchConfirmationState(
     val packageName: String,
     val launchActivity: String?,
-    val appDisplayName: String
+    val appDisplayName: String,
+    val intentData: String? = null
 )

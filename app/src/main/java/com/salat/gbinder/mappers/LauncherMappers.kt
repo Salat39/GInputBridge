@@ -19,14 +19,15 @@ fun LauncherItemType.toDisplayType(): DisplayLauncherItemType = when (this) {
 
 fun LauncherItem.toDisplayItem(
     context: Context,
-    allPackages: Map<String, DisplayLauncherApp>
+    allPackages: Map<String, DisplayLauncherApp>,
+    allPackagesByPackage: Map<String, DisplayLauncherApp> = emptyMap()
 ): DisplayLauncherItem {
     val appInfo = when (type) {
         LauncherItemType.APP -> allPackages[packageName + launchActivity]
         LauncherItemType.ACTIVITY -> allPackages[packageName + launchActivity]
             ?: allPackages.firstByPrefix(packageName)?.second
-        LauncherItemType.GROUP,
-        LauncherItemType.MACRO -> null
+        LauncherItemType.MACRO -> allPackagesByPackage[packageName]
+        LauncherItemType.GROUP -> null
     }
 
     return DisplayLauncherItem(
@@ -55,10 +56,11 @@ fun LauncherItem.toDisplayItem(
 fun List<LauncherItem>.toDisplayItems(
     context: Context,
     sortedByOrder: Boolean = false,
-    allPackages: Map<String, DisplayLauncherApp>
+    allPackages: Map<String, DisplayLauncherApp>,
+    allPackagesByPackage: Map<String, DisplayLauncherApp> = emptyMap()
 ): List<DisplayLauncherItem> {
     val base = if (sortedByOrder) this.sortedBy { it.order } else this
-    return base.map { it.toDisplayItem(context, allPackages) }
+    return base.map { it.toDisplayItem(context, allPackages, allPackagesByPackage) }
 }
 
 fun DisplayLauncherItemType.toDataType(): LauncherItemType = when (this) {

@@ -202,7 +202,8 @@ class LauncherEntryActivity : ComponentActivity() {
                         UnfreezeLaunchConfirmationState(
                             signal.packageName,
                             signal.launchActivity,
-                            signal.appDisplayName
+                            signal.appDisplayName,
+                            signal.intentData
                         )
 
                     else -> Unit
@@ -253,10 +254,11 @@ class LauncherEntryActivity : ComponentActivity() {
                 UnfreezeLaunchConfirmationDialog(
                     state = state,
                     uiScale = uiScale,
-                    onConfirm = { packageName, launchActivity ->
+                    onConfirm = { packageName, launchActivity, intentData ->
                         val action = LauncherActivitySignal.ApplyUnfreezeAndLaunch(
                             packageName,
-                            launchActivity
+                            launchActivity,
+                            intentData
                         )
                         stateKeeper.sendLauncherActivitySignal(action)
                         unfreezeLaunchDialog = null
@@ -356,7 +358,7 @@ class LauncherEntryActivity : ComponentActivity() {
     private fun UnfreezeLaunchConfirmationDialog(
         state: UnfreezeLaunchConfirmationState,
         uiScale: Float,
-        onConfirm: (String, String?) -> Unit,
+        onConfirm: (String, String?, String?) -> Unit,
         onDismiss: () -> Unit
     ) {
         BaseDialog(
@@ -401,7 +403,7 @@ class LauncherEntryActivity : ComponentActivity() {
                         modifier = Modifier
                             .clip(RoundedCornerShape(4.dp))
                             .clickable {
-                                onConfirm(state.packageName, state.launchActivity)
+                                onConfirm(state.packageName, state.launchActivity, state.intentData)
                             }
                             .padding(horizontal = 12.dp, vertical = 8.dp),
                         color = AppTheme.colors.contentAccent,
