@@ -2828,15 +2828,33 @@ class App : Application(), ImageLoaderFactory {
         return runCatching {
             val handled = when (keyCode) {
                 KeyCode.KEYCODE_R_MEDIA_PREVIOUS -> {
-                    source == MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO
-                        && mediaCenter.radioManager?.seekAsync(1) == true ||
-                        mediaCenter.musicAdapterManager?.prev() == 1
+                    when (source) {
+                        MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO ->
+                            mediaCenter.radioManager?.seekAsync(1) == true
+
+                        MediaCenterConstant.AudioSource.AUDIO_SOURCE_BT,
+                        MediaCenterConstant.AudioSource.AUDIO_SOURCE_USB -> {
+                            runCatching { mediaCenter.musicAdapterManager?.prev() }
+                            true
+                        }
+
+                        else -> false
+                    }
                 }
 
                 KeyCode.KEYCODE_R_MEDIA_NEXT -> {
-                    source == MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO
-                        && mediaCenter.radioManager?.seekAsync(0) == true ||
-                        mediaCenter.musicAdapterManager?.next() == 1
+                    when (source) {
+                        MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO ->
+                            mediaCenter.radioManager?.seekAsync(0) == true
+
+                        MediaCenterConstant.AudioSource.AUDIO_SOURCE_BT,
+                        MediaCenterConstant.AudioSource.AUDIO_SOURCE_USB -> {
+                            runCatching { mediaCenter.musicAdapterManager?.next() }
+                            true
+                        }
+
+                        else -> false
+                    }
                 }
 
                 KeyCode.KEYCODE_R_MEDIA_PLAY_PAUSE -> {
@@ -2844,28 +2862,56 @@ class App : Application(), ImageLoaderFactory {
                     val forcePlay = func == MEDIA_CODE_PLAY
 
                     val fgPackage = currentVisibleApp
-                    if (source in BT_RADIO_SOURCES && fgPackage.isNotEmpty() && fgPackage in controlMediaApps) {
+                    if (source == MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO &&
+                        fgPackage.isNotEmpty() && fgPackage in controlMediaApps
+                    ) {
                         ensureOnlineAudioSource()
                         return@runCatching false
                     }
 
-                    if (source == MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO) {
-                        val radioStatus = mediaCenter.radioManager?.radioStatus ?: 0
-                        if (radioStatus == MEDIA_CODE_PAUSE) {
-                            mediaCenter.radioManager?.pause() == true
-                        } else if (radioStatus == MEDIA_CODE_PLAY) {
-                            mediaCenter.radioManager?.requestAudioSource()
-                            mediaCenter.radioManager?.play() == true
-                        } else {
-                            mediaCenter.radioManager?.requestAudioSource()
-                            mediaCenter.radioManager?.play() == true
+                    when (source) {
+                        MediaCenterConstant.AudioSource.AUDIO_SOURCE_RADIO -> {
+                            val radioStatus = mediaCenter.radioManager?.radioStatus ?: 0
+                            if (radioStatus == MEDIA_CODE_PAUSE) {
+                                mediaCenter.radioManager?.pause() == true
+                            } else if (radioStatus == MEDIA_CODE_PLAY) {
+                                mediaCenter.radioManager?.requestAudioSource()
+                                mediaCenter.radioManager?.play() == true
+                            } else {
+                                mediaCenter.radioManager?.requestAudioSource()
+                                mediaCenter.radioManager?.play() == true
+                            }
                         }
-                    } else if (forcePause) {
-                        mediaCenter.musicAdapterManager?.pause() == 1
-                    } else if (forcePlay) {
-                        mediaCenter.musicAdapterManager?.play() == 1
-                    } else {
-                        false
+
+                        MediaCenterConstant.AudioSource.AUDIO_SOURCE_BT,
+                        MediaCenterConstant.AudioSource.AUDIO_SOURCE_USB -> {
+                            when {
+                                forcePause -> {
+                                    runCatching { mediaCenter.musicAdapterManager?.pause() }
+                                    true
+                                }
+
+                                forcePlay -> {
+                                    runCatching { mediaCenter.musicAdapterManager?.play() }
+                                    true
+                                }
+
+                                else -> {
+                                    runCatching {
+                                        val adapter = mediaCenter.musicAdapterManager
+                                        val st = adapter?.getCurrentPlayState()
+                                        if (st == MediaCenterConstant.PlayState.MUSIC_STATE_PLAY) {
+                                            adapter.pause()
+                                        } else {
+                                            adapter.play()
+                                        }
+                                    }
+                                    true
+                                }
+                            }
+                        }
+
+                        else -> false
                     }
                 }
 
