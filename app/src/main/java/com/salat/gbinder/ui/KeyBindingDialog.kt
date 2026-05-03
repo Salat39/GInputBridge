@@ -116,6 +116,7 @@ private enum class KeyBindingDialogStep {
     SET_CAROUSEL_CAR_LAMP,
     SET_APP_CAROUSEL_PICK,
     SET_APP_CAROUSEL_ORDER,
+    SET_APP_CAROUSEL_AUTOPLAY,
     SET_NAVI_MEDIA_PICK,
 }
 
@@ -202,6 +203,7 @@ fun KeyBindingDialog(
     var numberValue: TextFieldValue by remember { mutableStateOf(TextFieldValue("")) }
     var carouselPickSelected by remember { mutableStateOf<Set<String>>(emptySet()) }
     var carouselOrderedPackages by remember { mutableStateOf<List<String>>(emptyList()) }
+    var carouselAutoplayByPackage by remember { mutableStateOf(mapOf<String, Boolean>()) }
 
     val pickShortcut = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -323,6 +325,7 @@ fun KeyBindingDialog(
                 KeyBindingDialogStep.SET_CAROUSEL_CAR_LAMP -> stringResource(R.string.headlight_mode)
                 KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> stringResource(R.string.kbd_title_app_carousel_pick)
                 KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> stringResource(R.string.kbd_title_app_carousel_order)
+                KeyBindingDialogStep.SET_APP_CAROUSEL_AUTOPLAY -> stringResource(R.string.kbd_title_app_carousel_autoplay)
                 KeyBindingDialogStep.SET_NAVI_MEDIA_PICK -> stringResource(R.string.kbd_title_navi_media_pick)
             },
             modifier = Modifier.padding(horizontal = 24.dp),
@@ -354,6 +357,7 @@ fun KeyBindingDialog(
                     KeyBindingDialogStep.SET_CAROUSEL_CAR_LAMP -> stringResource(R.string.drag_modes_to_switch)
                     KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> stringResource(R.string.kbd_desc_app_carousel_pick)
                     KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> stringResource(R.string.kbd_desc_app_carousel_order)
+                    KeyBindingDialogStep.SET_APP_CAROUSEL_AUTOPLAY -> stringResource(R.string.kbd_desc_app_carousel_autoplay)
                     KeyBindingDialogStep.SET_NAVI_MEDIA_PICK -> stringResource(R.string.kbd_desc_navi_media_pick)
                 },
                 modifier = Modifier.padding(horizontal = 23.dp),
@@ -512,6 +516,7 @@ fun KeyBindingDialog(
                                     KeyBindingDialogActions.APP_CAROUSEL -> {
                                         carouselPickSelected = emptySet()
                                         carouselOrderedPackages = emptyList()
+                                        carouselAutoplayByPackage = emptyMap()
                                         step = KeyBindingDialogStep.SET_APP_CAROUSEL_PICK
                                     }
 
@@ -1098,6 +1103,76 @@ fun KeyBindingDialog(
                                     Spacer(Modifier.width(16.dp))
                                 }
                             }
+                        }
+                    }
+                }
+            }
+
+            KeyBindingDialogStep.SET_APP_CAROUSEL_AUTOPLAY -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) {
+                    item(key = -1) {
+                        Spacer(Modifier.height(.8.dp))
+                    }
+                    itemsIndexed(
+                        items = carouselOrderedPackages,
+                        key = { _, pkg -> pkg }
+                    ) { _, pkg ->
+                        val item = apps?.find { it.packageName == pkg }
+
+                        fun setAutoplay(checked: Boolean) {
+                            carouselAutoplayByPackage =
+                                carouselAutoplayByPackage + (pkg to checked)
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { setAutoplay(carouselAutoplayByPackage[pkg] != true) }
+                                .padding(vertical = 8.dp)
+                                .padding(end = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Spacer(Modifier.width(16.dp))
+
+                            item?.icon?.let { icon ->
+                                DrawableImage(
+                                    icon = icon,
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                )
+                                Spacer(Modifier.width(10.dp))
+                            }
+
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    text = item?.appName ?: pkg,
+                                    style = AppTheme.typography.dialogListTitle,
+                                    overflow = TextOverflow.Ellipsis,
+                                    maxLines = 1,
+                                    color = AppTheme.colors.contentPrimary
+                                )
+                                Text(
+                                    text = pkg,
+                                    style = AppTheme.typography.dialogSubtitle,
+                                    overflow = TextOverflow.Ellipsis,
+                                    maxLines = 1,
+                                    color = AppTheme.colors.contentPrimary.copy(.5f)
+                                )
+                            }
+
+                            Spacer(Modifier.width(8.dp))
+
+                            ProfileSwitch(
+                                checked = carouselAutoplayByPackage[pkg] == true,
+                                onCheckedChange = { checked -> setAutoplay(checked) }
+                            )
+
+                            Spacer(Modifier.width(12.dp))
                         }
                     }
                 }
@@ -1882,6 +1957,9 @@ fun KeyBindingDialog(
                             KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> step =
                                 KeyBindingDialogStep.SET_ACTION
 
+                            KeyBindingDialogStep.SET_APP_CAROUSEL_AUTOPLAY -> step =
+                                KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER
+
                             KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> step =
                                 KeyBindingDialogStep.SET_APP_CAROUSEL_PICK
 
@@ -1918,6 +1996,7 @@ fun KeyBindingDialog(
                         KeyBindingDialogStep.SET_NAVI_MEDIA_PICK -> R.string.back
                         KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> R.string.back
                         KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> R.string.back
+                        KeyBindingDialogStep.SET_APP_CAROUSEL_AUTOPLAY -> R.string.back
                         KeyBindingDialogStep.SET_LINK -> R.string.back
                         KeyBindingDialogStep.DRIVE_MODE_WARNING -> R.string.back
                         KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD -> R.string.back
@@ -1941,6 +2020,7 @@ fun KeyBindingDialog(
                             apps?.any { it.packageName in NAVI_PKGS && it.isSelected } == true
                         KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> carouselPickSelected.size >= 2
                         KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> carouselOrderedPackages.size >= 2
+                        KeyBindingDialogStep.SET_APP_CAROUSEL_AUTOPLAY -> carouselOrderedPackages.size >= 2
                         KeyBindingDialogStep.SET_LINK -> link != null
                         KeyBindingDialogStep.DRIVE_MODE_WARNING -> true
                         KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD -> false
@@ -2020,7 +2100,15 @@ fun KeyBindingDialog(
                                     step = KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER
                                 }
 
-                                KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER ->
+                                KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> {
+                                    carouselAutoplayByPackage =
+                                        carouselOrderedPackages.associateWith {
+                                            carouselAutoplayByPackage[it] ?: false
+                                        }
+                                    step = KeyBindingDialogStep.SET_APP_CAROUSEL_AUTOPLAY
+                                }
+
+                                KeyBindingDialogStep.SET_APP_CAROUSEL_AUTOPLAY ->
                                     scope.launch(Dispatchers.IO) {
                                         try {
                                             val name =
@@ -2043,6 +2131,10 @@ fun KeyBindingDialog(
                                                     for (p in pkgs) {
                                                         append('|')
                                                         append(p)
+                                                        append('+')
+                                                        append(
+                                                            if (carouselAutoplayByPackage[p] == true) "1" else "0"
+                                                        )
                                                     }
                                                 }
                                                 keyBindStorage.saveBinds(
@@ -2215,7 +2307,8 @@ fun KeyBindingDialog(
                             KeyBindingDialogStep.SET_APP -> android.R.string.ok
                             KeyBindingDialogStep.SET_NAVI_MEDIA_PICK -> android.R.string.ok
                             KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> R.string.next
-                            KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> android.R.string.ok
+                            KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> R.string.next
+                            KeyBindingDialogStep.SET_APP_CAROUSEL_AUTOPLAY -> android.R.string.ok
                             KeyBindingDialogStep.SET_LINK -> android.R.string.ok
                             KeyBindingDialogStep.DRIVE_MODE_WARNING -> android.R.string.ok
                             KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD -> R.string.next

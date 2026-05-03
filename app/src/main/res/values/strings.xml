@@ -129,6 +129,8 @@
     <string name="kbd_desc_app_carousel_pick">Choose the applications you want to launch</string>
     <string name="kbd_title_app_carousel_order">Launch order</string>
     <string name="kbd_desc_app_carousel_order">Drag items to set the order in which carousel apps are launched</string>
+    <string name="kbd_title_app_carousel_autoplay">Autoplay</string>
+    <string name="kbd_desc_app_carousel_autoplay">Select players for which playback should start automatically after opening.</string>
     <string name="app_carousel_switching_list">Application carousel: %s</string>
     <string name="key_service_operation">Key service operation</string>
     <string name="key_listener_active">Key listener is active</string>

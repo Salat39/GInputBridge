@@ -386,6 +386,14 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         return execute("pm enable $pkg")
     }
 
+    override suspend fun allowActivateVpnAppOp(packageName: String): String {
+        val pkg = packageName.trim()
+        if (pkg.isEmpty() || pkg.equals("unknown", ignoreCase = true) || !isValidPackageName(pkg)) {
+            return "no valid package names"
+        }
+        return execute("appops set $pkg ACTIVATE_VPN allow")
+    }
+
     override suspend fun enableAndLaunchApp(packageName: String, launchActivity: String?): String {
         val pkg = packageName.trim()
         if (pkg.isEmpty() || pkg.equals("unknown", ignoreCase = true) || !isValidPackageName(pkg)) {

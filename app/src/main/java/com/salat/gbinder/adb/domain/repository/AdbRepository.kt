@@ -19,6 +19,8 @@ interface AdbRepository {
 
     suspend fun forceStop(vararg packageNames: String): String
 
+    suspend fun allowActivateVpnAppOp(packageName: String): String
+
     suspend fun enablePackage(packageName: String): String
 
     suspend fun enableAndLaunchApp(packageName: String, launchActivity: String?): String

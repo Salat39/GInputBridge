@@ -118,3 +118,17 @@ fun Context.softOpenApp(packageName: String?) = runCatching {
     )
     startActivity(launchIntent)
 }
+
+fun Context.sendPlayerAutoPlay(packageName: String) {
+    try {
+        val keyEvent = KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY)
+        val intent = Intent(Intent.ACTION_MEDIA_BUTTON).apply {
+            putExtra(Intent.EXTRA_KEY_EVENT, keyEvent)
+            setPackage(packageName)
+        }
+        sendOrderedBroadcast(intent, null)
+    } catch (e: Exception) {
+        Timber.e(e)
+    }
+}
+

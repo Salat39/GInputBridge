@@ -28,4 +28,6 @@ interface SystemAppsLightRepository {
     fun isDebugMInstalled(): Boolean
 
     fun isMConfigInstalled(): Boolean
+
+    fun packageDeclaresVpnService(packageName: String): Boolean
 }

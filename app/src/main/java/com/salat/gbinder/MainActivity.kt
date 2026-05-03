@@ -103,6 +103,7 @@ import com.salat.gbinder.entity.DisplayKeyAction
 import com.salat.gbinder.entity.DisplayKeyBind
 import com.salat.gbinder.entity.HugeTogglerItem
 import com.salat.gbinder.entity.KeyBindAction
+import com.salat.gbinder.entity.parseAppCarouselValueSegment
 import com.salat.gbinder.entity.UiDownloadState
 import com.salat.gbinder.features.configurator.RenderConfigurator
 import com.salat.gbinder.features.configurator.RenderSystemParams
@@ -2367,7 +2368,8 @@ class MainActivity : ComponentActivity() {
         if (action != KeyBindAction.APP_CAROUSEL) return null
         val parts = value.split('|')
         if (parts.size < 2) return ""
-        val packages = parts.drop(1)
+        val packages = parts.drop(1).map { parseAppCarouselValueSegment(it).first }
+            .filter { it.isNotEmpty() }
         return packages.mapNotNull { pkg ->
             systemApps.getApps(APP_ICON_ROUND, APP_ICON_QUALITY, pkg)
                 .toAllDisplay()

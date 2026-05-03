@@ -121,6 +121,8 @@
     <string name="kbd_desc_app_carousel_pick">Выберите приложения, которые вы хотите запускать</string>
     <string name="kbd_title_app_carousel_order">Порядок запуска</string>
     <string name="kbd_desc_app_carousel_order">Перетащите элементы для настройки порядка запуска приложений в каруселе</string>
+    <string name="kbd_title_app_carousel_autoplay">Автовоспроизведение</string>
+    <string name="kbd_desc_app_carousel_autoplay">Укажите плееры, в которых воспроизведение должно запускаться автоматически после открытия.</string>
     <string name="app_carousel_switching_list">Карусель приложений: %s</string>
     <string name="key_service_operation">Работа службы клавиш</string>
     <string name="key_listener_active">Слушатель клавиш активен</string>

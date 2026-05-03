@@ -7,6 +7,7 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
+import android.net.VpnService
 import android.os.Build
 import android.service.media.MediaBrowserService
 import com.salat.gbinder.entity.IconRef
@@ -95,6 +96,19 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
     override fun isDebugMInstalled(): Boolean = isPackageInstalled(DEBUG_M_PACKAGE)
 
     override fun isMConfigInstalled(): Boolean = isPackageInstalled(M_CONFIG_PACKAGE)
+
+    override fun packageDeclaresVpnService(packageName: String): Boolean {
+        val pkg = packageName.trim()
+        if (pkg.isEmpty()) return false
+        val pm = context.packageManager
+        val vpnIntent = Intent(VpnService.SERVICE_INTERFACE).apply { `package` = pkg }
+        return try {
+            val services = pm.queryIntentServices(vpnIntent, PackageManager.GET_META_DATA)
+            services.isNotEmpty()
+        } catch (_: Exception) {
+            false
+        }
+    }
 
     override fun isSystemApp(packageName: String): Boolean {
         if (packageName.isBlank()) return false

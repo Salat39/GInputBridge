@@ -39,6 +39,7 @@ import com.geely.lib.oneosapi.phone.PhoneManager
 import com.geely.lib.oneosapi.phone.inter.IBluetoothServicesListener
 import com.geely.lib.oneosapi.phone.telecom.GlyCallItem
 import com.google.firebase.FirebaseApp
+import com.salat.gbinder.adb.data.entity.AdbConnectionState
 import com.salat.gbinder.adb.domain.repository.AdbRepository
 import com.salat.gbinder.car.data.CarPropertyKey
 import com.salat.gbinder.car.data.CarPropertyValue
@@ -67,6 +68,7 @@ import com.salat.gbinder.entity.PackagesChangedEvent
 import com.salat.gbinder.entity.PlaybackMetadata
 import com.salat.gbinder.entity.PressState
 import com.salat.gbinder.entity.ToggleMediaControl
+import com.salat.gbinder.entity.parseAppCarouselValueSegment
 import com.salat.gbinder.features.launcher.LauncherDataRepository
 import com.salat.gbinder.features.launcher.LauncherEntryActivity
 import com.salat.gbinder.features.launcher.NAVI_PKGS
@@ -92,11 +94,13 @@ import com.salat.gbinder.util.openApp
 import com.salat.gbinder.util.requestCarouselAudioSourceForTarget
 import com.salat.gbinder.util.sendMediaActionToApp
 import com.salat.gbinder.util.sendMurglarAutoPlayCompat
+import com.salat.gbinder.util.sendPlayerAutoPlay
 import com.salat.gbinder.util.sendVkxAutoPlayCompat
 import com.salat.gbinder.util.sendYmAutoPlayCompat
 import com.salat.gbinder.util.softOpenApp
 import com.salat.gbinder.util.waitForCarouselAudioSourceToSettle
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -162,6 +166,10 @@ class App : Application(), ImageLoaderFactory {
 
         private const val OPEN_APP_TO_SEND_PLAY_PAUSE = 3000L
         private const val PLAYER_COMPAT_ACTION_DELAY = 600L
+        private const val APP_CAROUSEL_AUTOPLAY_CHECKS = 20
+        private const val APP_CAROUSEL_AUTOPLAY_CHECK_DELAY_MS = 500L
+        private const val APP_CAROUSEL_AUTOPLAY_READY_DELAY_MS = 500L
+        private const val APP_CAROUSEL_AUTOPLAY_FALLBACK_DELAY_MS = 3_500L
 
         private const val NOTIFICATION_WITH_DM_REMEMBER_DELAY = 1_000L
         private const val NOTIFICATION_WITHOUT_DM_REMEMBER_SHORT_DELAY = 5_000L
@@ -264,6 +272,7 @@ class App : Application(), ImageLoaderFactory {
     // Single mutex for this preference key
     private val toggleDriveModeTaskMutex = Mutex()
     private val carouselAudioSourceMutex = Mutex()
+    private val appCarouselMutex = Mutex()
 
     // App carouse launch history
     private val appCarouselLastByCarouselId = ConcurrentHashMap<Int, String>()
@@ -287,6 +296,7 @@ class App : Application(), ImageLoaderFactory {
     private var mediaPlayStateJob: Job? = null
     private var mediaMetadataStateJob: Job? = null
     private var mediaControllersJob: Job? = null
+    private var appCarouselAutoPlayJob: Job? = null
 
     private var whCurrentHomePage = 0
     private var whWidgetIsVisible = true
@@ -314,14 +324,21 @@ class App : Application(), ImageLoaderFactory {
     private var lastRadioBtControlState: Boolean? = null
     private var lastKnownStableAudioSource: MediaCenterConstant.AudioSource? = null
 
+    @Volatile
     private var adbIsEnabled = false
+
+    @Volatile
     private var currentVisibleApp = ""
     private var currentMediaAppInForeground = false
     private var geelyACIsOpened = false
     private var controlMediaApps = emptyList<String>()
+    @Volatile
     private var currentMediaAppPackage = ""
+    @Volatile
     private var previousMediaAppPackage = ""
+    @Volatile
     private var lastVisibleNavi = ""
+    @Volatile
     private var lastNaviMediaVisibleWasNavi: Boolean? = null
 
     // Temporary lock management
@@ -1281,10 +1298,7 @@ class App : Application(), ImageLoaderFactory {
             geelyACIsOpened = false
 
             // Reroute multi-packages
-            val targetName = when (pkg) {
-                HAV_YM_UMA_PACKAGE -> HAV_YM_PACKAGE
-                else -> pkg
-            }
+            val targetName = normalizeVisiblePackage(pkg)
 
             // Set current visible app
             currentVisibleApp = targetName
@@ -1321,6 +1335,11 @@ class App : Application(), ImageLoaderFactory {
             // Flag indicating whether the current media app is in the foreground
             currentMediaAppInForeground = targetName == currentMediaAppPackage
         }
+    }
+
+    private fun normalizeVisiblePackage(pkg: String): String = when (pkg.trim()) {
+        HAV_YM_UMA_PACKAGE -> HAV_YM_PACKAGE
+        else -> pkg.trim()
     }
 
     private fun CoroutineScope.initAppScalesCollector() = launch(Dispatchers.IO) {
@@ -2244,12 +2263,14 @@ class App : Application(), ImageLoaderFactory {
 
     private fun KeyBindConfig.naviMediaSwitch() = appScope.launch(Dispatchers.IO) {
         runCatching {
-            val visible = currentVisibleApp.trim()
+            val visible = normalizeVisiblePackage(stateKeeper.visibleAppState.value)
+                .ifEmpty { currentVisibleApp.trim() }
+
             val targetMedia = when {
+                visible in NAVI_PKGS -> true
+                visible in controlMediaApps && visible !in NAVI_PKGS -> false
                 lastNaviMediaVisibleWasNavi == true -> true
                 lastNaviMediaVisibleWasNavi == false -> false
-                visible in NAVI_PKGS -> true
-                visible in controlMediaApps -> false
                 else -> true // first opening media if true, or navi if false
             }
 
@@ -2270,7 +2291,9 @@ class App : Application(), ImageLoaderFactory {
             }
 
             lastNaviMediaVisibleWasNavi = target in NAVI_PKGS
-            if (targetMedia && target in controlMediaApps) currentMediaAppPackage = target
+            if (targetMedia && target in controlMediaApps && target !in NAVI_PKGS) {
+                currentMediaAppPackage = target
+            }
             launchApp(target)
             debugDeepLog("[KEY_BIND] navi media switch: visible=$visible target=$target")
         }.onFailure { Timber.e(it) }
@@ -2387,27 +2410,92 @@ class App : Application(), ImageLoaderFactory {
         }.onFailure { Timber.e(it) }
     }
 
-    private fun KeyBindConfig.appCarousel() = runCatching {
-        val parts = value.split('|')
-        val carouselId = parts.firstOrNull()?.toIntOrNull() ?: return@runCatching
-        val packages = parts.drop(1).map { it.trim() }.filter { it.isNotEmpty() }
-        if (packages.isEmpty()) return@runCatching
-        val last = appCarouselLastByCarouselId[carouselId]
-        val visible = currentVisibleApp.takeIf { it.isNotBlank() }
-        val target = when {
-            visible != null && visible in packages -> {
-                val idx = packages.indexOf(visible)
-                packages[(idx + 1) % packages.size]
+    private fun KeyBindConfig.appCarousel() = appScope.launch(Dispatchers.Default) {
+        runCatching {
+            appCarouselMutex.withLock {
+                val parts = value.split('|')
+                val carouselId = parts.firstOrNull()?.toIntOrNull() ?: return@withLock
+                val entries = parts
+                    .drop(1)
+                    .map { parseAppCarouselValueSegment(it) }
+                    .filter { it.first.isNotEmpty() }
+                if (entries.isEmpty()) return@withLock
+                val packages = entries.map { it.first }
+                val visible = currentVisibleApp.trim().takeIf { it.isNotBlank() }
+                val target = if (visible != null && visible in packages) {
+                    val idx = packages.indexOf(visible)
+                    packages[(idx + 1) % packages.size]
+                } else packages.first()
+                appCarouselLastByCarouselId[carouselId] = target
+                appCarouselAutoPlayJob?.cancel()
+
+                // Start app
+                launchApp(target)
+
+                // Autoplay event
+                if (entries.find { it.first == target }?.second == true) {
+                    scheduleAppCarouselAutoPlay(target)
+                }
             }
-            last != null && last in packages -> {
-                val idx = packages.indexOf(last)
-                packages[(idx + 1) % packages.size]
+        }.onFailure { Timber.e(it) }
+    }
+
+    private fun scheduleAppCarouselAutoPlay(packageName: String) {
+        appCarouselAutoPlayJob = appScope.launch(Dispatchers.IO) {
+            try {
+                if (adbIsEnabled && adb.connectionState.value is AdbConnectionState.Connected) {
+                    if (waitForAppCarouselAdbLaunch(packageName)) {
+                        delay(APP_CAROUSEL_AUTOPLAY_READY_DELAY_MS)
+                        sendPlayerAutoPlay(packageName)
+                        debugDeepLog("[KEY_BIND] app carousel autoplay sent to $packageName")
+                    } else {
+                        debugDeepLog("[KEY_BIND] app carousel autoplay skipped by adb for $packageName")
+                    }
+                    return@launch
+                }
+
+                if (stateKeeper.canAccessibility.value) {
+                    if (waitForAppCarouselAccessibilityLaunch(packageName)) {
+                        delay(APP_CAROUSEL_AUTOPLAY_READY_DELAY_MS)
+                        sendPlayerAutoPlay(packageName)
+                        debugDeepLog("[KEY_BIND] app carousel autoplay sent to $packageName")
+                    } else {
+                        debugDeepLog("[KEY_BIND] app carousel autoplay skipped by accessibility for $packageName")
+                    }
+                    return@launch
+                }
+
+                delay(APP_CAROUSEL_AUTOPLAY_FALLBACK_DELAY_MS)
+                sendPlayerAutoPlay(packageName)
+                debugDeepLog("[KEY_BIND] app carousel autoplay sent to $packageName")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e)
             }
-            else -> packages.first()
         }
-        appCarouselLastByCarouselId[carouselId] = target
-        launchApp(target)
-    }.onFailure { Timber.e(it) }
+    }
+
+    private suspend fun waitForAppCarouselAdbLaunch(packageName: String): Boolean {
+        repeat(APP_CAROUSEL_AUTOPLAY_CHECKS) {
+            if (adb.isAppInFreeform(packageName) != null) return true
+            delay(APP_CAROUSEL_AUTOPLAY_CHECK_DELAY_MS)
+        }
+        return false
+    }
+
+    private suspend fun waitForAppCarouselAccessibilityLaunch(packageName: String): Boolean {
+        val targetPackage = when (packageName) {
+            HAV_YM_UMA_PACKAGE -> HAV_YM_PACKAGE
+            else -> packageName
+        }
+        repeat(APP_CAROUSEL_AUTOPLAY_CHECKS) {
+            val visible = currentVisibleApp.trim()
+            if (visible == packageName || visible == targetPackage) return true
+            delay(APP_CAROUSEL_AUTOPLAY_CHECK_DELAY_MS)
+        }
+        return false
+    }
 
     private fun carouselPauseOldSourceBeforeSwitch(oldSource: MediaCenterConstant.AudioSource) {
         when (oldSource) {
@@ -3541,6 +3629,7 @@ class App : Application(), ImageLoaderFactory {
                                 PackagesChangedEvent.Added(packageName)
                             )
                         }
+                        detectVnpApp(packageName)
                     }
                 }
 
@@ -3588,6 +3677,20 @@ class App : Application(), ImageLoaderFactory {
             // Register on main; keep a strong reference to avoid GC
             launcherApps.registerCallback(callback, mainHandler)
         }.onFailure { Timber.e(it) }
+    }
+
+    private fun detectVnpApp(packageName: String) = appScope.launch(Dispatchers.IO) {
+        if (!systemApps.packageDeclaresVpnService(packageName)) return@launch
+        if (!adbIsEnabled) return@launch
+        if (adb.connectionState.value !is AdbConnectionState.Connected) return@launch
+        delay(300)
+        runCatching { adb.allowActivateVpnAppOp(packageName) }
+            .onSuccess {
+                Timber.d("[ADB] allowActivateVpnAppOp %s: %s", packageName, it)
+            }
+            .onFailure {
+                Timber.e(it, "[ADB] allowActivateVpnAppOp failed for %s", packageName)
+            }
     }
 
     override fun newImageLoader(): ImageLoader {
