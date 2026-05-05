@@ -316,7 +316,15 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         }
     }
 
-    override suspend fun executeAtlas(command: String): String = withContext(Dispatchers.IO) {
+    override suspend fun warmShellAtlas(): String {
+        return executeAtlasCommand(":")
+    }
+
+    override suspend fun setAtlasWheelSettings(): String {
+        return executeAtlasCommand("""settings put system wheel_settings "1"""")
+    }
+
+    private suspend fun executeAtlasCommand(command: String): String = withContext(Dispatchers.IO) {
         val port = dataStore.getValueFlow(GeneralPrefs.ADB_HELPER_PORT, 5555).first()
         if (port != 5555) return@withContext "Atlas ADB port is not 5555"
 

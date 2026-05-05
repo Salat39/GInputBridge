@@ -271,8 +271,8 @@ private fun RearWiperAutoSwitcher(
 ) {
     RenderSwitcher(
         modifier = Modifier.padding(horizontal = 20.dp),
-        title = stringResource(R.string.rear_wiper_auto_mode_title),
-        subtitle = stringResource(R.string.rear_wiper_auto_mode_desc),
+        title = stringResource(R.string.rear_wiper_auto_title),
+        subtitle = stringResource(R.string.rear_wiper_auto_desc),
         enable = true,
         value = value,
         groupDivider = false,

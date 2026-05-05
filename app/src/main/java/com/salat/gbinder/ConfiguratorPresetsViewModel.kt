@@ -51,14 +51,14 @@ class ConfiguratorPresetsViewModel @Inject constructor(
         val canUseAtlasAdb = shouldRunAtlasAdbStep()
         _canRearWiperAuto.update { canUseAtlasAdb }
         if (canUseAtlasAdb) {
-            adbRepository.executeAtlas(":")
+            adbRepository.warmShellAtlas()
             refreshRearWiperAutoState()
         }
     }
 
     fun atlasWheelSettings() = viewModelScope.launch(Dispatchers.IO) {
         if (shouldRunAtlasAdbStep()) {
-            adbRepository.executeAtlas("""settings put system wheel_settings "1"""")
+            adbRepository.setAtlasWheelSettings()
         }
     }
 

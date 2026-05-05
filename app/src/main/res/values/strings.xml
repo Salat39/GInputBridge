@@ -442,8 +442,8 @@
     <string name="launcher_extra_features_desc">Opens additional capabilities in the launcher: detects application status in the system (running/not running), force-stop, and other functions.</string>
     <string name="stop_dim_interaction_on_boot_title">Stop DIM interaction on system boot</string>
     <string name="stop_dim_interaction_on_boot_desc">Automatically stops the DIM interaction service (which blocks login and interferes with some apps) every time the system starts.</string>
-    <string name="rear_wiper_auto_mode_title">Rear wiper auto mode</string>
-    <string name="rear_wiper_auto_mode_desc">Disabling this feature prevents the rear wiper from automatically activating when reverse gear (R) is engaged.</string>
+    <string name="rear_wiper_auto_title">Rear wiper auto mode</string>
+    <string name="rear_wiper_auto_desc">Disabling this feature prevents the rear wiper from automatically activating when reverse gear (R) is engaged.</string>
     <string name="open">Open</string>
     <string name="stop">Stop</string>
 

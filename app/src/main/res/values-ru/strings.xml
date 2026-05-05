@@ -433,8 +433,8 @@
     <string name="launcher_extra_features_desc">Открывает дополнительные возможности в лаунчере: закрытие приложений, определение статуса приложения в системе (запущено/не запущено) и другие функции.</string>
     <string name="stop_dim_interaction_on_boot_title">Останавливать DIM interaction при запуске системы</string>
     <string name="stop_dim_interaction_on_boot_desc">Автоматическая остановка DIM interaction службы (блокирует логин и работу некоторых приложений) при каждом запуске системы.</string>
-    <string name="rear_wiper_auto_mode_title">Задний дворник в автоматическом режиме</string>
-    <string name="rear_wiper_auto_mode_desc">Выключение функции позволяет отключать работу авторежима для заднего дворника при включении \"R\".</string>
+    <string name="rear_wiper_auto_title">Задний дворник в авторежиме</string>
+    <string name="rear_wiper_auto_desc">Позволяет выключить работу авторежима для заднего дворника при включении \"R\".</string>
     <string name="open">Открыть</string>
     <string name="stop">Остановить</string>
 

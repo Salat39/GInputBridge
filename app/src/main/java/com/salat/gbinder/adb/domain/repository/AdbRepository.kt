@@ -9,7 +9,9 @@ interface AdbRepository {
 
     suspend fun execute(command: String): String
 
-    suspend fun executeAtlas(command: String): String
+    suspend fun warmShellAtlas(): String
+
+    suspend fun setAtlasWheelSettings(): String
 
     suspend fun isAppInFreeform(packageName: String): Boolean?
 
