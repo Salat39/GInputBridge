@@ -309,6 +309,17 @@
     <string name="standard">Standard</string>
     <string name="circle_cameras">360 cameras</string>
     <string name="circle_cameras_desc">Enabling and disabling 360-degree surround view cameras</string>
+    <string name="kbd_carplay_launch_title">CarPlay</string>
+    <string name="kbd_carplay_launch_desc">Opens CarPlay if hidden, hides it if open. Works when CarPlay is connected.</string>
+    <string name="kbd_title_carplay_screen">CarPlay Screen</string>
+    <string name="kbd_desc_carplay_screen">Choose which CarPlay screen to open</string>
+    <string name="kbd_carplay_screen_main">Main Screen</string>
+    <string name="kbd_carplay_screen_main_desc">Main CarPlay screen, same as default launch</string>
+    <string name="kbd_carplay_screen_music">Music</string>
+    <string name="kbd_carplay_screen_music_desc">Browse and play music</string>
+    <string name="kbd_carplay_screen_now_playing">Now playing</string>
+    <string name="kbd_carplay_screen_now_playing_desc">Current track and playback</string>
+    <string name="kbd_carplay_bind_summary">CarPlay: %s</string>
     <string name="headlight_mode">Headlight mode</string>
     <string name="headlight_mode_desc">Sequential switching of selected exterior lighting modes.</string>
     <string name="headlight_off">Off</string>
@@ -431,6 +442,8 @@
     <string name="launcher_extra_features_desc">Opens additional capabilities in the launcher: detects application status in the system (running/not running), force-stop, and other functions.</string>
     <string name="stop_dim_interaction_on_boot_title">Stop DIM interaction on system boot</string>
     <string name="stop_dim_interaction_on_boot_desc">Automatically stops the DIM interaction service (which blocks login and interferes with some apps) every time the system starts.</string>
+    <string name="rear_wiper_auto_mode_title">Rear wiper auto mode</string>
+    <string name="rear_wiper_auto_mode_desc">Disabling this feature prevents the rear wiper from automatically activating when reverse gear (R) is engaged.</string>
     <string name="open">Open</string>
     <string name="stop">Stop</string>
 

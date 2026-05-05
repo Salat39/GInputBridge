@@ -8,6 +8,7 @@ interface AdbRepository {
     val connectionState: StateFlow<AdbConnectionState>
 
     suspend fun execute(command: String): String
+
     suspend fun executeAtlas(command: String): String
 
     suspend fun isAppInFreeform(packageName: String): Boolean?

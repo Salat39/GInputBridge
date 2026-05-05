@@ -2,6 +2,7 @@ package com.salat.gbinder.adb.data.repository
 
 import android.util.Base64
 import com.salat.gbinder.BuildConfig
+import com.salat.gbinder.TELNET_HELPER_PORT
 import com.salat.gbinder.adb.data.entity.AdbConnectionState
 import com.salat.gbinder.adb.domain.repository.AdbRepository
 import com.salat.gbinder.datastore.DataStoreRepository
@@ -61,6 +62,7 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
     private var connectionEpoch: Long = 0L
 
     private val base64 = AdbBase64 { data -> Base64.encodeToString(data, Base64.NO_WRAP) }
+    private val telnetDiscovery by lazy { TelnetShellDiscovery(::buildDoneMarker) }
 
     private val _connectionState =
         MutableStateFlow<AdbConnectionState>(AdbConnectionState.Disconnected)
@@ -71,6 +73,9 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
 
     @Volatile
     private var connection: AdbConnection? = null
+
+    @Volatile
+    private var telnetTransport: TelnetShellTransport? = null
 
     private val taskIdRegex = Regex(
         pattern = """\bTask\{[^}]*#(\d+)\b""",
@@ -119,14 +124,17 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
     /**
      * Connects to adbd at host:port with ephemeral RSA keys; idempotent.
      */
-    suspend fun connect(host: String, port: Int): Boolean = withContext(Dispatchers.IO) {
+    suspend fun connect(host: String, port: Int) =
+        if (isTelnetMode(port)) connectTelnet() else connectAdb(host, port)
+
+    private suspend fun connectAdb(host: String, port: Int): Boolean = withContext(Dispatchers.IO) {
         lock.withLock {
             // Snapshot epoch to prevent resurrecting connection after disconnect().
             val myEpoch = synchronized(connGuard) { connectionEpoch }
 
             isManuallyDisconnected = false
 
-            if (isConnectedUnsafe()) {
+            if (isAdbConnectedUnsafe()) {
                 _connectionState.value = AdbConnectionState.Connected
                 Timber.d("[ADB] connect skipped: already connected")
                 cancelReconnectLoop()
@@ -162,8 +170,11 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
                         _connectionState.value = AdbConnectionState.Disconnected
                         return@withLock false
                     }
+                    val oldTelnet = telnetTransport
                     socket = s
                     connection = conn
+                    telnetTransport = null
+                    runCatching { oldTelnet?.close() }
                 }
 
                 _connectionState.value = AdbConnectionState.Connected
@@ -192,7 +203,7 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         }
 
         val port = dataStore.getValueFlow(GeneralPrefs.ADB_HELPER_PORT, 5555).first()
-        if (!isConnectedUnsafe()) {
+        if (!isConnectedForPortUnsafe(port)) {
             val ok = connect(host, port)
             if (!ok) {
                 scheduleReconnect(host, port, "initial reconnect")
@@ -231,7 +242,7 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
                         disconnect()
                         break
                     }
-                    if (isConnectedUnsafe()) {
+                    if (isConnectedForPortUnsafe(port)) {
                         break
                     }
 
@@ -274,7 +285,7 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
 
         val port = dataStore.getValueFlow(GeneralPrefs.ADB_HELPER_PORT, 5555).first()
 
-        if (!isConnectedUnsafe()) {
+        if (!isConnectedForPortUnsafe(port)) {
             val ok = connect(host, port)
             if (!ok) return@withContext "ADB connect failed"
         }
@@ -282,7 +293,7 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         if (command.isEmpty()) return@withContext "empty command"
 
         try {
-            executeLocked(command)
+            if (isTelnetMode(port)) executeTelnetLocked(command) else executeLocked(command)
         } catch (t: CommandFailedException) {
             // Command-level failure: connection is alive (marker reached), no reconnect required.
             Timber.w(
@@ -313,7 +324,7 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
             return@withContext "ADB disconnected"
         }
 
-        if (!isConnectedUnsafe()) {
+        if (!isConnectedForPortUnsafe(port)) {
             val ok = connect(host, port)
             if (!ok) return@withContext "ADB connect failed"
         }
@@ -738,6 +749,32 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         }
     }
 
+    private suspend fun executeTelnetLocked(command: String): String = lock.withLock {
+        val (transport, myEpoch) = synchronized(connGuard) {
+            val t = checkNotNull(telnetTransport) { "Telnet is not connected" }
+            t to connectionEpoch
+        }
+
+        Timber.d("[Telnet] execute: %s", command)
+
+        synchronized(connGuard) {
+            check(connectionEpoch == myEpoch && !isManuallyDisconnected) { "Telnet disconnected" }
+        }
+
+        val marker = buildDoneMarker()
+        val (output, exitCode) = transport.exec(command, marker)
+
+        synchronized(connGuard) {
+            check(connectionEpoch == myEpoch && !isManuallyDisconnected) { "Telnet disconnected" }
+        }
+
+        if (exitCode != 0) {
+            throw CommandFailedException(exitCode, output)
+        }
+
+        output.also { Timber.d("[Telnet] result length=%d", it.length) }
+    }
+
     private fun buildDoneMarker(): String {
         // Uses nanoTime to avoid collisions without extra allocations/overhead.
         return DONE_PREFIX + System.nanoTime().toString() + ":"
@@ -819,26 +856,39 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
     /**
      * Fast in-memory liveness check; not a protocol-level ping.
      */
-    private fun isConnectedUnsafe(): Boolean = synchronized(connGuard) {
+    private fun isConnectedForPortUnsafe(port: Int): Boolean {
+        return if (isTelnetMode(port)) isTelnetConnectedUnsafe() else isAdbConnectedUnsafe()
+    }
+
+    private fun isAdbConnectedUnsafe(): Boolean = synchronized(connGuard) {
         val s = socket
         val c = connection
         s != null && !s.isClosed && c != null && !isManuallyDisconnected
+    }
+
+    private fun isTelnetConnectedUnsafe(): Boolean = synchronized(connGuard) {
+        val t = telnetTransport
+        t != null && !t.isClosed() && !isManuallyDisconnected
     }
 
     private fun forceCloseNow() {
         // Closes transport immediately, without waiting for the main execution lock.
         val toCloseConn: AdbConnection?
         val toCloseSocket: Socket?
+        val toCloseTelnet: TelnetShellTransport?
 
         synchronized(connGuard) {
             toCloseConn = connection
             toCloseSocket = socket
+            toCloseTelnet = telnetTransport
             connection = null
             socket = null
+            telnetTransport = null
         }
 
         runCatching { toCloseConn?.close() }
         runCatching { toCloseSocket?.close() }
+        runCatching { toCloseTelnet?.close() }
     }
 
     /**
@@ -847,12 +897,15 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
     private fun safeClose() {
         val toCloseConn: AdbConnection?
         val toCloseSocket: Socket?
+        val toCloseTelnet: TelnetShellTransport?
 
         synchronized(connGuard) {
             toCloseConn = connection
             toCloseSocket = socket
+            toCloseTelnet = telnetTransport
             connection = null
             socket = null
+            telnetTransport = null
         }
 
         try {
@@ -865,7 +918,72 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         } catch (t: Throwable) {
             Timber.w(t, "[ADB] socket close error")
         }
+        try {
+            toCloseTelnet?.close()
+        } catch (t: Throwable) {
+            Timber.w(t, "[Telnet] socket close error")
+        }
     }
+
+    private suspend fun connectTelnet(): Boolean = withContext(Dispatchers.IO) {
+        lock.withLock {
+            val myEpoch = synchronized(connGuard) { connectionEpoch }
+
+            isManuallyDisconnected = false
+
+            val existing = synchronized(connGuard) { telnetTransport }
+            if (existing != null && !existing.isClosed()) {
+                _connectionState.value = AdbConnectionState.Connected
+                Timber.d("[Telnet] connect skipped: already connected")
+                cancelReconnectLoop()
+                return@withLock true
+            }
+
+            _connectionState.value = AdbConnectionState.Connecting
+            Timber.d("[Telnet] discovery started")
+
+            try {
+                val (endpoint, transport) = telnetDiscovery.open()
+
+                val canPublish = synchronized(connGuard) {
+                    connectionEpoch == myEpoch && !isManuallyDisconnected
+                }
+                if (!canPublish) {
+                    runCatching { transport.close() }
+                    _connectionState.value = AdbConnectionState.Disconnected
+                    return@withLock false
+                }
+
+                synchronized(connGuard) {
+                    if (connectionEpoch != myEpoch || isManuallyDisconnected) {
+                        runCatching { transport.close() }
+                        _connectionState.value = AdbConnectionState.Disconnected
+                        return@withLock false
+                    }
+                    runCatching { connection?.close() }
+                    runCatching { socket?.close() }
+                    connection = null
+                    socket = null
+                    telnetTransport = transport
+                }
+
+                _connectionState.value = AdbConnectionState.Connected
+                Timber.d("[Telnet] connected to %s:%d", endpoint.host, endpoint.port)
+                cancelReconnectLoop()
+                true
+            } catch (t: Throwable) {
+                _connectionState.value =
+                    AdbConnectionState.Error(t.message ?: "Telnet connect error")
+                Timber.w(t, "[Telnet] connect error")
+                telnetDiscovery.clearCache()
+                safeClose()
+                scheduleReconnect(host, TELNET_HELPER_PORT, "telnet connect error")
+                false
+            }
+        }
+    }
+
+    private fun isTelnetMode(port: Int) = port == TELNET_HELPER_PORT
 
     private fun isValidPackageName(value: String): Boolean {
         if (!value.contains('.')) return false

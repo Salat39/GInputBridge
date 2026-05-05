@@ -1433,7 +1433,7 @@ class MainActivity : ComponentActivity() {
 
         RenderDocumentationBlock()
 
-        RenderGroupTitle("ADB")
+        RenderGroupTitle("CLI Gateways")
 
         Row(
             modifier = Modifier
@@ -1526,11 +1526,13 @@ class MainActivity : ComponentActivity() {
                     subtitle = when {
                         mainScreenState.adbHelperPort != 7777 &&
                                 mainScreenState.adbHelperPort != 5555 &&
+                                mainScreenState.adbHelperPort != TELNET_HELPER_PORT &&
                                 mainScreenState.adbHelperPort != -1 -> mainScreenState.adbHelperPort.toString()
 
                         else -> null
                     }
                 ),
+                HugeTogglerItem(text = "Telnet"),
                 HugeTogglerItem(text = offText),
             )
         }
@@ -1548,8 +1550,9 @@ class MainActivity : ComponentActivity() {
                     selectedIndex = when {
                         mainScreenState.adbHelperPort == 5555 && mainScreenState.enableAdbHelper -> 0
                         mainScreenState.adbHelperPort == 7777 && mainScreenState.enableAdbHelper -> 1
+                        mainScreenState.adbHelperPort == TELNET_HELPER_PORT && mainScreenState.enableAdbHelper -> 3
                         mainScreenState.adbHelperPort > 0 && mainScreenState.enableAdbHelper -> 2
-                        !mainScreenState.enableAdbHelper -> 3
+                        !mainScreenState.enableAdbHelper -> 4
                         else -> 0
                     },
                     fontSize = 14,
@@ -1602,6 +1605,25 @@ class MainActivity : ComponentActivity() {
                         2 -> inputPortDialog = true
 
                         3 -> {
+                            updateMainScreenState(
+                                mainScreenState.copy(
+                                    adbHelperPort = TELNET_HELPER_PORT,
+                                    enableAdbHelper = true
+                                )
+                            )
+                            scope.launch(Dispatchers.IO) {
+                                dataStore.saveValue(
+                                    GeneralPrefs.ADB_HELPER_PORT,
+                                    TELNET_HELPER_PORT
+                                )
+                                dataStore.saveValue(
+                                    GeneralPrefs.ENABLE_ADB_HELPER,
+                                    true
+                                )
+                            }
+                        }
+
+                        4 -> {
                             updateMainScreenState(
                                 mainScreenState.copy(
                                     enableAdbHelper = false
@@ -2197,11 +2219,13 @@ class MainActivity : ComponentActivity() {
 
             LaunchedEffect(settingsImport) {
                 scope.launch(Dispatchers.IO) {
-                    val params = dataStore.collectBackupParams(settingsImport)
-                    importTask = DataStoreBackupTask(
-                        withGeneral = params.contains(GeneralPrefs.DATA_SYNC_ENABLED.name),
-                        withLauncher = params.contains(LauncherPrefs.LAUNCHER_DATA.name)
-                    )
+                    runCatching {
+                        val params = dataStore.collectBackupParams(settingsImport)
+                        importTask = DataStoreBackupTask(
+                            withGeneral = params.contains(GeneralPrefs.DATA_SYNC_ENABLED.name),
+                            withLauncher = params.contains(LauncherPrefs.LAUNCHER_DATA.name)
+                        )
+                    }.onFailure { Timber.e(it) }
                 }
             }
 
@@ -2340,6 +2364,7 @@ class MainActivity : ComponentActivity() {
                 appCarouselSummaries = resolveBindAppCarousel(action.action, action.value),
                 link = resolveBindLink(action.action, action.value),
                 phone = resolveBindPhone(action.action, action.value),
+                carplayScreen = resolveBindCarplayScreen(context, action.action, action.value),
                 driveModes = resolveBindDriveModes(action.action, action.value),
                 lampModes = resolveBindLampModes(context, action.action, action.value),
                 audioSources = resolveBindAudioSources(context, action.action, action.value)
@@ -2416,6 +2441,20 @@ class MainActivity : ComponentActivity() {
         } else null
     }
 
+    private fun resolveBindCarplayScreen(
+        context: Context,
+        action: KeyBindAction,
+        value: String
+    ): String? {
+        if (action != KeyBindAction.CARPLAY_LAUNCH) return null
+        return when (value.toIntOrNull()) {
+            0 -> context.getString(R.string.kbd_carplay_screen_main)
+            1 -> context.getString(R.string.kbd_carplay_screen_music)
+            2 -> context.getString(R.string.kbd_carplay_screen_now_playing)
+            else -> ""
+        }
+    }
+
     private fun resolveBindDriveModes(action: KeyBindAction, value: String): String? {
         return when (action) {
             KeyBindAction.TOGGLE_DM -> value.toIntOrNull()
@@ -2476,6 +2515,7 @@ class MainActivity : ComponentActivity() {
         KeyBindAction.CAROUSEL_DM -> DisplayKeyAction.CAROUSEL_DM
         KeyBindAction.PHONE_CALL -> DisplayKeyAction.PHONE_CALL
         KeyBindAction.CAMERAS_360 -> DisplayKeyAction.CAMERAS_360
+        KeyBindAction.CARPLAY_LAUNCH -> DisplayKeyAction.CARPLAY_LAUNCH
         KeyBindAction.CAROUSEL_LAMP -> DisplayKeyAction.CAROUSEL_LAMP
         KeyBindAction.CAROUSEL_AUDIO_SOURCE -> DisplayKeyAction.CAROUSEL_AUDIO_SOURCE
         KeyBindAction.TASK_MANAGER -> DisplayKeyAction.TASK_MANAGER

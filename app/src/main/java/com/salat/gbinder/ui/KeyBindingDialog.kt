@@ -118,6 +118,7 @@ private enum class KeyBindingDialogStep {
     SET_APP_CAROUSEL_ORDER,
     SET_APP_CAROUSEL_AUTOPLAY,
     SET_NAVI_MEDIA_PICK,
+    SET_CARPLAY_SCREEN,
 }
 
 private enum class KeyBindingDialogActions {
@@ -130,6 +131,7 @@ private enum class KeyBindingDialogActions {
     AUDIO_SOURCE_CHOOSE,
     PHONE_CALL,
     CAMERAS_360,
+    CARPLAY_LAUNCH,
     CAR_LAMP,
     TASK_MANAGER,
     ANDROID_BACK,
@@ -182,6 +184,7 @@ fun KeyBindingDialog(
             KeyBindingDialogActions.CAR_LAMP,
             KeyBindingDialogActions.PHONE_CALL,
             KeyBindingDialogActions.CAMERAS_360,
+            KeyBindingDialogActions.CARPLAY_LAUNCH,
             // KeyBindingDialogActions.TASK_MANAGER,
             KeyBindingDialogActions.NAVIGATE_TO_PAST_APP,
             KeyBindingDialogActions.ANDROID_BACK,
@@ -204,6 +207,7 @@ fun KeyBindingDialog(
     var carouselPickSelected by remember { mutableStateOf<Set<String>>(emptySet()) }
     var carouselOrderedPackages by remember { mutableStateOf<List<String>>(emptyList()) }
     var carouselAutoplayByPackage by remember { mutableStateOf(mapOf<String, Boolean>()) }
+    var carplayScreenSelected by remember { mutableIntStateOf(0) }
 
     val pickShortcut = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -327,6 +331,7 @@ fun KeyBindingDialog(
                 KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> stringResource(R.string.kbd_title_app_carousel_order)
                 KeyBindingDialogStep.SET_APP_CAROUSEL_AUTOPLAY -> stringResource(R.string.kbd_title_app_carousel_autoplay)
                 KeyBindingDialogStep.SET_NAVI_MEDIA_PICK -> stringResource(R.string.kbd_title_navi_media_pick)
+                KeyBindingDialogStep.SET_CARPLAY_SCREEN -> stringResource(R.string.kbd_title_carplay_screen)
             },
             modifier = Modifier.padding(horizontal = 24.dp),
             color = AppTheme.colors.contentPrimary,
@@ -359,6 +364,7 @@ fun KeyBindingDialog(
                     KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> stringResource(R.string.kbd_desc_app_carousel_order)
                     KeyBindingDialogStep.SET_APP_CAROUSEL_AUTOPLAY -> stringResource(R.string.kbd_desc_app_carousel_autoplay)
                     KeyBindingDialogStep.SET_NAVI_MEDIA_PICK -> stringResource(R.string.kbd_desc_navi_media_pick)
+                    KeyBindingDialogStep.SET_CARPLAY_SCREEN -> stringResource(R.string.kbd_desc_carplay_screen)
                 },
                 modifier = Modifier.padding(horizontal = 23.dp),
                 color = AppTheme.colors.contentPrimary.copy(.4f),
@@ -579,6 +585,11 @@ fun KeyBindingDialog(
                                         onDismiss()
                                     }
 
+                                    KeyBindingDialogActions.CARPLAY_LAUNCH -> {
+                                        carplayScreenSelected = 0
+                                        step = KeyBindingDialogStep.SET_CARPLAY_SCREEN
+                                    }
+
                                     KeyBindingDialogActions.TASK_MANAGER -> scope.launch(Dispatchers.IO) {
                                         val name = bind?.bind
                                             ?.let { keyBindStorage.getBindName(it) }
@@ -669,6 +680,8 @@ fun KeyBindingDialog(
 
                                     KeyBindingDialogActions.CAMERAS_360 -> stringResource(R.string.circle_cameras)
 
+                                    KeyBindingDialogActions.CARPLAY_LAUNCH -> stringResource(R.string.kbd_carplay_launch_title)
+
                                     KeyBindingDialogActions.TASK_MANAGER -> "[ADB] ${stringResource(R.string.recents)}"
 
                                     KeyBindingDialogActions.ANDROID_BACK -> stringResource(R.string.back)
@@ -704,6 +717,8 @@ fun KeyBindingDialog(
                                     KeyBindingDialogActions.PHONE_CALL -> stringResource(R.string.call_number_desc)
 
                                     KeyBindingDialogActions.CAMERAS_360 -> stringResource(R.string.circle_cameras_desc)
+
+                                    KeyBindingDialogActions.CARPLAY_LAUNCH -> stringResource(R.string.kbd_carplay_launch_desc)
 
                                     KeyBindingDialogActions.TASK_MANAGER -> stringResource(R.string.recents_action_description)
 
@@ -934,6 +949,115 @@ fun KeyBindingDialog(
 
                                 Spacer(Modifier.width(12.dp))
                             }
+                        }
+                    }
+                }
+            }
+
+            KeyBindingDialogStep.SET_CARPLAY_SCREEN -> {
+                val carplayScreenOptions = remember {
+                    listOf(
+                        Triple(
+                            0,
+                            R.string.kbd_carplay_screen_main,
+                            R.string.kbd_carplay_screen_main_desc
+                        ),
+                        Triple(
+                            1,
+                            R.string.kbd_carplay_screen_music,
+                            R.string.kbd_carplay_screen_music_desc
+                        ),
+                        Triple(
+                            2,
+                            R.string.kbd_carplay_screen_now_playing,
+                            R.string.kbd_carplay_screen_now_playing_desc
+                        ),
+                    )
+                }
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) {
+                    item(key = -1) {
+                        Spacer(
+                            Modifier
+                                .height(.8.dp)
+                        )
+                    }
+                    itemsIndexed(
+                        items = carplayScreenOptions,
+                        key = { _, t -> t.first }
+                    ) { _, option ->
+                        val id = option.first
+                        val titleRes = option.second
+                        val subtitleRes = option.third
+
+                        fun selectScreen() {
+                            carplayScreenSelected = id
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    scope.launch {
+                                        withContext(Dispatchers.Default) {
+                                            selectScreen()
+                                        }
+                                    }
+                                }
+                                .padding(vertical = 8.dp)
+                                .padding(start = 8.dp, end = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Spacer(Modifier.width(16.dp))
+
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(titleRes),
+                                    style = AppTheme.typography.dialogListTitle,
+                                    overflow = TextOverflow.Ellipsis,
+                                    maxLines = 1,
+                                    color = AppTheme.colors.contentPrimary
+                                )
+                                Text(
+                                    text = stringResource(subtitleRes),
+                                    style = AppTheme.typography.dialogSubtitle,
+                                    overflow = TextOverflow.Ellipsis,
+                                    maxLines = 2,
+                                    color = AppTheme.colors.contentPrimary.copy(.5f)
+                                )
+                            }
+
+                            Spacer(Modifier.weight(1f))
+
+                            RadioButton(
+                                selected = (id == carplayScreenSelected),
+                                onClick = {
+                                    scope.launch {
+                                        withContext(Dispatchers.Default) {
+                                            selectScreen()
+                                        }
+                                    }
+                                },
+                                colors = RadioButtonColors(
+                                    selectedColor = AppTheme.colors.contentAccent.copy(.8f),
+                                    unselectedColor = AppTheme.colors.contentPrimary.copy(
+                                        .3f
+                                    ),
+                                    disabledSelectedColor = AppTheme.colors.contentPrimary.copy(
+                                        .3f
+                                    ),
+                                    disabledUnselectedColor = AppTheme.colors.contentPrimary.copy(
+                                        .3f
+                                    )
+                                )
+                            )
+
+                            Spacer(Modifier.width(12.dp))
                         }
                     }
                 }
@@ -1954,6 +2078,8 @@ fun KeyBindingDialog(
                             KeyBindingDialogStep.SET_APP -> step = KeyBindingDialogStep.SET_ACTION
                             KeyBindingDialogStep.SET_NAVI_MEDIA_PICK -> step =
                                 KeyBindingDialogStep.SET_ACTION
+                            KeyBindingDialogStep.SET_CARPLAY_SCREEN -> step =
+                                KeyBindingDialogStep.SET_ACTION
                             KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> step =
                                 KeyBindingDialogStep.SET_ACTION
 
@@ -1994,6 +2120,7 @@ fun KeyBindingDialog(
                         KeyBindingDialogStep.SET_ACTION -> R.string.back
                         KeyBindingDialogStep.SET_APP -> R.string.back
                         KeyBindingDialogStep.SET_NAVI_MEDIA_PICK -> R.string.back
+                        KeyBindingDialogStep.SET_CARPLAY_SCREEN -> R.string.back
                         KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> R.string.back
                         KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> R.string.back
                         KeyBindingDialogStep.SET_APP_CAROUSEL_AUTOPLAY -> R.string.back
@@ -2018,6 +2145,8 @@ fun KeyBindingDialog(
                         KeyBindingDialogStep.SET_APP -> apps?.any { it.isSelected } == true
                         KeyBindingDialogStep.SET_NAVI_MEDIA_PICK ->
                             apps?.any { it.packageName in NAVI_PKGS && it.isSelected } == true
+                        KeyBindingDialogStep.SET_CARPLAY_SCREEN ->
+                            carplayScreenSelected in 0..2
                         KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> carouselPickSelected.size >= 2
                         KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> carouselOrderedPackages.size >= 2
                         KeyBindingDialogStep.SET_APP_CAROUSEL_AUTOPLAY -> carouselOrderedPackages.size >= 2
@@ -2085,6 +2214,26 @@ fun KeyBindingDialog(
                                                 KeyBindConfig(
                                                     action = KeyBindAction.NAVI_MEDIA_SWITCH,
                                                     value = pkg
+                                                )
+                                            )
+                                            onDismiss()
+                                        } catch (_: Exception) {
+                                        }
+                                    }
+                                }
+
+                                KeyBindingDialogStep.SET_CARPLAY_SCREEN -> {
+                                    scope.launch(Dispatchers.IO) {
+                                        try {
+                                            val name =
+                                                bind?.bind?.let { keyBindStorage.getBindName(it) }
+                                                    ?: ""
+
+                                            keyBindStorage.saveBinds(
+                                                name,
+                                                KeyBindConfig(
+                                                    action = KeyBindAction.CARPLAY_LAUNCH,
+                                                    value = "$carplayScreenSelected"
                                                 )
                                             )
                                             onDismiss()
@@ -2306,6 +2455,7 @@ fun KeyBindingDialog(
                             KeyBindingDialogStep.SET_ACTION -> R.string.next
                             KeyBindingDialogStep.SET_APP -> android.R.string.ok
                             KeyBindingDialogStep.SET_NAVI_MEDIA_PICK -> android.R.string.ok
+                            KeyBindingDialogStep.SET_CARPLAY_SCREEN -> android.R.string.ok
                             KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> R.string.next
                             KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> R.string.next
                             KeyBindingDialogStep.SET_APP_CAROUSEL_AUTOPLAY -> android.R.string.ok

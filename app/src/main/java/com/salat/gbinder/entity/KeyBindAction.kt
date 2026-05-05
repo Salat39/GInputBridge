@@ -13,6 +13,7 @@ enum class KeyBindAction {
     CAROUSEL_DM,
     PHONE_CALL,
     CAMERAS_360,
+    CARPLAY_LAUNCH,
     CAROUSEL_LAMP,
     CAROUSEL_AUDIO_SOURCE,
     TASK_MANAGER,

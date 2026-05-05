@@ -146,6 +146,8 @@ class App : Application(), ImageLoaderFactory {
         private const val HAV_YM_PACKAGE = "yandex.auto.music"
         private const val HAV_YM_UMA_PACKAGE = "yandex.auto.uma"
         private const val DUSI_ASSISTANT_PACKAGE = "com.dusiassistant"
+        private const val CARPLAY_PACKAGE = "com.autolink.carplay.app"
+        private const val CARPLAY_REQUEST_ACTION = "com.autolink.requestUI"
         private const val KARAOKE_FOCUS_ACTION = "com.audiocn.karaoke.action.KEY_BROADCAST_FOCUS"
         private const val KARAOKE_FOCUS_EXTRA = "KaraokeKeyFocus"
         private val NATIVE_SOURCE_SESSION_PACKAGES = setOf(
@@ -168,7 +170,7 @@ class App : Application(), ImageLoaderFactory {
         private const val PLAYER_COMPAT_ACTION_DELAY = 600L
         private const val APP_CAROUSEL_AUTOPLAY_CHECKS = 20
         private const val APP_CAROUSEL_AUTOPLAY_CHECK_DELAY_MS = 500L
-        private const val APP_CAROUSEL_AUTOPLAY_READY_DELAY_MS = 500L
+        private const val APP_CAROUSEL_AUTOPLAY_READY_DELAY_MS = 250L
         private const val APP_CAROUSEL_AUTOPLAY_FALLBACK_DELAY_MS = 3_500L
 
         private const val NOTIFICATION_WITH_DM_REMEMBER_DELAY = 1_000L
@@ -2092,6 +2094,8 @@ class App : Application(), ImageLoaderFactory {
 
                 KeyBindAction.CAMERAS_360 -> stateKeeper.setToggleCamera(true)
 
+                KeyBindAction.CARPLAY_LAUNCH -> bind.carplayLaunch()
+
                 KeyBindAction.CAROUSEL_LAMP -> bind.carouselLampMode()
 
                 KeyBindAction.CAROUSEL_AUDIO_SOURCE -> bind.carouselAudioSource()
@@ -2345,6 +2349,17 @@ class App : Application(), ImageLoaderFactory {
         return controlMediaApps.firstOrNull { it !in NAVI_PKGS }.orEmpty()
     }
 
+    private fun KeyBindConfig.carplayLaunch() = appScope.launch {
+        if (currentVisibleApp == CARPLAY_PACKAGE) {
+            currentVisibleApp.minimizePkg()
+        } else runCatching {
+            val screen = (value.toIntOrNull() ?: 0).coerceIn(0, 2)
+            val intent = Intent(CARPLAY_REQUEST_ACTION)
+            intent.putExtra("ui", screen)
+            withContext(Dispatchers.Main) { sendBroadcast(intent) }
+        }.onFailure { Timber.e(it) }
+    }
+
     private fun KeyBindConfig.carouselLampMode() = appScope.launch(Dispatchers.IO) {
         runCatching {
             val currentLM =
@@ -2506,9 +2521,10 @@ class App : Application(), ImageLoaderFactory {
             }
 
             MediaCenterConstant.AudioSource.AUDIO_SOURCE_BT,
-            MediaCenterConstant.AudioSource.AUDIO_SOURCE_USB -> {
+            MediaCenterConstant.AudioSource.AUDIO_SOURCE_USB,
+            MediaCenterConstant.AudioSource.AUDIO_SOURCE_CPAA -> {
                 runCatching { mMediaCenterManager?.musicAdapterManager?.pause() == 1 }.onFailure { Timber.e(it) }
-                debugDeepLog("[KEY_BIND] carousel audio: pause old BT/USB (musicAdapterManager)")
+                debugDeepLog("[KEY_BIND] carousel audio: pause old BT/USB/CPAA (musicAdapterManager)")
                 return
             }
 
@@ -2538,15 +2554,16 @@ class App : Application(), ImageLoaderFactory {
         }
 
         if (target == MediaCenterConstant.AudioSource.AUDIO_SOURCE_BT ||
-            target == MediaCenterConstant.AudioSource.AUDIO_SOURCE_USB
+            target == MediaCenterConstant.AudioSource.AUDIO_SOURCE_USB ||
+            target == MediaCenterConstant.AudioSource.AUDIO_SOURCE_CPAA
         ) {
             val mediaCenter = mMediaCenterManager?.takeIf { it.isAlive } ?: return
             if (!sourceSettled && mediaCenter.currentAudioSource != target) {
-                debugDeepLog("[KEY_BIND] carousel audio: skip BT/USB play, source=${mediaCenter.currentAudioSource} target=$target")
+                debugDeepLog("[KEY_BIND] carousel audio: skip BT/USB/CPAA play, source=${mediaCenter.currentAudioSource} target=$target")
                 return
             }
             runCatching { mediaCenter.musicAdapterManager?.play() == 1 }.onFailure { Timber.e(it) }
-            debugDeepLog("[KEY_BIND] carousel audio: play new BT/USB (musicAdapterManager)")
+            debugDeepLog("[KEY_BIND] carousel audio: play new BT/USB/CPAA (musicAdapterManager)")
             return
         }
 
@@ -2649,10 +2666,12 @@ class App : Application(), ImageLoaderFactory {
         fun goHomeViaAs() =
             stateKeeper.sendAccessibilityServiceSignal(AccessibilityServiceSignal.GoHome)
 
-        if (adbIsEnabled) withContext(Dispatchers.IO) {
-            adb.getTaskId(this@minimizePkg)?.let { taskId ->
-                adb.minimize(taskId)
-            } ?: run { goHomeViaAs() }
+        if (adbIsEnabled && adb.connectionState.value is AdbConnectionState.Connected) {
+            withContext(Dispatchers.IO) {
+                adb.getTaskId(this@minimizePkg)?.let { taskId ->
+                    adb.minimize(taskId)
+                } ?: run { goHomeViaAs() }
+            }
         } else goHomeViaAs()
     }
 

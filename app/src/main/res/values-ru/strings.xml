@@ -301,6 +301,17 @@
     <string name="standard">Стандартные</string>
     <string name="circle_cameras">Камеры 360</string>
     <string name="circle_cameras_desc">Включение и выключение камер кругового обзора</string>
+    <string name="kbd_carplay_launch_title">CarPlay</string>
+    <string name="kbd_carplay_launch_desc">При активации открывает, если скрыт, и скрывает, если открыт. Работает при подключённом CarPlay</string>
+    <string name="kbd_title_carplay_screen">Экран CarPlay</string>
+    <string name="kbd_desc_carplay_screen">Выберите, какой экран CarPlay открыть</string>
+    <string name="kbd_carplay_screen_main">Основной экран</string>
+    <string name="kbd_carplay_screen_main_desc">Главный экран CarPlay как при штатном запуске</string>
+    <string name="kbd_carplay_screen_music">Музыка</string>
+    <string name="kbd_carplay_screen_music_desc">Обзор библиотеки и воспроизведение</string>
+    <string name="kbd_carplay_screen_now_playing">Сейчас играет</string>
+    <string name="kbd_carplay_screen_now_playing_desc">Текущий трек и управление воспроизведением</string>
+    <string name="kbd_carplay_bind_summary">CarPlay: %s</string>
     <string name="headlight_mode">Смена режимов света фар</string>
     <string name="headlight_mode_desc">Последовательное переключение выбранных режимов наружного света</string>
     <string name="headlight_off">Выкл.</string>

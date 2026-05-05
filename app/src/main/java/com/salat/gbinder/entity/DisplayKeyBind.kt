@@ -12,6 +12,7 @@ data class DisplayKeyBind(
     val appCarouselSummaries: String?,
     val link: DeviceLinkInfo?,
     val phone: String?,
+    val carplayScreen: String?,
     val driveModes: String?,
     val lampModes: String?,
     val audioSources: String?

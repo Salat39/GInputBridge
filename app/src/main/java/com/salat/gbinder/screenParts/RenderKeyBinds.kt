@@ -334,6 +334,37 @@ internal fun RenderKeyBinds(
                             )
                         }
 
+                        DisplayKeyAction.CARPLAY_LAUNCH -> Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val detail = item.carplayScreen.orEmpty()
+                            val rawText = context.getString(
+                                R.string.kbd_carplay_bind_summary,
+                                detail
+                            )
+                            val startIndex = rawText.indexOf(detail)
+                            val endIndex = startIndex + detail.length
+                            val annotatedText = buildAnnotatedString {
+                                append(rawText)
+                                if (startIndex >= 0 && detail.isNotEmpty()) {
+                                    addStyle(
+                                        style = SpanStyle(
+                                            fontWeight = FontWeight.Medium,
+                                            color = AppTheme.colors.contentLightAccent
+                                        ),
+                                        start = startIndex,
+                                        end = endIndex
+                                    )
+                                }
+                            }
+                            Text(
+                                text = annotatedText,
+                                style = AppTheme.typography.cardFormatTitle,
+                                color = AppTheme.colors.contentPrimary
+                            )
+                        }
+
                         DisplayKeyAction.CAROUSEL_LAMP -> Row(
                             modifier = Modifier.weight(1f),
                             verticalAlignment = Alignment.CenterVertically
