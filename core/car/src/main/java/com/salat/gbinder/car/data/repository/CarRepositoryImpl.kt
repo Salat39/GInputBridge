@@ -694,7 +694,7 @@ class CarRepositoryImpl(
         return getIntProperty(propertyId, Integer.MIN_VALUE)
     }
 
-    private fun getIntProperty(propertyId: Int, areaId: Int): Int {
+    override suspend fun getIntProperty(propertyId: Int, areaId: Int): Int {
         if (!carIsConnected) return -1
         val car = mICar ?: return -1
         return try {
@@ -702,6 +702,17 @@ class CarRepositoryImpl(
         } catch (e: Exception) {
             Timber.e(e)
             -1
+        }
+    }
+
+    override suspend fun getFloatProperty(propertyId: Int, areaId: Int): Float {
+        if (!carIsConnected) return -1f
+        val car = mICar ?: return -1f
+        return try {
+            car.iCarFunction.getCustomizeFunctionValue(propertyId, areaId)
+        } catch (e: Exception) {
+            Timber.e(e)
+            -1f
         }
     }
 

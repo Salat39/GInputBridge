@@ -27,6 +27,8 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
         private val TRUSTED_GMP_CERT_SHA256 = setOf(
             "3C:3B:A7:FC:9F:A7:FD:C2:6D:5C:4B:D7:36:8E:E1:EF:30:6B:C9:D8:5F:A3:CF:53:97:7F:49:FE:3F:2A:59:75"
         )
+        private const val MEDIA_SESSION_SERVICE_INTERFACE =
+            "androidx.media3.session.MediaSessionService"
     }
 
     // private val excludedPackages = emptySet<String>()
@@ -555,26 +557,23 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
         }
     }
 
-    /**
-     * Checks if the package contains a service implementing a media session via MediaBrowserService.
-     *
-     * @param packageName the package name of the application to check
-     * @param applicationInfo information about the installed application; if null or disabled, returns false
-     * @return true if the package has at least one service with the MediaBrowserService.SERVICE_INTERFACE
-     */
     private fun PackageManager.isMediaApp(
         packageName: String,
         applicationInfo: ApplicationInfo?
     ): Boolean {
         if (applicationInfo?.enabled != true) return false
 
-        val mediaIntent = Intent(MediaBrowserService.SERVICE_INTERFACE).apply {
+        val browserIntent = Intent(MediaBrowserService.SERVICE_INTERFACE).apply {
             `package` = packageName
         }
-        val browserServices = queryIntentServices(mediaIntent, PackageManager.GET_META_DATA)
-        if (browserServices.isNotEmpty()) return true
+        if (queryIntentServices(browserIntent, PackageManager.GET_META_DATA).isNotEmpty()) {
+            return true
+        }
 
-        return false
+        val sessionIntent = Intent(MEDIA_SESSION_SERVICE_INTERFACE).apply {
+            `package` = packageName
+        }
+        return queryIntentServices(sessionIntent, PackageManager.GET_META_DATA).isNotEmpty()
     }
 
     // Collect all startable activities for this package: exported+enabled declared ones

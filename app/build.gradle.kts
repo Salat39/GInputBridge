@@ -19,8 +19,8 @@ android {
 //        applicationId = "com.ecarx.hardkeytest"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1627
-        versionName = "4.4.0"
+        versionCode = 1667
+        versionName = "4.5"
 
         setProperty("archivesBaseName", "$versionName[$versionCode]GInputBridge")
 

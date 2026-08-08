@@ -114,7 +114,11 @@ internal fun RenderKeyBinds(
                                 start = 8.dp,
                                 end = 12.dp
                             ),
-                            text = "${item.type.lowercase()}   =",
+                            text = if (item.type.isBlank()) {
+                                "="
+                            } else {
+                                "${item.type.lowercase()}   ="
+                            },
                             style = AppTheme.typography.dialogSubtitle,
                             color = AppTheme.colors.contentPrimary
                         )
@@ -170,6 +174,17 @@ internal fun RenderKeyBinds(
                         ) {
                             Text(
                                 text = stringResource(R.string.kbd_navi_media_switch_title),
+                                style = AppTheme.typography.cardFormatTitle,
+                                color = AppTheme.colors.contentPrimary
+                            )
+                        }
+
+                        DisplayKeyAction.FULLSCREEN_TO_SPLIT -> Row(
+                            modifier = actionAreaModifier,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.kbd_fullscreen_to_split_title),
                                 style = AppTheme.typography.cardFormatTitle,
                                 color = AppTheme.colors.contentPrimary
                             )
@@ -345,7 +360,7 @@ internal fun RenderKeyBinds(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = stringResource(R.string.circle_cameras_desc),
+                                text = stringResource(R.string.circle_cameras),
                                 style = AppTheme.typography.cardFormatTitle,
                                 color = AppTheme.colors.contentPrimary
                             )
@@ -561,6 +576,17 @@ internal fun RenderKeyBinds(
                             )
                         }
 
+                        DisplayKeyAction.RECENTS -> Row(
+                            modifier = actionAreaModifier,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.running_apps),
+                                style = AppTheme.typography.cardFormatTitle,
+                                color = AppTheme.colors.contentPrimary
+                            )
+                        }
+
                         DisplayKeyAction.ANDROID_BACK -> Row(
                             modifier = actionAreaModifier,
                             verticalAlignment = Alignment.CenterVertically
@@ -591,6 +617,24 @@ internal fun RenderKeyBinds(
                                 text = stringResource(R.string.return_to_previous_app),
                                 style = AppTheme.typography.cardFormatTitle,
                                 color = AppTheme.colors.contentPrimary
+                            )
+                        }
+
+                        DisplayKeyAction.CAR_FUNCTION -> Row(
+                            modifier = actionAreaModifier,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = item.carFunctionTitle
+                                    ?: stringResource(R.string.not_found),
+                                style = AppTheme.typography.cardFormatTitle,
+                                color = if (item.carFunctionTitle == null) {
+                                    AppTheme.colors.deleteButton
+                                } else {
+                                    AppTheme.colors.contentPrimary
+                                },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }

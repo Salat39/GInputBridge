@@ -22,6 +22,10 @@ interface CarRepository {
 
     suspend fun getIntProperty(propertyId: Int): Int
 
+    suspend fun getIntProperty(propertyId: Int, areaId: Int): Int
+
+    suspend fun getFloatProperty(propertyId: Int, areaId: Int): Float
+
     suspend fun getSensorValue(sensorId: Int): Float
 
     fun getIntPropertyWithType(propertyId: Int, type: Int): Int

@@ -57,6 +57,8 @@ import com.salat.gbinder.datastore.KeyBindStorageRepository
 import com.salat.gbinder.datastore.LauncherPrefs
 import com.salat.gbinder.datastore.NoBackupPrefs
 import com.salat.gbinder.entity.AppMediaAction
+import com.salat.gbinder.entity.CarFunction
+import com.salat.gbinder.entity.CarModel
 import com.salat.gbinder.entity.DISPLAY_LAMP_MODES
 import com.salat.gbinder.entity.FULL_KEYS
 import com.salat.gbinder.entity.IGNORED_MEDIA_APPS
@@ -69,6 +71,7 @@ import com.salat.gbinder.entity.PlaybackMetadata
 import com.salat.gbinder.entity.PressState
 import com.salat.gbinder.entity.ToggleMediaControl
 import com.salat.gbinder.entity.parseAppCarouselValueSegment
+import com.salat.gbinder.features.carFunctions.CarFunctionController
 import com.salat.gbinder.features.launcher.LauncherDataRepository
 import com.salat.gbinder.features.launcher.LauncherEntryActivity
 import com.salat.gbinder.features.launcher.LauncherIconPrewarmer
@@ -151,6 +154,10 @@ class App : Application(), ImageLoaderFactory {
         private const val DUSI_ASSISTANT_PACKAGE = "com.dusiassistant"
         private const val CARPLAY_PACKAGE = "com.autolink.carplay.app"
         private const val CARPLAY_REQUEST_ACTION = "com.autolink.requestUI"
+        private const val ZAPUSKATOR_PACKAGE = "ru.zapuskator"
+        private const val ZAPUSKATOR_TO_SPLIT_ACTION = "ru.zapuskator.toSPLIT"
+        private const val ZAPUSKATOR_EXTRA_NAVI_PACKAGE = "navi_package"
+        private const val ZAPUSKATOR_EXTRA_MEDIA_PACKAGE = "media_package"
         private const val KARAOKE_FOCUS_ACTION = "com.audiocn.karaoke.action.KEY_BROADCAST_FOCUS"
         private const val KARAOKE_FOCUS_EXTRA = "KaraokeKeyFocus"
         private val NATIVE_SOURCE_SESSION_PACKAGES = setOf(
@@ -167,6 +174,10 @@ class App : Application(), ImageLoaderFactory {
         private const val APP_CAROUSEL_AUTOPLAY_CHECK_DELAY_MS = 500L
         private const val APP_CAROUSEL_AUTOPLAY_READY_DELAY_MS = 250L
         private const val APP_CAROUSEL_AUTOPLAY_FALLBACK_DELAY_MS = 3_500L
+        private const val GSPLIT_PACKAGE = "com.salat.gsplit"
+        private const val GSPLIT_DEV_PACKAGE = "com.salat.gsplit.dev"
+        private val GSPLIT_PKGS = setOf(GSPLIT_PACKAGE, GSPLIT_DEV_PACKAGE)
+        private const val GEELY_RECENTS = "com.geely.recents/com.geely.recents.RecentsCsdActivity"
 
         private const val NOTIFICATION_WITH_DM_REMEMBER_DELAY = 1_000L
         private const val NOTIFICATION_WITHOUT_DM_REMEMBER_SHORT_DELAY = 5_000L
@@ -175,8 +186,8 @@ class App : Application(), ImageLoaderFactory {
         private const val MINIMIZE_SYSTEM_DELAY = 360L
         private const val SILENT_START = 4 // in sec
         private const val ONLINE_SWITCH_RETRY_INTERVAL_MS = 1200L
-        private const val KARAOKE_RETRY_COUNT = 4
-        private const val KARAOKE_RETRY_DELAY_MS = 1500L
+        private const val KARAOKE_RETRY_COUNT = 15
+        private const val KARAOKE_RETRY_DELAY_MS = 2000L
         private const val MEDIA_CODE_PLAY = 0x1000
         private const val MEDIA_CODE_PAUSE = 0x1001
 
@@ -212,6 +223,14 @@ class App : Application(), ImageLoaderFactory {
     // Ping for init
     @Inject
     lateinit var launcherIconPrewarmer: LauncherIconPrewarmer
+
+    private lateinit var carFunctions: CarFunctionController
+    private val heatVentDefaultLevels =
+        ConcurrentHashMap<CarFunction, Int>().apply {
+            CarFunction.entries.filter { it.hasConfigurableDefaultLevel() }.forEach {
+                put(it, CarFunction.DEFAULT_HEAT_VENT_LEVEL)
+            }
+        }
 
     private val runtimeTimer = SimpleTimer()
 
@@ -263,6 +282,12 @@ class App : Application(), ImageLoaderFactory {
     private var altMute = false
     private var altMenu = false
     private var altLongPressTime = ADDITIONAL_KEYS_MIN_LONG_PRESS_TIME
+    @Volatile
+    private var adbHelperPort = 5555
+    @Volatile
+    private var adbHelperEnabled = false
+    private val carModel: CarModel?
+        get() = ModelHelper.detectCarModel()
 
     // Drive mode
     private var rememberDriveMode = false
@@ -358,6 +383,12 @@ class App : Application(), ImageLoaderFactory {
     @Volatile
     private var lastNaviMediaVisibleWasNavi: Boolean? = null
 
+    @Volatile
+    private var gsplitSeenThisBoot = false
+
+    @Volatile
+    private var lastGsplitPackage = GSPLIT_PACKAGE
+
     // Temporary lock management
     private var taskMediaControlTimeLock: Job? = null
 
@@ -374,6 +405,23 @@ class App : Application(), ImageLoaderFactory {
         super.onCreate()
         timberInit()
         activitiesTracker()
+
+        carFunctions = CarFunctionController(
+            context = this,
+            car = carManager,
+            scope = appScope,
+            launchPackage = { launchApp(it) },
+            lockMediaControl = { seconds, restartIfActive ->
+                startMediaControlLockTask(seconds, restartIfActive)
+            },
+            climatePackage = GEELY_AC_PACKAGE,
+            isClimateVisible = { currentVisibleApp == GEELY_AC_PACKAGE },
+            resolveCarModel = { carModel },
+            defaultHeatVentLevel = { function ->
+                heatVentDefaultLevels[function] ?: CarFunction.DEFAULT_HEAT_VENT_LEVEL
+            },
+            isIgnitionDriving = { ignitionDriving() },
+        )
 
         logActor = appScope.actor(capacity = Channel.UNLIMITED) {
             for (msg in channel) {
@@ -572,9 +620,6 @@ class App : Application(), ImageLoaderFactory {
             }
         }
 
-        /**
-         * called by un-press or hardware short event
-         */
         private fun handleRelease(keyCode: Int, softKeyFunction: Int) {
             val state = keyStates.getOrDefault(keyCode, KeyState())
             if (state.pressState == PressState.RELEASED) return
@@ -624,9 +669,6 @@ class App : Application(), ImageLoaderFactory {
             keyStates[keyCode]?.doubleTimer = null
         }
 
-        /**
-         * Called by either a custom long press or a hardware press
-         */
         private fun handleSyncLong(keyCode: Int, func: Int) {
             val state = keyStates.getOrDefault(keyCode, KeyState())
 
@@ -870,6 +912,16 @@ class App : Application(), ImageLoaderFactory {
             }
         }
         launch {
+            dataStore.getValueFlow(GeneralPrefs.ADB_HELPER_PORT, 5555).collect {
+                adbHelperPort = it
+            }
+        }
+        launch {
+            dataStore.getValueFlow(GeneralPrefs.ENABLE_ADB_HELPER, false).collect {
+                adbHelperEnabled = it
+            }
+        }
+        launch {
             dataStore.getValueFlow(GeneralPrefs.DISABLE_DURING_CALLS).collect { isDisabled ->
                 disableDuringCall = isDisabled ?: false
             }
@@ -890,8 +942,7 @@ class App : Application(), ImageLoaderFactory {
                 radioBtControl = newValue
                 if (previous == false && newValue) {
                     karaokeFocusBoot = false
-                    runCatching { sendKaraokeFocus(true) }.onFailure { Timber.e(it) }
-                    karaokeRetry()
+                    enableKaraokeFocusOnBoot()
                 } else if (previous == true && !newValue) {
                     karaokeRetryJob?.cancel()
                     karaokeRetryJob = null
@@ -967,6 +1018,14 @@ class App : Application(), ImageLoaderFactory {
         launch {
             dataStore.getValueFlow(GeneralPrefs.ALT_LONG_TIME).collect { time ->
                 altLongPressTime = time ?: ADDITIONAL_KEYS_MIN_LONG_PRESS_TIME
+            }
+        }
+        CarFunction.entries.filter { it.hasConfigurableDefaultLevel() }.forEach { function ->
+            val key = function.defaultLevelPrefKey() ?: return@forEach
+            launch {
+                dataStore.getValueFlow(key, CarFunction.DEFAULT_HEAT_VENT_LEVEL).collect { level ->
+                    heatVentDefaultLevels[function] = level.coerceIn(1, 3)
+                }
             }
         }
     }
@@ -1346,6 +1405,7 @@ class App : Application(), ImageLoaderFactory {
 
             // Set current visible app
             currentVisibleApp = targetName
+            carFunctions.onVisibleAppChanged(targetName)
 
             // Detect AC is opened
             if (disableOnClimate && targetName == GEELY_AC_PACKAGE) {
@@ -1378,9 +1438,31 @@ class App : Application(), ImageLoaderFactory {
                 lastNaviMediaVisibleWasNavi = false
             }
 
+            if (targetName in GSPLIT_PKGS) {
+                gsplitSeenThisBoot = true
+                lastGsplitPackage = targetName
+            }
+
             // Flag indicating whether the current media app is in the foreground
             currentMediaAppInForeground = targetName == currentMediaAppPackage
         }
+    }
+
+    private fun lastSeenGsplitPackage(): String? {
+        if (gsplitSeenThisBoot) return lastGsplitPackage
+        val current = currentVisibleApp
+        if (current in GSPLIT_PKGS) {
+            gsplitSeenThisBoot = true
+            lastGsplitPackage = current
+            return current
+        }
+        val fromHistory = stateKeeper.visibleAppsState.value.firstOrNull { it in GSPLIT_PKGS }
+        if (fromHistory != null) {
+            gsplitSeenThisBoot = true
+            lastGsplitPackage = fromHistory
+            return fromHistory
+        }
+        return null
     }
 
     private fun normalizeVisiblePackage(pkg: String): String = when (pkg.trim()) {
@@ -1603,8 +1685,7 @@ class App : Application(), ImageLoaderFactory {
                 val sourceBeforeSwitch = mMediaCenterManager?.currentAudioSource
                 resetIfOtherAudioSource()
                 if (radioBtControl && sourceBeforeSwitch.isKaraokeControl) {
-                    applyKaraokeFocusOnBootIfNeeded()
-                    karaokeRetry()
+                    enableKaraokeFocusOnBoot()
                 }
             }
             debugDeepLog("[MediaCenterManager] ready")
@@ -1881,6 +1962,14 @@ class App : Application(), ImageLoaderFactory {
                     }
                 }
 
+                when {
+                    past == -1 -> Unit
+                    new == CarPropertyValue.DRIVE_MODE_SPORT_PLUS ->
+                        inMainToast(getString(R.string.drive_mode_toast_sport_plus))
+                    new == CarPropertyValue.DRIVE_MODE_SELECTION_POWER ->
+                        inMainToast(getString(R.string.drive_mode_toast_power))
+                }
+
                 // App started when drive mode was already changed
                 if (past == -1 && CarPropertyValue.DRIVE_MODE_SELECTION_COMFORT != new) {
                     canNotifLog(
@@ -2038,8 +2127,10 @@ class App : Application(), ImageLoaderFactory {
             return@launch
         }
         key.handleTrigger()
-
-        customShortClickAction(keyCode, func)
+        val padEchoConsumed = key.triggerCarFunctionIfNeeded(keyCode)
+        if (!padEchoConsumed && !carFunctions.handleMediaKey(keyCode)) {
+            customShortClickAction(keyCode, func)
+        }
         sendShortClick(keyCode)
     }
 
@@ -2053,6 +2144,7 @@ class App : Application(), ImageLoaderFactory {
             return@launch
         }
         key.handleTrigger()
+        key.triggerCarFunctionIfNeeded(keyCode)
 
         sendLongPress(keyCode)
     }
@@ -2068,6 +2160,7 @@ class App : Application(), ImageLoaderFactory {
             return@launch
         }
         key.handleTrigger()
+        key.triggerCarFunctionIfNeeded()
 
         sendMultiLongPress(keys)
     }
@@ -2097,6 +2190,7 @@ class App : Application(), ImageLoaderFactory {
             return@launch
         }
         key.handleTrigger()
+        key.triggerCarFunctionIfNeeded(keyCode)
 
         sendDoubleClick(keyCode)
     }
@@ -2155,6 +2249,8 @@ class App : Application(), ImageLoaderFactory {
 
                 KeyBindAction.TASK_MANAGER -> callTaskManager()
 
+                KeyBindAction.RECENTS -> openRecents()
+
                 KeyBindAction.ANDROID_BACK -> if (adbIsEnabled) {
                     appScope.launch(Dispatchers.IO) { adb.pressBack() }
                 } else {
@@ -2170,8 +2266,19 @@ class App : Application(), ImageLoaderFactory {
                 KeyBindAction.NAVIGATE_TO_PAST_APP -> navigateToPastApp()
 
                 KeyBindAction.NAVI_MEDIA_SWITCH -> bind.naviMediaSwitch()
+
+                KeyBindAction.FULLSCREEN_TO_SPLIT -> fullscreenToSplit()
+
+                KeyBindAction.CAR_FUNCTION -> Unit
             }
         }
+    }
+
+    private suspend fun KeyBindPattern.triggerCarFunctionIfNeeded(keyCode: Int = -1): Boolean {
+        val bindName = keyBindStorage.getBindName(this)
+        val bind = keyBinds[bindName] ?: return false
+        if (bind.action != KeyBindAction.CAR_FUNCTION) return false
+        return CarFunction.fromValue(bind.value)?.let { carFunctions.trigger(it, keyCode) } ?: false
     }
 
     private fun navigateToPastApp() = appScope.launch(Dispatchers.IO) {
@@ -2316,15 +2423,18 @@ class App : Application(), ImageLoaderFactory {
 
     private fun KeyBindConfig.naviMediaSwitch() = appScope.launch(Dispatchers.IO) {
         runCatching {
+            lastSeenGsplitPackage()?.let { gsplit ->
+                launchGsplitWithNaviMedia(gsplit)
+                return@runCatching
+            }
+
             val visible = normalizeVisiblePackage(stateKeeper.visibleAppState.value)
                 .ifEmpty { currentVisibleApp.trim() }
 
             val targetMedia = when {
                 visible in NAVI_PKGS -> true
                 visible in controlMediaApps && visible !in NAVI_PKGS -> false
-                lastNaviMediaVisibleWasNavi == true -> true
-                lastNaviMediaVisibleWasNavi == false -> false
-                else -> true // first opening media if true, or navi if false
+                else -> true
             }
 
             val target = if (targetMedia) {
@@ -2406,6 +2516,25 @@ class App : Application(), ImageLoaderFactory {
             val intent = Intent(CARPLAY_REQUEST_ACTION)
             intent.putExtra("ui", screen)
             withContext(Dispatchers.Main) { sendBroadcast(intent) }
+        }.onFailure { Timber.e(it) }
+    }
+
+    private fun fullscreenToSplit() = appScope.launch(Dispatchers.Default) {
+        runCatching {
+            val navi = lastVisibleNavi
+                .takeIf { it.isNotEmpty() && it in NAVI_PKGS }
+                ?: "ru.yandex.yandexnavi"
+            val media = naviMediaSwitchMediaTarget()
+                .ifEmpty { YAM_PACKAGE }
+            val intent = Intent(ZAPUSKATOR_TO_SPLIT_ACTION).apply {
+                setPackage(ZAPUSKATOR_PACKAGE)
+                putExtra(ZAPUSKATOR_EXTRA_NAVI_PACKAGE, navi)
+                putExtra(ZAPUSKATOR_EXTRA_MEDIA_PACKAGE, media)
+            }
+            withContext(Dispatchers.Main) { sendBroadcast(intent) }
+            debugDeepLog(
+                "[KEY_BIND] fullscreen to split: navi=$navi media=$media"
+            )
         }.onFailure { Timber.e(it) }
     }
 
@@ -2492,7 +2621,7 @@ class App : Application(), ImageLoaderFactory {
         runCatching {
             appCarouselMutex.withLock {
                 val parts = value.split('|')
-                val carouselId = parts.firstOrNull()?.toIntOrNull() ?: return@withLock
+                parts.firstOrNull()?.toIntOrNull() ?: return@withLock
                 val entries = parts
                     .drop(1)
                     .map { parseAppCarouselValueSegment(it) }
@@ -2500,11 +2629,13 @@ class App : Application(), ImageLoaderFactory {
                 if (entries.isEmpty()) return@withLock
                 val packages = entries.map { normalizeVisiblePackage(it.first) }
                 val visible = currentVisibleApp.trim().takeIf { it.isNotBlank() }
+
+                appCarouselAutoPlayJob?.cancel()
+
                 val target = if (visible != null && visible in packages) {
                     val idx = packages.indexOf(visible)
                     packages[(idx + 1) % packages.size]
                 } else packages.first()
-                appCarouselAutoPlayJob?.cancel()
 
                 // Start app
                 launchApp(normalizeTargetPackage(target))
@@ -2515,6 +2646,22 @@ class App : Application(), ImageLoaderFactory {
                 }
             }
         }.onFailure { Timber.e(it) }
+    }
+
+    private suspend fun launchGsplitWithNaviMedia(gsplitPkg: String = GSPLIT_PACKAGE) {
+        val gsplit = gsplitPkg.takeIf { it in GSPLIT_PKGS } ?: GSPLIT_PACKAGE
+        val media = naviMediaSwitchMediaTarget()
+        val navi = lastVisibleNavi
+            .takeIf { it.isNotEmpty() && it in NAVI_PKGS }
+            .orEmpty()
+        debugDeepLog(
+            "[KEY_BIND] navi media split: gsplit=$gsplit media=$media navi=$navi"
+        )
+        withContext(Dispatchers.Main) {
+            openApp(gsplit)
+            if (media.isNotEmpty()) openApp(normalizeTargetPackage(media))
+            if (navi.isNotEmpty()) openApp(normalizeTargetPackage(navi))
+        }
     }
 
     private fun scheduleAppCarouselAutoPlay(packageName: String) {
@@ -2703,6 +2850,16 @@ class App : Application(), ImageLoaderFactory {
             } else {
                 startOverlay<TaskManagerOverlayService>(this@App)
             }
+        }.onFailure { Timber.e(it) }
+    }
+
+    private fun openRecents() = appScope.launch(Dispatchers.Main) {
+        runCatching {
+            val intent = Intent().apply {
+                component = ComponentName.unflattenFromString(GEELY_RECENTS)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            startActivity(intent)
         }.onFailure { Timber.e(it) }
     }
 
@@ -3107,17 +3264,27 @@ class App : Application(), ImageLoaderFactory {
         }
     }
 
-    private fun applyKaraokeFocusOnBootIfNeeded() {
-        if (karaokeFocusBoot) return
+    private fun enableKaraokeFocusOnBoot() {
+        if (!radioBtControl) return
 
-        val manager = mMediaCenterManager?.takeIf { it.isAlive } ?: return
-        runCatching {
-            sendKaraokeFocus(true)
+        karaokeRetryJob?.cancel()
+        karaokeRetryJob = appScope.launch {
+            repeat(KARAOKE_RETRY_COUNT) { attempt ->
+                if (!radioBtControl) return@launch
+                if (attempt > 0) delay(KARAOKE_RETRY_DELAY_MS)
+                runCatching {
+                    sendKaraokeFocus(true)
+                    debugDeepLog(
+                        "[MediaCenterManager] karaoke focus send attempt ${attempt + 1}/$KARAOKE_RETRY_COUNT, " +
+                            "source=${mMediaCenterManager?.currentAudioSource}"
+                    )
+                }.onFailure {
+                    Timber.e(it)
+                    debugDeepLog("[MediaCenterManager] karaoke focus failed")
+                }
+            }
             karaokeFocusBoot = true
-            debugDeepLog("[MediaCenterManager] karaoke focus enabled, source=${manager.currentAudioSource}")
-        }.onFailure {
-            Timber.e(it)
-            debugDeepLog("[MediaCenterManager] karaoke focus failed")
+            debugDeepLog("[MediaCenterManager] karaoke focus boot sequence done")
         }
     }
 
@@ -3132,19 +3299,6 @@ class App : Application(), ImageLoaderFactory {
                 putExtra(KARAOKE_FOCUS_EXTRA, enabled)
             }
         )
-    }
-
-    private fun karaokeRetry() {
-        if (karaokeFocusBoot) return
-        if (karaokeRetryJob?.isActive == true) return
-
-        karaokeRetryJob = appScope.launch {
-            repeat(KARAOKE_RETRY_COUNT) {
-                if (karaokeFocusBoot) return@launch
-                delay(KARAOKE_RETRY_DELAY_MS)
-                applyKaraokeFocusOnBootIfNeeded()
-            }
-        }
     }
 
     private fun sendSessionSkip(controller: MediaController, isNext: Boolean) {
@@ -3316,8 +3470,9 @@ class App : Application(), ImageLoaderFactory {
     private val hasOtherRestoreDMApps
         get() = systemApps.isMConfigInstalled() || systemApps.isDebugMInstalled()
 
-    private fun startMediaControlLockTask(duration: Int) {
+    private fun startMediaControlLockTask(duration: Int, restartIfActive: Boolean = true) {
         if (taskMediaControlTimeLock?.isActive == true) {
+            if (!restartIfActive) return
             stopMediaControlLockTask()
         }
         mediaControlTimeLock = true

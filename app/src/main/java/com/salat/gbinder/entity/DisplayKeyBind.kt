@@ -15,5 +15,6 @@ data class DisplayKeyBind(
     val carplayScreen: String?,
     val driveModes: String?,
     val lampModes: String?,
-    val audioSources: String?
+    val audioSources: String?,
+    val carFunctionTitle: String? = null,
 )

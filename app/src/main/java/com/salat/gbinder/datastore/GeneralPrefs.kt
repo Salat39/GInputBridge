@@ -43,6 +43,11 @@ object GeneralPrefs {
     val ALT_MENU = booleanPreferencesKey("ALT_MENU")
     val ALT_LONG_TIME = intPreferencesKey("ALT_LONG_TIME")
     val IGNORE_MEDIA_APPS = stringPreferencesKey("IGNORE_MEDIA_APPS")
+    val CAR_FN_DEFAULT_WHEEL_HEAT = intPreferencesKey("CAR_FN_DEFAULT_WHEEL_HEAT")
+    val CAR_FN_DEFAULT_DRIVER_HEAT = intPreferencesKey("CAR_FN_DEFAULT_DRIVER_HEAT")
+    val CAR_FN_DEFAULT_PASSENGER_HEAT = intPreferencesKey("CAR_FN_DEFAULT_PASSENGER_HEAT")
+    val CAR_FN_DEFAULT_DRIVER_VENT = intPreferencesKey("CAR_FN_DEFAULT_DRIVER_VENT")
+    val CAR_FN_DEFAULT_PASSENGER_VENT = intPreferencesKey("CAR_FN_DEFAULT_PASSENGER_VENT")
 
     val ALL_KEYS
         get() = listOf(
@@ -83,6 +88,11 @@ object GeneralPrefs {
             ALT_MENU,
             ALT_LONG_TIME,
             IGNORE_MEDIA_APPS,
+            CAR_FN_DEFAULT_WHEEL_HEAT,
+            CAR_FN_DEFAULT_DRIVER_HEAT,
+            CAR_FN_DEFAULT_PASSENGER_HEAT,
+            CAR_FN_DEFAULT_DRIVER_VENT,
+            CAR_FN_DEFAULT_PASSENGER_VENT,
         )
 
     val DYNAMIC_PREFIX_KEYS

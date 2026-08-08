@@ -24,10 +24,6 @@ import timber.log.Timber
 private fun Context.obtainListenerComponent(): ComponentName =
     ComponentName(this, MediaNotificationListenerService::class.java)
 
-/**
- * Flow emitting the package name of the application whose media playback state is currently
- * PLAYING, or, if nothing is playing, the package of the most recently active session.
- */
 fun Context.activeMediaSessionControllerFlow(): Flow<Pair<MediaController?, List<MediaController>>> =
     callbackFlow {
         val sessionManager =
@@ -86,9 +82,6 @@ fun Context.activeMediaSessionControllerFlow(): Flow<Pair<MediaController?, List
         }
     }.distinctUntilChanged { old, new -> old.first == new.first && old.second == new.second }
 
-/**
- * Flow emitting only Boolean isPlaying, but emitting again if track changed.
- */
 fun Context.isMediaPlayingFlow(): Flow<Boolean> = callbackFlow {
     val sessionMgr = getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
     val component = obtainListenerComponent()
@@ -184,10 +177,6 @@ fun Context.isMediaPlayingFlow(): Flow<Boolean> = callbackFlow {
     }
 }
 
-/**
- * Flow emitting the current "active" MediaController (or null)
- * whenever the controller itself, its metadata, or its state changes.
- */
 fun Context.activeMediaControllerFlow(): Flow<MediaController?> = callbackFlow {
     val mgr = getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
     val component = obtainListenerComponent()

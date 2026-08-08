@@ -1,5 +1,16 @@
 package com.salat.gbinder.mappers
 
+import android.content.Context
+import com.salat.gbinder.R
+
+fun Context.resolveKeyCodeLabel(code: Int): String = when (code) {
+    119 -> getString(R.string.key_label_star)
+    200231 -> getString(R.string.key_label_voice)
+    200087 -> getString(R.string.key_label_next)
+    200088 -> getString(R.string.key_label_previous)
+    else -> keyCodeMap[code] ?: "Unknown"
+}
+
 val keyCodeMap: Map<Int, String> by lazy {
     mapOf(
         7 to "0",
@@ -119,7 +130,7 @@ val keyCodeMap: Map<Int, String> by lazy {
         80 to "Focus",
         125 to "Forward",
         112 to "Forward Del",
-        119 to "Function",
+        119 to "Star",
         35 to "G",
         68 to "Grave",
         172 to "Guide",

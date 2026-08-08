@@ -131,9 +131,6 @@ class BootAccessibilityService : AccessibilityService() {
         runCatching { performGlobalAction(GLOBAL_ACTION_BACK) }
     }
 
-    /**
-     * Configures the Accessibility Service parameters.
-     */
     private fun configureAccessibilityService() {
         try {
             val info = AccessibilityServiceInfo().apply {

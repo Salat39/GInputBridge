@@ -38,6 +38,7 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
 
     companion object {
         private const val TIMEOUT_MS = 5_000
+        private const val ATLAS_LOCALHOST_PORT = 5555
         private const val RECONNECT_DELAY_MS = 3_000L
         private const val MAX_RECONNECT_RETRIES = 5
 
@@ -128,15 +129,11 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         }
     }
 
-    /**
-     * Connects to adbd at host:port with ephemeral RSA keys; idempotent.
-     */
     suspend fun connect(host: String, port: Int) =
         if (isTelnetMode(port)) connectTelnet() else connectAdb(host, port)
 
     private suspend fun connectAdb(host: String, port: Int): Boolean = withContext(Dispatchers.IO) {
         lock.withLock {
-            // Snapshot epoch to prevent resurrecting connection after disconnect().
             val myEpoch = synchronized(connGuard) { connectionEpoch }
 
             isManuallyDisconnected = false
@@ -158,7 +155,6 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
                 val conn = AdbConnection.create(s, crypto)
                 conn.connect()
 
-                // Do not publish connection if disconnect() happened during connect().
                 val canPublish = synchronized(connGuard) {
                     connectionEpoch == myEpoch && !isManuallyDisconnected
                 }
@@ -170,7 +166,6 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
                 }
 
                 synchronized(connGuard) {
-                    // Re-check inside the critical section to avoid races.
                     if (connectionEpoch != myEpoch || isManuallyDisconnected) {
                         runCatching { conn.close() }
                         runCatching { s.close() }
@@ -198,14 +193,10 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         }
     }
 
-    /**
-     * Ensures background reconnect is attempted when enabled.
-     */
     private suspend fun reconnect() {
         isManuallyDisconnected = false
 
         if (_connectionState.value is AdbConnectionState.Disconnected) {
-            // Keep state machine simple: reconnect() is the only entry that can leave Disconnected.
             _connectionState.value = AdbConnectionState.Connecting
         }
 
@@ -218,11 +209,7 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         }
     }
 
-    /**
-     * Starts a single reconnect loop with fixed delay and capped retries.
-     */
     private suspend fun scheduleReconnect(host: String, port: Int, reason: String) {
-        // If the user explicitly disconnected, do not auto-reconnect and reset retry budget.
         if (isManuallyDisconnected || _connectionState.value is AdbConnectionState.Disconnected) {
             Timber.d(
                 "[ADB] reconnect suppressed: manual disconnect/state disconnected (%s)",
@@ -240,7 +227,6 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
                 var attempt = 0
                 while (isActive && attempt < MAX_RECONNECT_RETRIES) {
                     if (isManuallyDisconnected || _connectionState.value is AdbConnectionState.Disconnected) {
-                        // Disconnect must reset attempts and stop the loop.
                         break
                     }
                     val enable =
@@ -275,9 +261,6 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         }
     }
 
-    /**
-     * Executes "shell:<command>" with lazy connect and background reconnect on failure.
-     */
     override suspend fun execute(command: String): String = withContext(Dispatchers.IO) {
         val enable = dataStore.getValueFlow(GeneralPrefs.ENABLE_ADB_HELPER, false).first()
         if (!enable) {
@@ -285,7 +268,6 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
             return@withContext "ADB helper disabled"
         }
 
-        // If disconnected intentionally, do not attempt any background reconnects.
         if (isManuallyDisconnected || _connectionState.value is AdbConnectionState.Disconnected) {
             return@withContext "ADB disconnected"
         }
@@ -302,7 +284,6 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         try {
             if (isTelnetMode(port)) executeTelnetLocked(command) else executeLocked(command)
         } catch (t: CommandFailedException) {
-            // Command-level failure: connection is alive (marker reached), no reconnect required.
             Timber.w(
                 t,
                 "[ADB] command failed (exit=%d), output=%s",
@@ -311,7 +292,6 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
             )
             t.message ?: "ADB command failed"
         } catch (t: Throwable) {
-            // If disconnected intentionally, do not attempt any background reconnects.
             if (isManuallyDisconnected || _connectionState.value is AdbConnectionState.Disconnected) {
                 return@withContext "ADB disconnected"
             }
@@ -323,26 +303,15 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         }
     }
 
-    override suspend fun warmShellAtlas(): String {
-        return executeAtlasCommand(":")
-    }
-
     override suspend fun setAtlasWheelSettings(): String {
         return executeAtlasCommand("""settings put system wheel_settings "1"""")
     }
 
     private suspend fun executeAtlasCommand(command: String): String = withContext(Dispatchers.IO) {
-        val port = dataStore.getValueFlow(GeneralPrefs.ADB_HELPER_PORT, 5555).first()
-        if (port != 5555) return@withContext "Atlas ADB port is not 5555"
-
-        if (isManuallyDisconnected || _connectionState.value is AdbConnectionState.Disconnected) {
-            return@withContext "ADB disconnected"
-        }
-
-        if (!isConnectedForPortUnsafe(port)) {
-            val ok = connect(host, port)
-            if (!ok) return@withContext "ADB connect failed"
-        }
+        isManuallyDisconnected = false
+        lock.withLock { forceCloseNow() }
+        val ok = connect(host, ATLAS_LOCALHOST_PORT)
+        if (!ok) return@withContext "ADB connect failed"
 
         if (command.isEmpty()) return@withContext "empty command"
 
@@ -363,7 +332,7 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
 
             Timber.w(t, "[ADB] atlas execute failed")
             dropConnectionForRetry(t)
-            scheduleReconnect(host, port, "atlas execute error")
+            scheduleReconnect(host, ATLAS_LOCALHOST_PORT, "atlas execute error")
             t.message ?: "ADB atlas execute error"
         }
     }
@@ -410,9 +379,6 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         return m.groupValues[1].toIntOrNull()
     }
 
-    /**
-     * Convenience wrapper to force-stop a package via ActivityManager.
-     */
     override suspend fun forceStop(packageName: String): String {
         val pkg = packageName.trim()
         if (pkg.isEmpty() || pkg.equals("unknown", ignoreCase = true) || !isValidPackageName(pkg)) {
@@ -782,23 +748,14 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         }
     }
 
-    /**
-     * Simulates pressing the system Home button via ADB to return to the launcher.
-     */
     override suspend fun pressHome() {
         execute("input keyevent KEYCODE_HOME")
     }
 
-    /**
-     * Simulates pressing the system Back button via ADB to trigger standard back navigation.
-     */
     override suspend fun pressBack() {
         execute("input keyevent KEYCODE_BACK")
     }
 
-    /**
-     * Closes connection/socket; idempotent.
-     */
     suspend fun disconnect() = withContext(Dispatchers.IO) {
         Timber.d("[ADB] disconnect")
         isManuallyDisconnected = true
@@ -824,9 +781,6 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         }
     }
 
-    /**
-     * Executes under lock; propagates exceptions to let caller decide on reconnect.
-     */
     private suspend fun executeLocked(command: String): String = lock.withLock {
         val (conn, myEpoch) = synchronized(connGuard) {
             val c = checkNotNull(connection) { "ADB is not connected" }
@@ -948,9 +902,6 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         val output: String,
     ) : IOException("ADB command failed (exit=$exitCode)")
 
-    /**
-     * Marks connection as failed and closes resources, without entering Disconnected state.
-     */
     private suspend fun dropConnectionForRetry(t: Throwable) {
         lock.withLock {
             if (isManuallyDisconnected) return@withLock
@@ -959,9 +910,6 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         }
     }
 
-    /**
-     * Cancels pending reconnect loop after a successful connection or manual disconnect.
-     */
     private fun cancelReconnectLoop() {
         val job = reconnectJob
         if (job?.isActive == true) {
@@ -970,9 +918,6 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         reconnectJob = null
     }
 
-    /**
-     * Fast in-memory liveness check; not a protocol-level ping.
-     */
     private fun isConnectedForPortUnsafe(port: Int): Boolean {
         return if (isTelnetMode(port)) isTelnetConnectedUnsafe() else isAdbConnectedUnsafe()
     }
@@ -1008,9 +953,6 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         runCatching { toCloseTelnet?.close() }
     }
 
-    /**
-     * Safely closes and nulls connection/socket.
-     */
     private fun safeClose() {
         val toCloseConn: AdbConnection?
         val toCloseSocket: Socket?

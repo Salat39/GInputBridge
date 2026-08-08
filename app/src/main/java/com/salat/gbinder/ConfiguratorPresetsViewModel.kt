@@ -5,14 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.salat.gbinder.adb.domain.repository.AdbRepository
 import com.salat.gbinder.car.data.CarPropertyKey
 import com.salat.gbinder.car.domain.repository.CarRepository
-import com.salat.gbinder.datastore.DataStoreRepository
-import com.salat.gbinder.datastore.GeneralPrefs
+import com.salat.gbinder.entity.CarModel
 import com.salat.gbinder.statekeeper.domain.repository.StateKeeperRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -22,13 +20,14 @@ class ConfiguratorPresetsViewModel @Inject constructor(
     private val car: CarRepository,
     private val stateKeeper: StateKeeperRepository,
     private val adbRepository: AdbRepository,
-    private val dataStore: DataStoreRepository
 ) : ViewModel() {
 
     private val _warningVolume = MutableStateFlow(if (BuildConfig.DEBUG) 538771713 else null)
     val warningVolume = _warningVolume.asStateFlow()
-    private val _canRearWiperAuto = MutableStateFlow(false)
-    val canRearWiperAuto = _canRearWiperAuto.asStateFlow()
+
+    private val _isAtlas = MutableStateFlow(ModelHelper.detectCarModel() == CarModel.ATLAS)
+    val isAtlas = _isAtlas.asStateFlow()
+
     private val _rearWiperAuto = MutableStateFlow<Boolean?>(null)
     val rearWiperAuto = _rearWiperAuto.asStateFlow()
 
@@ -39,27 +38,15 @@ class ConfiguratorPresetsViewModel @Inject constructor(
                     car.getIntProperty(CarPropertyKey.SETTING_FUNC_SOUND_WARNING_VOLUME)
                 }
             }
-        }
-    }
-
-    private suspend fun shouldRunAtlasAdbStep(): Boolean {
-        val adbPort = dataStore.getValueFlow(GeneralPrefs.ADB_HELPER_PORT, 5555).first()
-        return adbPort == 5555
-    }
-
-    fun warmUpAdbSessionIfNeeded() = viewModelScope.launch(Dispatchers.IO) {
-        val canUseAtlasAdb = shouldRunAtlasAdbStep()
-        _canRearWiperAuto.update { canUseAtlasAdb }
-        if (canUseAtlasAdb) {
-            adbRepository.warmShellAtlas()
-            refreshRearWiperAutoState()
+            if (_isAtlas.value) {
+                refreshRearWiperAutoState()
+            }
         }
     }
 
     fun atlasWheelSettings() = viewModelScope.launch(Dispatchers.IO) {
-        if (shouldRunAtlasAdbStep()) {
-            adbRepository.setAtlasWheelSettings()
-        }
+        if (!_isAtlas.value) return@launch
+        adbRepository.setAtlasWheelSettings()
     }
 
     fun setFuncCustomKey(key: Int) = viewModelScope.launch(Dispatchers.IO) {
@@ -76,7 +63,7 @@ class ConfiguratorPresetsViewModel @Inject constructor(
     }
 
     fun setrearWiperAuto(enabled: Boolean) = viewModelScope.launch(Dispatchers.IO) {
-        if (!canRearWiperAuto.value) return@launch
+        if (!_isAtlas.value) return@launch
         val value = if (enabled) 1 else 0
         val ok = car.setPropertyIntValue(
             CarPropertyKey.SETTING_FUNC_AUTO_REAR_WIPING,
