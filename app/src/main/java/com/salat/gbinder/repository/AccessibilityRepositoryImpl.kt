@@ -12,6 +12,8 @@ class AccessibilityRepositoryImpl(private val stateKeeper: StateKeeperRepository
     override fun setVisibleApp(pkg: String, skipHistory: Boolean) =
         stateKeeper.setVisibleApp(pkg, skipHistory)
 
+    override fun setFullscreenApp(pkg: String) = stateKeeper.setFullscreenApp(pkg)
+
     override val actionSignalsFlow: SharedFlow<AccessibilityServiceSignal> =
         stateKeeper.accessibilityServiceSignalFlow
 }

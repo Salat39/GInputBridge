@@ -13,6 +13,7 @@ import android.media.session.PlaybackState
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.KeyEvent
 import androidx.annotation.RawRes
 import androidx.datastore.preferences.core.floatPreferencesKey
@@ -177,6 +178,7 @@ class App : Application(), ImageLoaderFactory {
         private const val GSPLIT_PACKAGE = "com.salat.gsplit"
         private const val GSPLIT_DEV_PACKAGE = "com.salat.gsplit.dev"
         private val GSPLIT_PKGS = setOf(GSPLIT_PACKAGE, GSPLIT_DEV_PACKAGE)
+        private const val GSPLIT_CLEAR_GRACE_MS = 5_000L
         private const val GEELY_RECENTS = "com.geely.recents/com.geely.recents.RecentsCsdActivity"
 
         private const val NOTIFICATION_WITH_DM_REMEMBER_DELAY = 1_000L
@@ -384,10 +386,13 @@ class App : Application(), ImageLoaderFactory {
     private var lastNaviMediaVisibleWasNavi: Boolean? = null
 
     @Volatile
-    private var gsplitSeenThisBoot = false
+    private var gsplitModeActive = false
 
     @Volatile
     private var lastGsplitPackage = GSPLIT_PACKAGE
+
+    @Volatile
+    private var gsplitClearGraceUntil = 0L
 
     // Temporary lock management
     private var taskMediaControlTimeLock: Job? = null
@@ -445,6 +450,7 @@ class App : Application(), ImageLoaderFactory {
             initLogCollector()
             initAppScalesCollector()
             initVisibleAppCollector() // Accessibility event bridge
+            initFullscreenAppCollector()
             handleToggleLauncher()
             handleAdbActions()
 
@@ -1439,8 +1445,12 @@ class App : Application(), ImageLoaderFactory {
             }
 
             if (targetName in GSPLIT_PKGS) {
-                gsplitSeenThisBoot = true
+                if (!gsplitModeActive) {
+                    debugDeepLog("[KEY_BIND] navi media mode: split, gsplit visible $targetName")
+                }
+                gsplitModeActive = true
                 lastGsplitPackage = targetName
+                gsplitClearGraceUntil = SystemClock.elapsedRealtime() + GSPLIT_CLEAR_GRACE_MS
             }
 
             // Flag indicating whether the current media app is in the foreground
@@ -1448,21 +1458,16 @@ class App : Application(), ImageLoaderFactory {
         }
     }
 
-    private fun lastSeenGsplitPackage(): String? {
-        if (gsplitSeenThisBoot) return lastGsplitPackage
-        val current = currentVisibleApp
-        if (current in GSPLIT_PKGS) {
-            gsplitSeenThisBoot = true
-            lastGsplitPackage = current
-            return current
+    private fun CoroutineScope.initFullscreenAppCollector() = launch {
+        stateKeeper.fullscreenAppFlow.collect { pkg ->
+            if (!gsplitModeActive) return@collect
+            if (SystemClock.elapsedRealtime() < gsplitClearGraceUntil) return@collect
+            val target = normalizeVisiblePackage(pkg)
+            if (target in NAVI_PKGS || target in controlMediaApps) {
+                gsplitModeActive = false
+                debugDeepLog("[KEY_BIND] navi media mode: fullscreen, fullscreen app $target")
+            }
         }
-        val fromHistory = stateKeeper.visibleAppsState.value.firstOrNull { it in GSPLIT_PKGS }
-        if (fromHistory != null) {
-            gsplitSeenThisBoot = true
-            lastGsplitPackage = fromHistory
-            return fromHistory
-        }
-        return null
     }
 
     private fun normalizeVisiblePackage(pkg: String): String = when (pkg.trim()) {
@@ -2423,8 +2428,8 @@ class App : Application(), ImageLoaderFactory {
 
     private fun KeyBindConfig.naviMediaSwitch() = appScope.launch(Dispatchers.IO) {
         runCatching {
-            lastSeenGsplitPackage()?.let { gsplit ->
-                launchGsplitWithNaviMedia(gsplit)
+            if (gsplitModeActive) {
+                launchGsplitWithNaviMedia(lastGsplitPackage)
                 return@runCatching
             }
 
@@ -2649,6 +2654,7 @@ class App : Application(), ImageLoaderFactory {
     }
 
     private suspend fun launchGsplitWithNaviMedia(gsplitPkg: String = GSPLIT_PACKAGE) {
+        gsplitClearGraceUntil = SystemClock.elapsedRealtime() + GSPLIT_CLEAR_GRACE_MS
         val gsplit = gsplitPkg.takeIf { it in GSPLIT_PKGS } ?: GSPLIT_PACKAGE
         val media = naviMediaSwitchMediaTarget()
         val navi = lastVisibleNavi

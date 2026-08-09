@@ -82,6 +82,18 @@ class StateKeeperRepositoryImpl : StateKeeperRepository {
         }
     }
 
+    private val _fullscreenAppFlow = MutableSharedFlow<String>(
+        replay = 0,
+        extraBufferCapacity = 25,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    override val fullscreenAppFlow = _fullscreenAppFlow.asSharedFlow()
+
+    override fun setFullscreenApp(pkg: String) {
+        if (pkg.isEmpty()) return
+        _fullscreenAppFlow.tryEmit(pkg)
+    }
+
     /**
      * Enable|Disable cameras
      */

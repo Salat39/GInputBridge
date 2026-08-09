@@ -1,7 +1,8 @@
 *.iml
-.*
 /local.properties
 /build
 /captures
 local.properties
 *.bat
+!README.md
+.*

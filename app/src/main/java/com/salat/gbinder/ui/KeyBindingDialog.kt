@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -1125,89 +1124,71 @@ fun KeyBindingDialog(
 
                 Spacer(Modifier.height(10.dp))
 
-                var index = 0
-                while (index < carFunctions.size) {
-                    val function = carFunctions[index]
-                    if (function.hasConfigurableDefaultLevel()) {
-                        val arrowGroup = carFunctions
-                            .drop(index)
-                            .takeWhile { it.hasConfigurableDefaultLevel() }
-                        Column(modifier = Modifier.width(IntrinsicSize.Max)) {
-                            arrowGroup.forEach { arrowFunction ->
-                                Row(
-                                    modifier = Modifier.padding(vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(AppTheme.colors.surfaceMenu)
-                                            .clickable { saveCarFunction(arrowFunction) },
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = stringResource(arrowFunction.titleRes),
-                                            modifier = Modifier.padding(
-                                                horizontal = 23.dp,
-                                                vertical = 16.dp
-                                            ),
-                                            color = AppTheme.colors.contentPrimary,
-                                            style = AppTheme.typography.screenTitle,
-                                            overflow = TextOverflow.Ellipsis,
-                                            maxLines = 1
-                                        )
-                                    }
-
-                                    Icon(
-                                        painter = painterResource(
-                                            R.drawable.ic_arrow_right_circle_outline
-                                        ),
-                                        contentDescription = stringResource(
-                                            R.string.car_fn_default_level_title
-                                        ),
-                                        tint = AppTheme.colors.contentAccent,
-                                        modifier = Modifier
-                                            .width(0.dp)
-                                            .wrapContentWidth(
-                                                align = Alignment.Start,
-                                                unbounded = true
-                                            )
-                                            .padding(start = 10.dp)
-                                            .size(36.dp)
-                                            .clip(RoundedCornerShape(18.dp))
-                                            .clickable {
-                                                defaultLevelFunction = arrowFunction
-                                            }
-                                            .padding(4.dp)
-                                    )
-                                }
-                            }
-                        }
-                        index += arrowGroup.size
-                    } else {
-                        Row(
+                carFunctions.forEach { function ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 10.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(AppTheme.colors.surfaceMenu)
+                            .height(IntrinsicSize.Min)
+                            .clickable { saveCarFunction(function) },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 10.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(AppTheme.colors.surfaceMenu)
-                                .clickable { saveCarFunction(function) },
-                            verticalAlignment = Alignment.CenterVertically
+                                .weight(1f)
+                                .padding(horizontal = 23.dp, vertical = 16.dp)
                         ) {
                             Text(
                                 text = stringResource(function.titleRes),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 23.dp, vertical = 16.dp),
                                 color = AppTheme.colors.contentPrimary,
                                 style = AppTheme.typography.screenTitle,
                                 overflow = TextOverflow.Ellipsis,
                                 maxLines = 2
                             )
+
+                            function.descRes?.let {
+                                Spacer(Modifier.height(5.dp))
+
+                                Text(
+                                    text = stringResource(it),
+                                    color = AppTheme.colors.contentPrimary.copy(.4f),
+                                    style = AppTheme.typography.dialogSubtitle
+                                )
+                            }
+                        }
+
+                        if (function.hasConfigurableDefaultLevel()) {
+                            Spacer(
+                                Modifier
+                                    .fillMaxHeight()
+                                    .width(1.dp)
+                                    .padding(vertical = 20.dp)
+                                    .background(AppTheme.colors.contentPrimary.copy(.04f))
+                            )
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .width(80.dp)
+                                    .clickable { defaultLevelFunction = function },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(
+                                        R.drawable.ic_arrow_right_circle_outline
+                                    ),
+                                    contentDescription = stringResource(
+                                        R.string.car_fn_default_level_title
+                                    ),
+                                    tint = AppTheme.colors.contentAccent,
+                                    modifier = Modifier.size(30.dp)
+                                )
+                            }
+                        } else {
                             Spacer(Modifier.width(20.dp))
                         }
-                        index++
                     }
                 }
 

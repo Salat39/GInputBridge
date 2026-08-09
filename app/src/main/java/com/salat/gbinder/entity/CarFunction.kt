@@ -2,6 +2,7 @@ package com.salat.gbinder.entity
 
 import androidx.annotation.StringRes
 import androidx.datastore.preferences.core.Preferences
+import com.salat.gbinder.BuildConfig
 import com.salat.gbinder.R
 import com.salat.gbinder.datastore.GeneralPrefs
 import kotlinx.serialization.Serializable
@@ -14,27 +15,30 @@ enum class CarModel {
 }
 
 @Serializable
-enum class CarFunction(@StringRes val titleRes: Int) {
-    CLIMATE_MENU(R.string.car_fn_climate_menu),
-    WHEEL_HEAT(R.string.car_fn_wheel_heat),
-    DRIVER_HEAT(R.string.car_fn_driver_heat),
-    PASSENGER_HEAT(R.string.car_fn_passenger_heat),
-    DRIVER_VENT(R.string.car_fn_driver_vent),
-    PASSENGER_VENT(R.string.car_fn_passenger_vent),
-    FRONT_DEFROST(R.string.car_fn_front_defrost),
-    REAR_DEFROST(R.string.car_fn_rear_defrost),
-    MAX_DEFROST(R.string.car_fn_max_defrost),
-    RECIRCULATION(R.string.car_fn_recirculation),
-    ME_HOT(R.string.car_fn_me_hot),
+enum class CarFunction(
+    @StringRes val titleRes: Int,
+    @StringRes val descRes: Int? = null,
+) {
+    CLIMATE_MENU(R.string.car_fn_climate_menu, R.string.car_fn_climate_menu_desc),
+    WHEEL_HEAT(R.string.car_fn_wheel_heat, R.string.car_fn_wheel_heat_desc),
+    DRIVER_HEAT(R.string.car_fn_driver_heat, R.string.car_fn_driver_heat_desc),
+    PASSENGER_HEAT(R.string.car_fn_passenger_heat, R.string.car_fn_passenger_heat_desc),
+    DRIVER_VENT(R.string.car_fn_driver_vent, R.string.car_fn_driver_vent_desc),
+    PASSENGER_VENT(R.string.car_fn_passenger_vent, R.string.car_fn_passenger_vent_desc),
+    FRONT_DEFROST(R.string.car_fn_front_defrost, R.string.car_fn_front_defrost_desc),
+    REAR_DEFROST(R.string.car_fn_rear_defrost, R.string.car_fn_rear_defrost_desc),
+    MAX_DEFROST(R.string.car_fn_max_defrost, R.string.car_fn_max_defrost_desc),
+    RECIRCULATION(R.string.car_fn_recirculation, R.string.car_fn_recirculation_desc),
+    ME_HOT(R.string.car_fn_me_hot, R.string.car_fn_me_hot_desc),
     ME_COOLED(R.string.car_fn_me_cooled),
-    ME_COLD(R.string.car_fn_me_cold),
+    ME_COLD(R.string.car_fn_me_cold, R.string.car_fn_me_cold_desc),
     ME_WARMED(R.string.car_fn_me_warmed),
-    ANTIBUKS(R.string.car_fn_antibuks),
-    MIRRORS(R.string.car_fn_mirrors),
-    LIGHT(R.string.car_fn_light),
-    SEAT_MEMORY(R.string.car_fn_seat_memory),
-    TRUNK(R.string.car_fn_trunk),
-    WIPERS(R.string.car_fn_wipers),
+    ANTIBUKS(R.string.car_fn_antibuks, R.string.car_fn_antibuks_desc),
+    MIRRORS(R.string.car_fn_mirrors, R.string.car_fn_mirrors_desc),
+    LIGHT(R.string.car_fn_light, R.string.car_fn_light_desc),
+    SEAT_MEMORY(R.string.car_fn_seat_memory, R.string.car_fn_seat_memory_desc),
+    TRUNK(R.string.car_fn_trunk, R.string.car_fn_trunk_desc),
+    WIPERS(R.string.car_fn_wipers, R.string.car_fn_wipers_desc),
     ;
 
     fun isAvailableFor(model: CarModel?): Boolean = when (this) {
@@ -66,7 +70,7 @@ enum class CarFunction(@StringRes val titleRes: Int) {
             entries.firstOrNull { it.name == raw.trim() }
 
         fun availableFor(model: CarModel?): List<CarFunction> =
-            entries.filter { it.isAvailableFor(model) && it.isListedInMenu() }
+            entries.filter { (BuildConfig.DEBUG || it.isAvailableFor(model)) && it.isListedInMenu() }
 
         private fun CarFunction.isListedInMenu(): Boolean = when (this) {
             ME_COOLED, ME_WARMED -> false
