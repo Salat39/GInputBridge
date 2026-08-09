@@ -7,10 +7,13 @@ import com.salat.gbinder.coroutines.IoCoroutineScope
 import com.salat.gbinder.entity.ToggleMediaControl
 import com.salat.gbinder.statekeeper.domain.entity.ActionPropertyTask
 import com.salat.gbinder.statekeeper.domain.repository.StateKeeperRepository
+import com.salat.gbinder.util.getSafeFlag
 import com.salat.gbinder.util.getSafeFloat
 import com.salat.gbinder.util.getSafeInt
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -27,6 +30,8 @@ class BackgroundTaskReceiver() : BroadcastReceiver() {
 
     companion object {
         private const val BASE_PATH = "com.salat.gbinder"
+        private const val DEFAULT_VISIBLE_PKG_TIMEOUT_SEC = 45
+        private var visiblePkgTimeoutJob: Job? = null
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -111,10 +116,32 @@ class BackgroundTaskReceiver() : BroadcastReceiver() {
             }
 
             "$BASE_PATH.SET_VISIBLE_PACKAGE" -> {
-                scope.launch {
-                    val pkg = intent.getStringExtra("pkg").orEmpty()
-                    if (pkg.isNotEmpty()) {
-                        GlobalState.backupVisiblePackageFlow.emit(pkg)
+                val pkg = intent.getStringExtra("pkg").orEmpty()
+                val release = intent.getSafeFlag("release")
+                val timeoutSec = if (intent.hasExtra("timeout")) {
+                    intent.getSafeInt("timeout")
+                } else DEFAULT_VISIBLE_PKG_TIMEOUT_SEC
+
+                visiblePkgTimeoutJob?.cancel()
+                visiblePkgTimeoutJob = null
+
+                when {
+                    release -> {
+                        stataKeeper.clearExternalVisibleApp()
+                        Timber.d("[VISIBLE_PKG] external release")
+                    }
+
+                    pkg.isNotEmpty() -> {
+                        stataKeeper.setExternalVisibleApp(pkg, intent.getSafeFlag("history"))
+                        Timber.d("[VISIBLE_PKG] external set $pkg timeout=$timeoutSec")
+
+                        if (timeoutSec > 0) {
+                            visiblePkgTimeoutJob = scope.launch {
+                                delay(timeoutSec * 1000L)
+                                stataKeeper.clearExternalVisibleApp()
+                                Timber.d("[VISIBLE_PKG] external release by timeout")
+                            }
+                        }
                     }
                 }
             }

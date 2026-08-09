@@ -28,6 +28,9 @@ fun Intent.getSafeInt(name: String): Int {
     return 0
 }
 
+fun Intent.getSafeFlag(name: String): Boolean =
+    getSafeInt(name) == 1 || getBooleanExtra(name, false)
+
 fun Intent.getSafeFloat(name: String): Float {
     val likeFloat = try {
         getFloatExtra(name, 0f)

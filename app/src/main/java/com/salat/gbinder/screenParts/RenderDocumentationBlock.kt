@@ -298,6 +298,28 @@ internal fun ColumnScope.RenderDocumentationBlock() {
             }
 
             Spacer(Modifier.height(24.dp))
+            Spacer(
+                Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(AppTheme.colors.contentPrimary.copy(.1f))
+            )
+            Spacer(Modifier.height(24.dp))
+
+            SelectionContainer {
+                Text(
+                    text = stringResource(R.string.api_text11)
+                        .spannedFromHtml()
+                        .toAnnotatedString(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 42.dp),
+                    color = AppTheme.colors.contentPrimary.copy(.8f),
+                    style = AppTheme.typography.dialogSubtitle
+                )
+            }
+
+            Spacer(Modifier.height(24.dp))
             RenderGroupDivider()
         }
     }

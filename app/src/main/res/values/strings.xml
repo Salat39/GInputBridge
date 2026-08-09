@@ -767,6 +767,23 @@ In response to GET_*_INFO, the action com.salat.gbinder.INFO_VALUE_RESULT is rec
 <strong>Additional1</strong>: id = parameter identifier<br>
 <strong>Additional2</strong>: value = current value
 ]]></string>
+
+    <string name="api_text11"><![CDATA[<strong>Visible Package Control</strong>
+<br>
+<br>
+Set the visible application manually, for example an overlay that the accessibility service does not detect:
+<br>
+In MacroDroid: Actions -> Send Intent
+<br>
+<strong>Target</strong>: Broadcast<br>
+<strong>Action:</strong> com.salat.gbinder.SET_VISIBLE_PACKAGE<br>
+<strong>Package</strong>: com.salat.gbinder<br><br>
+<strong>Additional1:</strong> pkg -> package name to set as visible<br>
+<strong>Additional2:</strong> release=[1|0] -> 1 releases the hold, can be sent without pkg<br>
+<strong>Additional3:</strong> history=[1|0] -> 1 also adds the package to recents (optional)<br>
+<strong>Additional4:</strong> timeout -> auto release in seconds, default 45, 0 = hold until release (optional)<br><br>
+Send pkg when the overlay opens and always release = 1 when it closes, otherwise package detection stays frozen until the timeout
+]]></string>
     <string name="apply">Apply</string>
     <string name="geely_launcher_empty_grid">Press + to add</string>
     <string name="geely_launcher_add_apps">Launcher apps</string>

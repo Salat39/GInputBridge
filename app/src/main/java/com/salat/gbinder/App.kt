@@ -492,7 +492,6 @@ class App : Application(), ImageLoaderFactory {
             initRequestPhoneCollector()
             initAccessibilityStateCollector()
             initMediaSessionsStateCollector()
-            backupVisiblePackageCollector()
             initLauncherManagerWatchDog()
             handleKeyBindMode()
             collectDriveModeChanged()
@@ -1354,15 +1353,6 @@ class App : Application(), ImageLoaderFactory {
                 }
             } else {
                 releaseActiveMediaSessionFlow()
-            }
-        }
-    }
-
-    private fun CoroutineScope.backupVisiblePackageCollector() = launch {
-        GlobalState.backupVisiblePackageFlow.collect { pkg ->
-            // Set backup source visible app, if accessibility not available
-            if (!stateKeeper.canAccessibility.value) {
-                stateKeeper.setVisibleApp(pkg, this@App.packageName == pkg)
             }
         }
     }

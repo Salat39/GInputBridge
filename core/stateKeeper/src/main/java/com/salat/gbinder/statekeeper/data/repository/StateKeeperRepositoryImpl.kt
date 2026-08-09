@@ -64,7 +64,33 @@ class StateKeeperRepositoryImpl : StateKeeperRepository {
     private val _visibleApp = MutableStateFlow("")
     override val visibleAppState = _visibleApp.asStateFlow()
 
+    @Volatile
+    private var externalVisibleApp = ""
+
+    @Volatile
+    private var systemVisibleApp = ""
+
     override fun setVisibleApp(pkg: String, skipHistory: Boolean) {
+        if (pkg.isEmpty()) return
+        systemVisibleApp = pkg
+
+        if (externalVisibleApp.isNotEmpty()) return
+        applyVisibleApp(pkg, skipHistory)
+    }
+
+    override fun setExternalVisibleApp(pkg: String, addToHistory: Boolean) {
+        if (pkg.isEmpty()) return
+        externalVisibleApp = pkg
+        applyVisibleApp(pkg, skipHistory = !addToHistory)
+    }
+
+    override fun clearExternalVisibleApp() {
+        if (externalVisibleApp.isEmpty()) return
+        externalVisibleApp = ""
+        applyVisibleApp(systemVisibleApp, skipHistory = true)
+    }
+
+    private fun applyVisibleApp(pkg: String, skipHistory: Boolean) {
         if (pkg.isEmpty()) return
         val changed = _visibleApp.value != pkg
 

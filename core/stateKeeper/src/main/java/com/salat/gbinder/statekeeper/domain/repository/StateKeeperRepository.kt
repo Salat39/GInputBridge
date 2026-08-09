@@ -24,6 +24,8 @@ interface StateKeeperRepository {
     val visibleAppsState: StateFlow<List<String>>
     val visibleAppState: StateFlow<String>
     fun setVisibleApp(pkg: String, skipHistory: Boolean = false)
+    fun setExternalVisibleApp(pkg: String, addToHistory: Boolean)
+    fun clearExternalVisibleApp()
 
     val fullscreenAppFlow: SharedFlow<String>
     fun setFullscreenApp(pkg: String)

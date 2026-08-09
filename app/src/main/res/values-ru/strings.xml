@@ -768,6 +768,22 @@
 <strong>Дополнение1</strong>: id = идентификатор параметра<br>
 <strong>Дополнение2</strong>: value = текущее значение
 ]]></string>
+    <string name="api_text11"><![CDATA[<strong>Управление видимым пакетом</strong>
+<br>
+<br>
+Указать видимое приложение вручную, например оверлей, который не видит служба специальных возможностей:
+<br>
+В MacroDroid: Действия -> Отправить интент
+<br>
+<strong>Цель</strong>: Broadcast<br>
+<strong>Действие:</strong> com.salat.gbinder.SET_VISIBLE_PACKAGE<br>
+<strong>Пакет</strong>: com.salat.gbinder<br><br>
+<strong>Дополнение1:</strong> pkg -> имя пакета, который считать видимым<br>
+<strong>Дополнение2:</strong> release=[1|0] -> 1 снимает удержание, можно слать без pkg<br>
+<strong>Дополнение3:</strong> history=[1|0] -> 1 дополнительно добавляет пакет в недавние (необязательно)<br>
+<strong>Дополнение4:</strong> timeout -> автоснятие в секундах, по умолчанию 45, 0 = держать до release (необязательно)<br><br>
+Отправляйте pkg при открытии оверлея и обязательно release = 1 при закрытии, иначе определение пакетов застынет до автоснятия по timeout
+]]></string>
     <string name="apply">Применить</string>
     <string name="geely_launcher_empty_grid">Нажмите + чтобы добавить</string>
     <string name="geely_launcher_add_apps">Приложения лаунчера</string>
