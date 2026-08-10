@@ -179,6 +179,17 @@ internal fun RenderKeyBinds(
                             )
                         }
 
+                        DisplayKeyAction.NAVI_MEDIA_SPLIT -> Row(
+                            modifier = actionAreaModifier,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.kbd_navi_media_split_title),
+                                style = AppTheme.typography.cardFormatTitle,
+                                color = AppTheme.colors.contentPrimary
+                            )
+                        }
+
                         DisplayKeyAction.FULLSCREEN_TO_SPLIT -> Row(
                             modifier = actionAreaModifier,
                             verticalAlignment = Alignment.CenterVertically

@@ -7,6 +7,7 @@ enum class KeyBindAction {
     LAUNCH_APP,
     APP_CAROUSEL,
     NAVI_MEDIA_SWITCH,
+    NAVI_MEDIA_SPLIT,
     FULLSCREEN_TO_SPLIT,
     LAUNCH_LINK,
     APP_LAUNCHER,

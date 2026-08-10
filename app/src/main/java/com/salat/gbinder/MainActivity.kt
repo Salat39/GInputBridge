@@ -2622,6 +2622,7 @@ class MainActivity : ComponentActivity() {
         KeyBindAction.LAUNCH_APP -> DisplayKeyAction.LAUNCH_APP
         KeyBindAction.APP_CAROUSEL -> DisplayKeyAction.APP_CAROUSEL
         KeyBindAction.NAVI_MEDIA_SWITCH -> DisplayKeyAction.NAVI_MEDIA_SWITCH
+        KeyBindAction.NAVI_MEDIA_SPLIT -> DisplayKeyAction.NAVI_MEDIA_SPLIT
         KeyBindAction.FULLSCREEN_TO_SPLIT -> DisplayKeyAction.FULLSCREEN_TO_SPLIT
         KeyBindAction.LAUNCH_LINK -> DisplayKeyAction.LAUNCH_LINK
         KeyBindAction.APP_LAUNCHER -> DisplayKeyAction.APP_LAUNCHER

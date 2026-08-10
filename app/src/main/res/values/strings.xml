@@ -131,6 +131,8 @@
     <string name="kbd_app_carousel_action_desc">When triggered, will launch applications from the list in sequence</string>
     <string name="kbd_navi_media_switch_title">Media / navigator switch</string>
     <string name="kbd_navi_media_switch_desc">Switch between the last active media app and the last navigator</string>
+    <string name="kbd_navi_media_split_title">Media / navigator switch + split</string>
+    <string name="kbd_navi_media_split_desc">Works like the media / navigator switch. If the GSplit split was opened, switches to the split</string>
     <string name="kbd_fullscreen_to_split_title">Fullscreen to split</string>
     <string name="kbd_fullscreen_to_split_desc">Send last navigator and media packages to Zapuskator for split</string>
     <string name="kbd_car_functions_title">Car functions</string>

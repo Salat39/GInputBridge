@@ -2,11 +2,6 @@ package com.salat.gbinder
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
-import android.content.res.Configuration
-import android.graphics.Rect
-import android.os.Build
-import android.util.DisplayMetrics
-import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityWindowInfo
 import com.salat.gbinder.repository.AccessibilityRepository
@@ -35,10 +30,6 @@ class BootAccessibilityService : AccessibilityService() {
         extraBufferCapacity = 16,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
-
-    private val windowBounds = Rect()
-    private var screenWidth = 0
-    private var screenHeight = 0
 
     @Inject
     lateinit var accessibility: AccessibilityRepository
@@ -69,34 +60,9 @@ class BootAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
 
-        updateScreenMetrics()
         configureAccessibilityService()
         accessibility.setCanAccessibility(true)
         logs.deepLog("[AS] Connected")
-    }
-
-    override fun onConfigurationChanged(newConfig: Configuration) {
-        super.onConfigurationChanged(newConfig)
-        updateScreenMetrics()
-    }
-
-    private fun updateScreenMetrics() {
-        try {
-            val wm = getSystemService(WINDOW_SERVICE) as WindowManager
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val bounds = wm.currentWindowMetrics.bounds
-                screenWidth = bounds.width()
-                screenHeight = bounds.height()
-            } else {
-                val dm = DisplayMetrics()
-                @Suppress("DEPRECATION")
-                wm.defaultDisplay.getMetrics(dm)
-                screenWidth = dm.widthPixels
-                screenHeight = dm.heightPixels
-            }
-        } catch (e: Exception) {
-            Timber.e(e)
-        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -116,18 +82,12 @@ class BootAccessibilityService : AccessibilityService() {
         // Access on main is allowed, but be careful to recycle window infos
         val list = windows // snapshot
         var matchedTypeApp = false
-        var isFullscreen = false
 
         // We must always recycle all window infos we touch
         try {
             for (w in list) {
                 if (w.id == windowId) {
                     matchedTypeApp = (w.type == AccessibilityWindowInfo.TYPE_APPLICATION)
-                    if (matchedTypeApp && screenWidth > 0 && screenHeight > 0) {
-                        w.getBoundsInScreen(windowBounds)
-                        isFullscreen = windowBounds.width() >= screenWidth &&
-                            windowBounds.height() >= screenHeight
-                    }
                 }
             }
         } catch (e: Exception) {
@@ -148,7 +108,6 @@ class BootAccessibilityService : AccessibilityService() {
         if (!matchedTypeApp) return
         try {
             accessibility.setVisibleApp(pkg, packageName == pkg)
-            if (isFullscreen) accessibility.setFullscreenApp(pkg)
         } catch (t: Throwable) {
             Timber.w(t)
         }

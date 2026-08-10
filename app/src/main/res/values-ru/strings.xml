@@ -123,6 +123,8 @@
     <string name="kbd_app_carousel_action_desc">При срабатывании будет последовательно запускать приложения из списка</string>
     <string name="kbd_navi_media_switch_title">Смена медиа/навигатор</string>
     <string name="kbd_navi_media_switch_desc">Переключение между последним активным медиаприложением и последним навигатором</string>
+    <string name="kbd_navi_media_split_title">Смена медиа/навигатор/сплит</string>
+    <string name="kbd_navi_media_split_desc">Работает как смена медиа/навигатор + если был открыт сплит - возвращает окна</string>
     <string name="kbd_fullscreen_to_split_title">Переход из полного экрана в сплит</string>
     <string name="kbd_fullscreen_to_split_desc">Переключает последние навигатор + медиа в сплит</string>
     <string name="kbd_car_functions_title">Функции авто</string>

@@ -141,6 +141,7 @@ private enum class KeyBindingDialogActions {
     APP_LAUNCH,
     APP_CAROUSEL,
     NAVI_MEDIA_SWITCH,
+    NAVI_MEDIA_SPLIT,
     FULLSCREEN_TO_SPLIT,
     LINK_LAUNCH,
     APP_LAUNCHER,
@@ -214,6 +215,7 @@ fun KeyBindingDialog(
     var paramsEntryStep by remember { mutableStateOf<KeyBindingDialogStep?>(null) }
     // Carousel id of the edited APP_CAROUSEL bind, preserved on save
     var editAppCarouselId by remember { mutableStateOf<Int?>(null) }
+    var naviMediaPickAction by remember { mutableStateOf(KeyBindAction.NAVI_MEDIA_SWITCH) }
     val actions = remember {
         buildList {
             add(KeyBindingDialogActions.CAR_FUNCTIONS)
@@ -222,6 +224,11 @@ fun KeyBindingDialog(
             add(KeyBindingDialogActions.APP_LAUNCHER)
             add(KeyBindingDialogActions.APP_CAROUSEL)
             add(KeyBindingDialogActions.NAVI_MEDIA_SWITCH)
+            if (systemApps.isPackageInstalled("com.salat.gsplit") ||
+                systemApps.isPackageInstalled("com.salat.gsplit.dev")
+            ) {
+                add(KeyBindingDialogActions.NAVI_MEDIA_SPLIT)
+            }
             if (systemApps.isPackageInstalled("ru.zapuskator")) {
                 add(KeyBindingDialogActions.FULLSCREEN_TO_SPLIT)
             }
@@ -321,6 +328,13 @@ fun KeyBindingDialog(
             }
 
             KeyBindAction.NAVI_MEDIA_SWITCH -> {
+                naviMediaPickAction = KeyBindAction.NAVI_MEDIA_SWITCH
+                paramsEntryStep = KeyBindingDialogStep.SET_NAVI_MEDIA_PICK
+                step = KeyBindingDialogStep.SET_NAVI_MEDIA_PICK
+            }
+
+            KeyBindAction.NAVI_MEDIA_SPLIT -> {
+                naviMediaPickAction = KeyBindAction.NAVI_MEDIA_SPLIT
                 paramsEntryStep = KeyBindingDialogStep.SET_NAVI_MEDIA_PICK
                 step = KeyBindingDialogStep.SET_NAVI_MEDIA_PICK
             }
@@ -486,7 +500,7 @@ fun KeyBindingDialog(
                     keyBindStorage.saveBinds(
                         name,
                         KeyBindConfig(
-                            action = KeyBindAction.NAVI_MEDIA_SWITCH,
+                            action = naviMediaPickAction,
                             value = candidates.single().packageName
                         )
                     )
@@ -506,7 +520,8 @@ fun KeyBindingDialog(
             // Edit mode - preselect the app stored in the edited bind
             apps = if (editBind != null && editBind.config.action in listOf(
                     KeyBindAction.LAUNCH_APP,
-                    KeyBindAction.NAVI_MEDIA_SWITCH
+                    KeyBindAction.NAVI_MEDIA_SWITCH,
+                    KeyBindAction.NAVI_MEDIA_SPLIT
                 )
             ) {
                 loaded.map { it.copy(isSelected = it.packageName == editBind.config.value) }
@@ -526,7 +541,9 @@ fun KeyBindingDialog(
     LaunchedEffect(Unit) {
         if (editBind != null && editBind.initialSection == EditKeyBindSection.PARAMS) {
             // Navi media switch has conditional params - open action change instead of params
-            if (editBind.config.action == KeyBindAction.NAVI_MEDIA_SWITCH) {
+            if (editBind.config.action == KeyBindAction.NAVI_MEDIA_SWITCH ||
+                editBind.config.action == KeyBindAction.NAVI_MEDIA_SPLIT
+            ) {
                 step = KeyBindingDialogStep.SET_ACTION
             } else {
                 openParamsEdit(editBind)
@@ -844,6 +861,22 @@ fun KeyBindingDialog(
                                     }
 
                                     KeyBindingDialogActions.NAVI_MEDIA_SWITCH -> {
+                                        naviMediaPickAction = KeyBindAction.NAVI_MEDIA_SWITCH
+                                        val appList = apps
+                                        if (appList == null) {
+                                            step = KeyBindingDialogStep.SET_NAVI_MEDIA_PICK
+                                        } else {
+                                            scope.launch {
+                                                if (!handleNaviMediaSwitch(appList)) {
+                                                    apps = appList.map { it.copy(isSelected = false) }
+                                                    step = KeyBindingDialogStep.SET_NAVI_MEDIA_PICK
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    KeyBindingDialogActions.NAVI_MEDIA_SPLIT -> {
+                                        naviMediaPickAction = KeyBindAction.NAVI_MEDIA_SPLIT
                                         val appList = apps
                                         if (appList == null) {
                                             step = KeyBindingDialogStep.SET_NAVI_MEDIA_PICK
@@ -1014,6 +1047,8 @@ fun KeyBindingDialog(
 
                                     KeyBindingDialogActions.NAVI_MEDIA_SWITCH -> stringResource(R.string.kbd_navi_media_switch_title)
 
+                                    KeyBindingDialogActions.NAVI_MEDIA_SPLIT -> stringResource(R.string.kbd_navi_media_split_title)
+
                                     KeyBindingDialogActions.FULLSCREEN_TO_SPLIT -> stringResource(R.string.kbd_fullscreen_to_split_title)
 
                                     KeyBindingDialogActions.LINK_LAUNCH -> stringResource(R.string.launch_shortcut)
@@ -1056,6 +1091,8 @@ fun KeyBindingDialog(
                                     KeyBindingDialogActions.APP_CAROUSEL -> stringResource(R.string.kbd_app_carousel_action_desc)
 
                                     KeyBindingDialogActions.NAVI_MEDIA_SWITCH -> stringResource(R.string.kbd_navi_media_switch_desc)
+
+                                    KeyBindingDialogActions.NAVI_MEDIA_SPLIT -> stringResource(R.string.kbd_navi_media_split_desc)
 
                                     KeyBindingDialogActions.FULLSCREEN_TO_SPLIT -> stringResource(R.string.kbd_fullscreen_to_split_desc)
 
@@ -2719,7 +2756,7 @@ fun KeyBindingDialog(
                                             keyBindStorage.saveBinds(
                                                 name,
                                                 KeyBindConfig(
-                                                    action = KeyBindAction.NAVI_MEDIA_SWITCH,
+                                                    action = naviMediaPickAction,
                                                     value = pkg
                                                 )
                                             )

@@ -8,7 +8,5 @@ interface AccessibilityRepository {
 
     fun setVisibleApp(pkg: String, skipHistory: Boolean)
 
-    fun setFullscreenApp(pkg: String)
-
     val actionSignalsFlow: SharedFlow<AccessibilityServiceSignal>
 }

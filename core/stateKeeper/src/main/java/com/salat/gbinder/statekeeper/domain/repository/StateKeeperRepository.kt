@@ -27,9 +27,6 @@ interface StateKeeperRepository {
     fun setExternalVisibleApp(pkg: String, addToHistory: Boolean)
     fun clearExternalVisibleApp()
 
-    val fullscreenAppFlow: SharedFlow<String>
-    fun setFullscreenApp(pkg: String)
-
     val toggleCameraFlow: SharedFlow<Boolean>
     fun setToggleCamera(value: Boolean)
 
