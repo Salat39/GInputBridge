@@ -49,6 +49,16 @@ object GeneralPrefs {
     val CAR_FN_DEFAULT_DRIVER_VENT = intPreferencesKey("CAR_FN_DEFAULT_DRIVER_VENT")
     val CAR_FN_DEFAULT_PASSENGER_VENT = intPreferencesKey("CAR_FN_DEFAULT_PASSENGER_VENT")
 
+    // Not in ALL_KEYS - import restores these keys only when the backup contains them
+    val ENABLED_MEDIA_APPS = stringPreferencesKey("ENABLED_MEDIA_APPS")
+    val DEFAULT_MEDIA_APP = stringPreferencesKey("DEFAULT_MEDIA_APP")
+
+    val MEDIA_APPS_BACKUP_KEYS
+        get() = listOf(
+            ENABLED_MEDIA_APPS,
+            DEFAULT_MEDIA_APP
+        )
+
     val ALL_KEYS
         get() = listOf(
             DATA_SYNC_ENABLED,

@@ -93,7 +93,6 @@ import com.salat.gbinder.datastore.DataStoreRepository
 import com.salat.gbinder.datastore.FavoriteStorageRepository
 import com.salat.gbinder.datastore.GeneralPrefs
 import com.salat.gbinder.datastore.KeyBindStorageRepository
-import com.salat.gbinder.datastore.LauncherPrefs
 import com.salat.gbinder.datastore.NoBackupPrefs
 import com.salat.gbinder.entity.CarFunction
 import com.salat.gbinder.entity.DISPLAY_AUDIO_SOURCES
@@ -2318,15 +2317,13 @@ class MainActivity : ComponentActivity() {
         val importSettingsConfirmDialog by remember { derivedStateOf { settingsImport.isNotEmpty() } }
         if (importSettingsConfirmDialog) {
             var importTask by remember { mutableStateOf<DataStoreBackupTask?>(null) }
+            var backupVersion by remember { mutableStateOf<Int?>(null) }
 
             LaunchedEffect(settingsImport) {
                 scope.launch(Dispatchers.IO) {
                     runCatching {
-                        val params = dataStore.collectBackupParams(settingsImport)
-                        importTask = DataStoreBackupTask(
-                            withGeneral = params.contains(GeneralPrefs.DATA_SYNC_ENABLED.name),
-                            withLauncher = params.contains(LauncherPrefs.LAUNCHER_DATA.name)
-                        )
+                        backupVersion = dataStore.collectBackupVersion(settingsImport)
+                        importTask = dataStore.collectBackupTask(settingsImport)
                     }.onFailure { Timber.e(it) }
                 }
             }
@@ -2405,6 +2402,27 @@ class MainActivity : ComponentActivity() {
                                 .height(1.dp)
                                 .background(AppTheme.colors.surfaceMenuDivider)
                         )
+
+                        val version = backupVersion
+                        when {
+                            version != null && version > BuildConfig.VERSION_CODE -> Text(
+                                text = stringResource(R.string.backup_from_later_version),
+                                color = AppTheme.colors.statusError,
+                                style = AppTheme.typography.dialogSubtitle,
+                                modifier = Modifier
+                                    .padding(horizontal = 24.dp)
+                                    .padding(top = 12.dp)
+                            )
+
+                            version == null || version < BuildConfig.VERSION_CODE -> Text(
+                                text = stringResource(R.string.backup_from_earlier_version),
+                                color = AppTheme.colors.statusSuccess,
+                                style = AppTheme.typography.dialogSubtitle,
+                                modifier = Modifier
+                                    .padding(horizontal = 24.dp)
+                                    .padding(top = 12.dp)
+                            )
+                        }
 
                         Spacer(Modifier.height(12.dp))
                     },

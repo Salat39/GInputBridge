@@ -1,6 +1,7 @@
 package com.salat.gbinder.datastore
 
 import android.content.Context
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
@@ -11,6 +12,8 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.salat.gbinder.BuildConfig
+import com.salat.gbinder.components.isPackageInstalled
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -21,6 +24,8 @@ import kotlinx.serialization.json.Json
 
 class DataStoreRepositoryImpl(private val context: Context) : DataStoreRepository {
     private val Context.dataStore by preferencesDataStore(name = "settings")
+
+    private val mediaAppsPrefsNames = GeneralPrefs.MEDIA_APPS_BACKUP_KEYS.map { it.name }.toSet()
 
     override suspend fun <T> saveValue(key: Preferences.Key<T>, value: T) {
         context.dataStore.edit { preferences ->
@@ -84,6 +89,7 @@ class DataStoreRepositoryImpl(private val context: Context) : DataStoreRepositor
 
         fun isAllowed(name: String): Boolean {
             val inGeneral = name in generalPrefsNames || name.startsWithAny(generalDynamicPrefixes)
+                || name in mediaAppsPrefsNames
             val inLauncher = name in launcherPrefsNames
             return (task.withGeneral && inGeneral) || (task.withLauncher && inLauncher)
         }
@@ -109,11 +115,33 @@ class DataStoreRepositoryImpl(private val context: Context) : DataStoreRepositor
                 }
             }
 
-        return json.encodeToString(entries)
+        val metaEntries = listOf(
+            PrefEntry(BACKUP_VERSION_CODE, META_TYPE, BuildConfig.VERSION_CODE.toString()),
+            PrefEntry(BACKUP_VERSION_NAME, META_TYPE, BuildConfig.VERSION_NAME)
+        )
+        return json.encodeToString(entries + metaEntries)
     }
 
-    override fun collectBackupParams(serialized: String) =
-        json.decodeFromString<List<PrefEntry>>(serialized).map { it.name }.toSet()
+    override fun collectBackupTask(serialized: String): DataStoreBackupTask {
+        val names = json.decodeFromString<List<PrefEntry>>(serialized).map { it.name }.toSet()
+        val generalPrefsNames = GeneralPrefs.ALL_KEYS.map { it.name }.toSet()
+        val generalDynamicPrefixes = GeneralPrefs.DYNAMIC_PREFIX_KEYS.toSet()
+        val launcherPrefsNames = LauncherPrefs.ALL_KEYS.map { it.name }.toSet()
+
+        return DataStoreBackupTask(
+            withGeneral = names.any {
+                it in generalPrefsNames ||
+                    it.startsWithAny(generalDynamicPrefixes) ||
+                    it in mediaAppsPrefsNames
+            },
+            withLauncher = names.any { it in launcherPrefsNames }
+        )
+    }
+
+    override fun collectBackupVersion(serialized: String): Int? =
+        json.decodeFromString<List<PrefEntry>>(serialized)
+            .find { it.name == BACKUP_VERSION_CODE }
+            ?.value?.toIntOrNull()
 
     override suspend fun importAllSettings(serialized: String, task: DataStoreBackupTask) {
         val entries = json.decodeFromString<List<PrefEntry>>(serialized)
@@ -135,7 +163,12 @@ class DataStoreRepositoryImpl(private val context: Context) : DataStoreRepositor
                 keysToRemove.forEach { key -> prefs.remove(key) }
             }
 
+            importMediaAppsSelection(prefs, entries, task)
+
             entries.forEach { e ->
+                if (e.name in mediaAppsPrefsNames) {
+                    return@forEach
+                }
                 if (!task.withGeneral && (e.name in generalPrefsNames || e.name.startsWithAny(
                         generalDynamicPrefsNames
                     ))
@@ -173,6 +206,23 @@ class DataStoreRepositoryImpl(private val context: Context) : DataStoreRepositor
         }
     }
 
+    private fun importMediaAppsSelection(
+        prefs: MutablePreferences,
+        entries: List<PrefEntry>,
+        task: DataStoreBackupTask
+    ) {
+        val enabledEntry = entries.find { it.name == GeneralPrefs.ENABLED_MEDIA_APPS.name }
+        if (!task.withGeneral || enabledEntry == null) return
+
+        val installed = enabledEntry.value.split("|")
+            .filter { it.isNotEmpty() && context.isPackageInstalled(it) }
+        prefs[GeneralPrefs.ENABLED_MEDIA_APPS] = installed.joinToString("|")
+
+        prefs[GeneralPrefs.DEFAULT_MEDIA_APP] =
+            entries.find { it.name == GeneralPrefs.DEFAULT_MEDIA_APP.name }
+                ?.value?.takeIf { it in installed } ?: ""
+    }
+
     private fun String.startsWithAny(prefixes: Set<String>, ignoreCase: Boolean = false): Boolean {
         for (p in prefixes) {
             if (this.startsWith(p, ignoreCase)) return true
@@ -188,6 +238,11 @@ class DataStoreRepositoryImpl(private val context: Context) : DataStoreRepositor
     )
 
     private companion object {
+        // Meta type is unknown to old app versions, they skip it on import
+        private const val META_TYPE = "meta"
+        private const val BACKUP_VERSION_CODE = "BACKUP_APP_VERSION_CODE"
+        private const val BACKUP_VERSION_NAME = "BACKUP_APP_VERSION_NAME"
+
         private val json: Json = Json {
             encodeDefaults = true
             ignoreUnknownKeys = true

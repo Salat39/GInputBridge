@@ -309,8 +309,10 @@
     <string name="drag_up">Drag up</string>
     <string name="driving_mode_switching">Switching driving modes: %s</string>
     <string name="export_settings">Export settings</string>
-    <string name="export_settings_desc">Saves a full backup of settings, excluding selected media apps</string>
+    <string name="export_settings_desc">Saves a full backup of settings</string>
     <string name="import_settings_prompt">Do you want to import a full backup of settings? Your current settings will be lost. You will need to confirm the required permissions before applying.</string>
+    <string name="backup_from_earlier_version">This settings set was saved on an earlier version of GIB</string>
+    <string name="backup_from_later_version">This settings set was created on a later version of GIB. Update the app, otherwise some settings may be lost or imported with errors</string>
     <string name="display_driving_mode">Display selected driving mode on screen</string>
     <string name="display_driving_mode_desc">Visualize the selected driving mode on the tablet, including custom modes</string>
 

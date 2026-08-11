@@ -21,7 +21,9 @@ interface DataStoreRepository {
         defaults: List<Any?>
     ): Flow<List<Any?>>
 
-    fun collectBackupParams(serialized: String): Set<String>
+    fun collectBackupTask(serialized: String): DataStoreBackupTask
+
+    fun collectBackupVersion(serialized: String): Int?
 
     suspend fun exportAllSettings(task: DataStoreBackupTask): String
 

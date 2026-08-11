@@ -55,7 +55,6 @@ import com.salat.gbinder.datastore.DataStoreRepository
 import com.salat.gbinder.datastore.GeneralPrefs
 import com.salat.gbinder.datastore.KeyBindStorageRepository
 import com.salat.gbinder.datastore.LauncherPrefs
-import com.salat.gbinder.datastore.NoBackupPrefs
 import com.salat.gbinder.entity.AppMediaAction
 import com.salat.gbinder.entity.CarFunction
 import com.salat.gbinder.entity.CarModel
@@ -888,7 +887,7 @@ class App : Application(), ImageLoaderFactory {
             }
         }
         launch {
-            dataStore.getValueFlow(NoBackupPrefs.ENABLED_MEDIA_APPS).collect { serialized ->
+            dataStore.getValueFlow(GeneralPrefs.ENABLED_MEDIA_APPS).collect { serialized ->
                 val enabledApps = (serialized ?: "")
                     .split('|')
                     .toSet()
@@ -901,7 +900,7 @@ class App : Application(), ImageLoaderFactory {
             }
         }
         launch {
-            dataStore.getValueFlow(NoBackupPrefs.DEFAULT_MEDIA_APP).collect {
+            dataStore.getValueFlow(GeneralPrefs.DEFAULT_MEDIA_APP).collect {
                 defaultMediaApps = it ?: ""
             }
         }
@@ -3671,7 +3670,7 @@ class App : Application(), ImageLoaderFactory {
         try {
             val fromParam = enabledApps?.filter { it.isNotEmpty() }.orEmpty()
             val includedApps = fromParam.ifEmpty {
-                (dataStore.getValueFlow(NoBackupPrefs.ENABLED_MEDIA_APPS).first() ?: "")
+                (dataStore.getValueFlow(GeneralPrefs.ENABLED_MEDIA_APPS).first() ?: "")
                     .split('|')
                     .filter { it.trim().isNotEmpty() }
                     .ifEmpty {

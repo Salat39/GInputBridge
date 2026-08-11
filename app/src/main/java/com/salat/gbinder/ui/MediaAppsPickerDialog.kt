@@ -42,7 +42,7 @@ import com.salat.gbinder.APP_ICON_QUALITY
 import com.salat.gbinder.APP_ICON_ROUND
 import com.salat.gbinder.R
 import com.salat.gbinder.datastore.DataStoreRepository
-import com.salat.gbinder.datastore.NoBackupPrefs
+import com.salat.gbinder.datastore.GeneralPrefs
 import com.salat.gbinder.entity.DeviceAppInfo
 import com.salat.gbinder.entity.IGNORED_MEDIA_APPS
 import com.salat.gbinder.mappers.toDisplay
@@ -86,11 +86,11 @@ fun RenderMediaAppsPickerDialog(
             }
             val enabledApps = async {
                 enabled =
-                    (dataStore.getValueFlow(NoBackupPrefs.ENABLED_MEDIA_APPS).firstOrNull() ?: "")
+                    (dataStore.getValueFlow(GeneralPrefs.ENABLED_MEDIA_APPS).firstOrNull() ?: "")
                         .split("|")
                         .filter { it.isNotEmpty() }
                 default =
-                    dataStore.getValueFlow(NoBackupPrefs.DEFAULT_MEDIA_APP).firstOrNull() ?: ""
+                    dataStore.getValueFlow(GeneralPrefs.DEFAULT_MEDIA_APP).firstOrNull() ?: ""
             }
 
             enabledApps.await().also {
@@ -405,11 +405,11 @@ fun RenderMediaAppsPickerDialog(
                                         apps?.find { it.isDefault }?.packageName ?: ""
 
                                     dataStore.saveValue(
-                                        NoBackupPrefs.ENABLED_MEDIA_APPS,
+                                        GeneralPrefs.ENABLED_MEDIA_APPS,
                                         enabledMediaApps
                                     )
                                     dataStore.saveValue(
-                                        NoBackupPrefs.DEFAULT_MEDIA_APP,
+                                        GeneralPrefs.DEFAULT_MEDIA_APP,
                                         newDefaultApp
                                     )
 

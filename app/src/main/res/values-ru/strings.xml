@@ -301,8 +301,10 @@
     <string name="drag_up">Перетащите выше</string>
     <string name="driving_mode_switching">Переключение режимов вождения: %s</string>
     <string name="export_settings">Экспорт настроек</string>
-    <string name="export_settings_desc">Создать резервную копию настроек, за исключением выбранных медиаприложений и плеера по умолчанию</string>
+    <string name="export_settings_desc">Создать полную резервную копию настроек</string>
     <string name="import_settings_prompt">Вы хотите импортировать полный бэкап настроек? Ваши текущие настройки будут потеряны. Перед применением вам нужно будет подтвердить необходимые разрешения</string>
+    <string name="backup_from_earlier_version">Этот набор настроек был сохранён на более ранней версии GIB</string>
+    <string name="backup_from_later_version">Этот набор настроек создан на более поздней версии GIB. Обновитесь, иначе часть настроек может потеряться или импортироваться с ошибкой</string>
     <string name="display_driving_mode">Показывать переключение режима вождения</string>
     <string name="display_driving_mode_desc">Отображать на планшете ГУ оверлей с названием режима при переключении, включая нестандартные режимы</string>
 
