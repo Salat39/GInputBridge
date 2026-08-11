@@ -462,7 +462,7 @@ class App : Application(), ImageLoaderFactory {
             handleToggleLauncher()
             handleAdbActions()
             initAccessibilityRestartWatchdog()
-            initPermissionsWatchdog()
+            // initPermissionsWatchdog()
 
             // Start API init
             initOneOSApiManager()
