@@ -13,6 +13,7 @@ import android.media.session.PlaybackState
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.view.KeyEvent
 import androidx.annotation.RawRes
 import androidx.datastore.preferences.core.floatPreferencesKey
@@ -49,6 +50,7 @@ import com.salat.gbinder.coil.IconRefFetcher
 import com.salat.gbinder.coil.IconRefKeyer
 import com.salat.gbinder.components.generateFileId
 import com.salat.gbinder.components.inMainToast
+import com.salat.gbinder.components.isNotificationServiceEnabled
 import com.salat.gbinder.components.launchDynamicRetry
 import com.salat.gbinder.coroutines.AppCoroutineScope
 import com.salat.gbinder.datastore.DataStoreRepository
@@ -118,6 +120,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -133,6 +136,7 @@ import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
 
 const val ADDITIONAL_KEYS_MIN_LONG_PRESS_TIME = 820
 
@@ -181,6 +185,17 @@ class App : Application(), ImageLoaderFactory {
         private const val NOTIFICATION_WITH_DM_REMEMBER_DELAY = 1_000L
         private const val NOTIFICATION_WITHOUT_DM_REMEMBER_SHORT_DELAY = 5_000L
         private const val NOTIFICATION_WITHOUT_DM_REMEMBER_LONG_DELAY = 35_000L
+
+        private const val ACCESSIBILITY_SERVICES_KEY = "enabled_accessibility_services"
+        private const val ACCESSIBILITY_SERVICE_COMPONENT =
+            "com.salat.gbinder/com.salat.gbinder.BootAccessibilityService"
+        private const val ACCESSIBILITY_RESTART_CHECK_DELAY_MS = 2_000
+        private const val ACCESSIBILITY_RESTART_TOGGLE_DELAY_MS = 500
+
+        private const val NOTIFICATION_LISTENERS_KEY = "enabled_notification_listeners"
+        private const val NOTIFICATION_LISTENER_COMPONENT =
+            "com.salat.gbinder/com.salat.gbinder.MediaNotificationListenerService"
+        private const val PERMISSIONS_CHECK_DELAY_MS = 1_000
 
         private const val MINIMIZE_SYSTEM_DELAY = 360L
         private const val SILENT_START = 4 // in sec
@@ -446,6 +461,8 @@ class App : Application(), ImageLoaderFactory {
             initVisibleAppCollector() // Accessibility event bridge
             handleToggleLauncher()
             handleAdbActions()
+            initAccessibilityRestartWatchdog()
+            initPermissionsWatchdog()
 
             // Start API init
             initOneOSApiManager()
@@ -1300,6 +1317,61 @@ class App : Application(), ImageLoaderFactory {
                 debugDeepLog("[AS] AccessibilityService is down :(")
             }
         }
+    }
+
+    private fun CoroutineScope.initAccessibilityRestartWatchdog() = launch {
+        stateKeeper.canAccessibility.collectLatest { isEnable ->
+            if (isEnable) return@collectLatest
+
+            while (true) {
+                delay(ACCESSIBILITY_RESTART_CHECK_DELAY_MS.milliseconds)
+                if (adb.connectionState.value is AdbConnectionState.Connected) {
+                    restartAccessibilityService()
+                }
+            }
+        }
+    }
+
+    private suspend fun restartAccessibilityService() {
+        val components = readSecureComponents(ACCESSIBILITY_SERVICES_KEY) ?: return
+        val otherServices = components.filter { it != ACCESSIBILITY_SERVICE_COMPONENT }
+
+        debugDeepLog("[AS] Restart AccessibilityService via shell")
+        adb.execute("settings delete secure $ACCESSIBILITY_SERVICES_KEY")
+        delay(ACCESSIBILITY_RESTART_TOGGLE_DELAY_MS.milliseconds)
+
+        val enabled = (otherServices + ACCESSIBILITY_SERVICE_COMPONENT).joinToString(":")
+        adb.execute("settings put secure $ACCESSIBILITY_SERVICES_KEY $enabled")
+        adb.execute("settings put secure accessibility_enabled 1")
+    }
+
+    private fun CoroutineScope.initPermissionsWatchdog() = launch {
+        adb.connectionState.collectLatest { state ->
+            if (state !is AdbConnectionState.Connected) return@collectLatest
+            delay(PERMISSIONS_CHECK_DELAY_MS.milliseconds)
+            if (!isNotificationServiceEnabled()) grantNotificationListener()
+            if (!Settings.canDrawOverlays(this@App)) grantOverlayPermission()
+        }
+    }
+
+    private suspend fun grantNotificationListener() {
+        val components = readSecureComponents(NOTIFICATION_LISTENERS_KEY) ?: return
+        val otherListeners = components.filter { it != NOTIFICATION_LISTENER_COMPONENT }
+        val enabled = (otherListeners + NOTIFICATION_LISTENER_COMPONENT).joinToString(":")
+        val result = adb.execute("settings put secure $NOTIFICATION_LISTENERS_KEY $enabled")
+        debugDeepLog("[PERM] Grant notification listener: $result")
+    }
+
+    private suspend fun grantOverlayPermission() {
+        val result = adb.execute("appops set $packageName SYSTEM_ALERT_WINDOW allow")
+        debugDeepLog("[PERM] Grant overlay permission: $result")
+    }
+
+    private suspend fun readSecureComponents(key: String): List<String>? {
+        val current = adb.execute("settings get secure $key").trim()
+        if (current == "null" || current.isEmpty()) return emptyList()
+        if (current.contains(' ') || !current.contains('/')) return null
+        return current.split(':').filter { it.isNotBlank() }
     }
 
     private fun CoroutineScope.initMediaSessionsStateCollector() = launch {

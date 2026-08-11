@@ -430,6 +430,7 @@
     <string name="headlight_settings">Управление фарами</string>
     <string name="system_parameters">Системные параметры</string>
     <string name="free_button_action_custom">Чтобы освободить действие кнопки для пользовательских привязок, выберите одно из зелёных (Custom) действий. После этого действие кнопки станет доступным в GIB. Для Atlas требуются дополнительные шаги для отключения.</string>
+    <string name="free_button_action_unbind">Отвязать (Custom)</string>
     <string name="turn_signal_volume">Громкость звука поворотников</string>
     <string name="low">Низкая</string>
     <string name="medium">Средняя</string>

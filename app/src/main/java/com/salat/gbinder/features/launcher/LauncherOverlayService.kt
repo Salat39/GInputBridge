@@ -140,14 +140,17 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.milliseconds
 
 @AndroidEntryPoint
 class LauncherOverlayService : Service() {
@@ -156,6 +159,7 @@ class LauncherOverlayService : Service() {
         private const val CHANNEL_ID = "lcr_overlay_service_channel"
         private const val LAUNCHER_OVERLAY = 2007
         private const val SHORT_TOOLBAR_THRESHOLD = 150
+        private const val ADB_STATUS_TIMEOUT_MS = 1000
 
         @Volatile
         @JvmField
@@ -414,11 +418,10 @@ class LauncherOverlayService : Service() {
                             y = offset.y.toInt()
                         ),
                         inMyApps = inMyApps != null,
-                        launchedStatus = if (!config.enableAdbHelper) {
-                            AppLaunchedState.NO_DETECT
-                        } else if (adb.isAppLaunched(item.packageName)) {
-                            AppLaunchedState.LAUNCHED
-                        } else AppLaunchedState.NO
+                        launchedStatus = launchedState(
+                            item.packageName,
+                            config.enableAdbHelper
+                        )
                     )
                 }
             }
@@ -434,11 +437,10 @@ class LauncherOverlayService : Service() {
                             y = offset.y.toInt()
                         ),
                         appData = apps.find { it.packageName == item.packageName },
-                        launchedStatus = if (!config.enableAdbHelper) {
-                            AppLaunchedState.NO_DETECT
-                        } else if (adb.isAppLaunched(item.packageName)) {
-                            AppLaunchedState.LAUNCHED
-                        } else AppLaunchedState.NO
+                        launchedStatus = launchedState(
+                            item.packageName,
+                            config.enableAdbHelper
+                        )
                     )
                 }
             }
@@ -1119,6 +1121,16 @@ class LauncherOverlayService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private suspend fun launchedState(
+        packageName: String,
+        enableAdbHelper: Boolean
+    ): AppLaunchedState {
+        if (!enableAdbHelper) return AppLaunchedState.NO_DETECT
+        val request = serviceScope.async { adb.isAppLaunched(packageName) }
+        val launched = withTimeoutOrNull(ADB_STATUS_TIMEOUT_MS.milliseconds) { request.await() }
+        return if (launched == true) AppLaunchedState.LAUNCHED else AppLaunchedState.NO
+    }
 
     private fun requestTogglePackageFreeze(
         packageName: String,

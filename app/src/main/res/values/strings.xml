@@ -438,6 +438,7 @@
     <string name="headlight_settings">Headlight</string>
     <string name="system_parameters">System parameters</string>
     <string name="free_button_action_custom">To free up a button action for custom bindings, select one of the green (Custom) actions. After this, the button action will become available in GIB. For Atlas, additional steps are required to disable.</string>
+    <string name="free_button_action_unbind">Unbind (Custom)</string>
     <string name="turn_signal_volume">Turn signal sound volume</string>
     <string name="low">Low</string>
     <string name="medium">Medium</string>

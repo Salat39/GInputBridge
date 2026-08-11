@@ -43,7 +43,9 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
         roundIcon: Boolean,
         mediaSort: Boolean,
         iconQuality: Int
-    ): List<InstalledAppInfoRef> = context.getInstalledAppsRefs(roundIcon, mediaSort, iconQuality)
+    ): List<InstalledAppInfoRef> = context
+        .getInstalledAppsRefs(roundIcon, mediaSort, iconQuality)
+        .distinctBy { it.packageName }
 
     override suspend fun getLauncherApps(
         roundIcon: Boolean,

@@ -34,11 +34,13 @@ fun FuncCustomDialog(
     onDismiss: () -> Unit = {}
 ) = BaseDialog(uiScaleState = uiScaleState, onDismiss = onDismiss) {
 
+    val unbindAction = stringResource(R.string.free_button_action_unbind)
+
     // Remember map to keep the insertion order for list rendering
-    val customActions = remember {
+    val customActions = remember(unbindAction) {
         mapOf(
             // "DVR (Custom)" to CarPropertyValue.CUSTOM_KEY_TYPE_DVR,
-            "Navigate To Home (Custom)" to CarPropertyValue.CUSTOM_KEY_TYPE_NAVIGATION,
+            unbindAction to CarPropertyValue.CUSTOM_KEY_TYPE_NAVIGATION,
 
             "360 Cameras" to CarPropertyValue.CUSTOM_KEY_TYPE_360_PANORAMA,
             "Toggle Audio" to CarPropertyValue.CUSTOM_KEY_TYPE_SOUND_SWITCH,
