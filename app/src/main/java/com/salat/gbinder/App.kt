@@ -73,6 +73,7 @@ import com.salat.gbinder.entity.PressState
 import com.salat.gbinder.entity.ToggleMediaControl
 import com.salat.gbinder.entity.parseAppCarouselValueSegment
 import com.salat.gbinder.features.carFunctions.CarFunctionController
+import com.salat.gbinder.features.carFunctions.CarFunctionToast
 import com.salat.gbinder.features.launcher.LauncherDataRepository
 import com.salat.gbinder.features.launcher.LauncherEntryActivity
 import com.salat.gbinder.features.launcher.LauncherIconPrewarmer
@@ -306,6 +307,7 @@ class App : Application(), ImageLoaderFactory {
     // Drive mode
     private var rememberDriveMode = false
     private var driveModeOverlay = false
+    private var driveModeToast = true
 
     // Initialization flag to understand that the last mode
     // has been restored before storing new modes
@@ -989,6 +991,11 @@ class App : Application(), ImageLoaderFactory {
         launch {
             dataStore.getValueFlow(GeneralPrefs.DRIVE_MODE_OVERLAY).collect { enabled ->
                 driveModeOverlay = enabled ?: false
+            }
+        }
+        launch {
+            dataStore.getValueFlow(GeneralPrefs.DRIVE_MODE_TOAST, true).collect { enabled ->
+                driveModeToast = enabled
             }
         }
         launch {
@@ -2023,14 +2030,6 @@ class App : Application(), ImageLoaderFactory {
                     }
                 }
 
-                when {
-                    past == -1 -> Unit
-                    new == CarPropertyValue.DRIVE_MODE_SPORT_PLUS ->
-                        inMainToast(getString(R.string.drive_mode_toast_sport_plus))
-                    new == CarPropertyValue.DRIVE_MODE_SELECTION_POWER ->
-                        inMainToast(getString(R.string.drive_mode_toast_power))
-                }
-
                 // App started when drive mode was already changed
                 if (past == -1 && CarPropertyValue.DRIVE_MODE_SELECTION_COMFORT != new) {
                     canNotifLog(
@@ -2328,8 +2327,6 @@ class App : Application(), ImageLoaderFactory {
 
                 KeyBindAction.NAVI_MEDIA_SWITCH -> bind.naviMediaSwitch()
 
-                KeyBindAction.NAVI_MEDIA_SPLIT -> bind.naviMediaSplit()
-
                 KeyBindAction.FULLSCREEN_TO_SPLIT -> fullscreenToSplit()
 
                 KeyBindAction.CAR_FUNCTION -> Unit
@@ -2399,13 +2396,7 @@ class App : Application(), ImageLoaderFactory {
                     // Remember switching
                     dataStore.saveValue(GeneralPrefs.TOGGLE_DM_TASK, "$currentDM|$targetDM")
 
-                    // Send toggle car command
-                    carManager.setPropertyIntValue(
-                        CarPropertyKey.DM_FUNC_DRIVE_MODE_SELECT,
-                        Integer.MIN_VALUE,
-                        targetDM
-                    )
-                    debugLog("[DRIVE MODE] toggle to ${targetDM.getDriveModeName()}")
+                    setDriveMode(targetDM)
                 } else {
                     val (pastDM, rememberedDm) = toggleDmTask
 
@@ -2413,31 +2404,16 @@ class App : Application(), ImageLoaderFactory {
                     if ((currentDM != pastDM && currentDM != rememberedDm && currentDM != targetDM) ||
                         (currentDM == pastDM && rememberedDm != targetDM)
                     ) {
-                        carManager.setPropertyIntValue(
-                            CarPropertyKey.DM_FUNC_DRIVE_MODE_SELECT,
-                            Integer.MIN_VALUE,
-                            targetDM
-                        )
+                        setDriveMode(targetDM)
                         dataStore.saveValue(GeneralPrefs.TOGGLE_DM_TASK, "$currentDM|$targetDM")
-                        debugLog("[DRIVE MODE] toggle to ${targetDM.getDriveModeName()}")
                     } else if (currentDM == rememberedDm && targetDM == rememberedDm) {
                         // Second leg: go back to past mode if we reached the remembered target
-                        carManager.setPropertyIntValue(
-                            CarPropertyKey.DM_FUNC_DRIVE_MODE_SELECT,
-                            Integer.MIN_VALUE,
-                            pastDM
-                        )
+                        setDriveMode(pastDM)
                         dataStore.removeValue(GeneralPrefs.TOGGLE_DM_TASK)
-                        debugLog("[DRIVE MODE] toggle to ${pastDM.getDriveModeName()}")
                     } else {
                         // Update pair and go to new target
                         if (currentDM != targetDM) {
-                            carManager.setPropertyIntValue(
-                                CarPropertyKey.DM_FUNC_DRIVE_MODE_SELECT,
-                                Integer.MIN_VALUE,
-                                targetDM
-                            )
-                            debugLog("[DRIVE MODE] toggle to ${targetDM.getDriveModeName()}")
+                            setDriveMode(targetDM)
                         }
                         dataStore.saveValue(GeneralPrefs.TOGGLE_DM_TASK, "$pastDM|$targetDM")
                     }
@@ -2474,28 +2450,48 @@ class App : Application(), ImageLoaderFactory {
                     return@withLock
                 }
 
-                carManager.setPropertyIntValue(
-                    CarPropertyKey.DM_FUNC_DRIVE_MODE_SELECT,
-                    Integer.MIN_VALUE,
-                    targetDM
-                )
-                debugLog("[DRIVE MODE] toggle to ${targetDM.getDriveModeName()}")
+                setDriveMode(targetDM)
             }
         }.onFailure { Timber.e(it) }
     }
 
+    private suspend fun setDriveMode(targetDM: Int) {
+        carManager.setPropertyIntValue(
+            CarPropertyKey.DM_FUNC_DRIVE_MODE_SELECT,
+            Integer.MIN_VALUE,
+            targetDM
+        )
+        showDriveModeToast(targetDM)
+        debugLog("[DRIVE MODE] toggle to ${targetDM.getDriveModeName()}")
+    }
+
+    private suspend fun showDriveModeToast(mode: Int) {
+        if (!driveModeToast) return
+        val res = when (mode) {
+            CarPropertyValue.DRIVE_MODE_SPORT_PLUS -> R.string.drive_mode_toast_sport_plus
+            CarPropertyValue.DRIVE_MODE_SELECTION_POWER -> R.string.drive_mode_toast_power
+            CarPropertyValue.DRIVE_MODE_SELECTION_SNOW -> R.string.drive_mode_toast_snow
+            CarPropertyValue.DRIVE_MODE_SELECTION_DYNAMIC -> R.string.drive_mode_toast_sport
+            CarPropertyValue.DRIVE_MODE_SELECTION_ADAPTIVE -> R.string.drive_mode_toast_adaptive
+            CarPropertyValue.DRIVE_MODE_SELECTION_ECO -> R.string.drive_mode_toast_eco
+            CarPropertyValue.DRIVE_MODE_SELECTION_COMFORT -> R.string.drive_mode_toast_comfort
+            else -> return
+        }
+        CarFunctionToast.show(this, getString(res))
+    }
+
     private fun KeyBindConfig.naviMediaSwitch() = appScope.launch(Dispatchers.IO) {
         runCatching {
+            lastSeenGsplitPackage()?.let { gsplit ->
+                launchGsplitWithNaviMedia(gsplit)
+                return@runCatching
+            }
+
             val visible = normalizeVisiblePackage(stateKeeper.visibleAppState.value)
                 .ifEmpty { currentVisibleApp.trim() }
 
-            val targetMedia = when {
-                visible in NAVI_PKGS -> true
-                visible in controlMediaApps && visible !in NAVI_PKGS -> false
-                lastNaviMediaVisibleWasNavi == true -> true
-                lastNaviMediaVisibleWasNavi == false -> false
-                else -> true // first opening media if true, or navi if false
-            }
+            val fgIsMedia = visible in controlMediaApps && visible !in NAVI_PKGS
+            val targetMedia = !fgIsMedia
 
             val target = if (targetMedia) {
                 naviMediaSwitchMediaTarget()
@@ -2705,47 +2701,6 @@ class App : Application(), ImageLoaderFactory {
                     scheduleAppCarouselAutoPlay(target)
                 }
             }
-        }.onFailure { Timber.e(it) }
-    }
-
-    private fun KeyBindConfig.naviMediaSplit() = appScope.launch(Dispatchers.IO) {
-        runCatching {
-            lastSeenGsplitPackage()?.let { gsplit ->
-                launchGsplitWithNaviMedia(gsplit)
-                return@runCatching
-            }
-
-            val visible = normalizeVisiblePackage(stateKeeper.visibleAppState.value)
-                .ifEmpty { currentVisibleApp.trim() }
-
-            val targetMedia = when {
-                visible in NAVI_PKGS -> true
-                visible in controlMediaApps && visible !in NAVI_PKGS -> false
-                else -> true
-            }
-
-            val target = if (targetMedia) {
-                naviMediaSwitchMediaTarget()
-            } else {
-                naviMediaSwitchNaviTarget()
-            }
-
-            if (target.isEmpty()) {
-                val message = if (targetMedia) {
-                    R.string.configure_media_apps
-                } else {
-                    R.string.kbd_navi_media_no_app
-                }
-                inMainToast(getString(message))
-                return@runCatching
-            }
-
-            lastNaviMediaVisibleWasNavi = target in NAVI_PKGS
-            if (targetMedia && target in controlMediaApps && target !in NAVI_PKGS) {
-                currentMediaAppPackage = target
-            }
-            launchApp(normalizeTargetPackage(target))
-            debugDeepLog("[KEY_BIND] navi media switch: visible=$visible target=$target")
         }.onFailure { Timber.e(it) }
     }
 

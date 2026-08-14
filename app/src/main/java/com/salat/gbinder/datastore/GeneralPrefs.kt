@@ -32,6 +32,7 @@ object GeneralPrefs {
     val REMEMBERED_DRIVE_MODE = intPreferencesKey("REMEMBERED_DRIVE_MODE")
     val TARGET_RECOVERY_DRIVE_MODE = intPreferencesKey("TARGET_RECOVERY_DRIVE_MODE")
     val DRIVE_MODE_OVERLAY = booleanPreferencesKey("DRIVE_MODE_OVERLAY")
+    val DRIVE_MODE_TOAST = booleanPreferencesKey("DRIVE_MODE_TOAST")
     val DM_OVERLAY_SCALE = floatPreferencesKey("DM_OVERLAY_SCALE")
     val DM_OVERLAY_OFFSET = floatPreferencesKey("DM_OVERLAY_OFFSET")
     val TOGGLE_DM_TASK = stringPreferencesKey("TOGGLE_DM_TASK")
@@ -87,6 +88,7 @@ object GeneralPrefs {
             REMEMBERED_DRIVE_MODE,
             TARGET_RECOVERY_DRIVE_MODE,
             DRIVE_MODE_OVERLAY,
+            DRIVE_MODE_TOAST,
             DM_OVERLAY_SCALE,
             DM_OVERLAY_OFFSET,
             TOGGLE_DM_TASK,

@@ -3,10 +3,10 @@ package com.salat.gbinder.features.carFunctions
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import com.salat.gbinder.R
 import com.salat.gbinder.car.data.CarPropertyKey
 import com.salat.gbinder.car.domain.repository.CarRepository
-import com.salat.gbinder.components.inMainToast
 import com.salat.gbinder.entity.CarFunction
 import com.salat.gbinder.entity.CarFunctionIds
 import com.salat.gbinder.entity.CarModel
@@ -52,11 +52,8 @@ class CarFunctionController(
     }
 
     fun onVisibleAppChanged(packageName: String) {
-        if (packageName != climatePackage) {
-            val current = session.get()
-            if (current is PadSession.Climate) {
-                session.compareAndSet(current, null)
-            }
+        if (packageName != climatePackage && session.get() is PadSession.Climate) {
+            scope.launch { clearClimateSession() }
         }
     }
 
@@ -81,11 +78,12 @@ class CarFunctionController(
             }
 
             is PadSession.Climate -> {
-                if (!isClimateVisible()) return false
+                if (!isClimateUiVisible()) return false
                 when (keyCode) {
                     KEY_PLAY -> {
                         current.fanMode = !current.fanMode
                         session.set(current)
+                        requestClimateOpen()
                         lockMediaControl(LEVEL_LOCK_SEC, false)
                         toast(
                             if (current.fanMode) R.string.car_fn_toast_fan
@@ -172,6 +170,10 @@ class CarFunctionController(
     }
 
     private suspend fun openClimateMenu() {
+        if (isClimateUiVisible()) {
+            hideClimateMenu()
+            return
+        }
         refreshTempLimits()
         launchPackage(climatePackage)
         levelExpireJob?.cancel()
@@ -179,6 +181,53 @@ class CarFunctionController(
         session.set(PadSession.Climate(fanMode = false))
         lockMediaControl(LEVEL_LOCK_SEC, true)
         toast(R.string.car_fn_toast_temperature)
+    }
+
+    private suspend fun hideClimateMenu() {
+        requestClimateClose()
+        clearClimateSession()
+    }
+
+    private suspend fun clearClimateSession() {
+        val current = session.get()
+        if (current is PadSession.Climate) {
+            session.compareAndSet(current, null)
+        }
+        levelExpireJob?.cancel()
+        levelExpireJob = null
+        CarFunctionToast.hide()
+    }
+
+    private fun isClimateUiVisible(): Boolean = runCatching {
+        context.contentResolver.query(
+            CLIMATE_QUERY_URI,
+            arrayOf(CLIMATE_QUERY_GET_VISIBILITY),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            cursor.moveToFirst() && cursor.getLong(0) == CLIMATE_VISIBLE
+        } ?: false
+    }.getOrDefault(isClimateVisible())
+
+    private fun requestClimateOpen() {
+        queryClimate(CLIMATE_QUERY_OPEN)
+    }
+
+    private fun requestClimateClose() {
+        queryClimate(CLIMATE_QUERY_CLOSE)
+    }
+
+    private fun queryClimate(type: String) {
+        runCatching {
+            context.contentResolver.query(
+                CLIMATE_QUERY_URI,
+                arrayOf(type, ""),
+                null,
+                null,
+                null,
+            )?.close()
+        }.onFailure { Timber.e(it) }
     }
 
     private fun openSeatMemory() {
@@ -344,38 +393,17 @@ class CarFunctionController(
     }
 
     private suspend fun toastLevel(function: CarFunction, levelIndex: Int) {
-        val (offRes, levelRes, onMaxRes) = when (function) {
-            CarFunction.WHEEL_HEAT -> Triple(
-                R.string.car_fn_toast_wheel_heat_off,
-                R.string.car_fn_toast_wheel_heat_level,
-                R.string.car_fn_toast_wheel_heat
-            )
-            CarFunction.DRIVER_HEAT -> Triple(
-                R.string.car_fn_toast_driver_heat_off,
-                R.string.car_fn_toast_driver_heat_level,
-                R.string.car_fn_toast_driver_heat
-            )
-            CarFunction.PASSENGER_HEAT -> Triple(
-                R.string.car_fn_toast_passenger_heat_off,
-                R.string.car_fn_toast_passenger_heat_level,
-                R.string.car_fn_toast_passenger_heat
-            )
-            CarFunction.DRIVER_VENT -> Triple(
-                R.string.car_fn_toast_driver_vent_off,
-                R.string.car_fn_toast_driver_vent_level,
-                R.string.car_fn_toast_driver_vent
-            )
-            CarFunction.PASSENGER_VENT -> Triple(
-                R.string.car_fn_toast_passenger_vent_off,
-                R.string.car_fn_toast_passenger_vent_level,
-                R.string.car_fn_toast_passenger_vent
-            )
+        val (titleRes, offStatusRes) = when (function) {
+            CarFunction.WHEEL_HEAT -> R.string.car_fn_toast_wheel_heat to R.string.car_fn_toast_status_off_m
+            CarFunction.DRIVER_HEAT -> R.string.car_fn_toast_driver_heat to R.string.car_fn_toast_status_off_m
+            CarFunction.PASSENGER_HEAT -> R.string.car_fn_toast_passenger_heat to R.string.car_fn_toast_status_off_m
+            CarFunction.DRIVER_VENT -> R.string.car_fn_toast_driver_vent to R.string.car_fn_toast_status_off_f
+            CarFunction.PASSENGER_VENT -> R.string.car_fn_toast_passenger_vent to R.string.car_fn_toast_status_off_f
             else -> return
         }
         when {
-            levelIndex <= 0 -> toast(offRes)
-            levelIndex >= 3 -> toast(onMaxRes)
-            else -> toast(context.getString(levelRes, levelIndex))
+            levelIndex <= 0 -> toast(titleRes, offStatusRes)
+            else -> toast(titleRes, levelIndex.toString())
         }
     }
 
@@ -384,10 +412,11 @@ class CarFunctionController(
         val enable = current != CarFunctionIds.CIRCULATION_ON
         val target = if (enable) CarFunctionIds.CIRCULATION_ON else CarFunctionIds.CIRCULATION_OFF
         car.setPropertyIntValue(CarPropertyKey.HVAC_FUNC_CIRCULATION, Integer.MIN_VALUE, target)
-        toast(
-            if (enable) R.string.car_fn_toast_recirculation_on
-            else R.string.car_fn_toast_recirculation_off
-        )
+        if (enable) {
+            toast(R.string.car_fn_toast_recirculation_on)
+        } else {
+            toast(R.string.car_fn_toast_recirculation_on, R.string.car_fn_toast_status_off_f)
+        }
     }
 
     private suspend fun toggleAntiSlip() {
@@ -398,10 +427,11 @@ class CarFunctionController(
             Integer.MIN_VALUE,
             if (turnOff) 1 else 0
         )
-        toast(
-            if (turnOff) R.string.car_fn_toast_antibuks_off
-            else R.string.car_fn_toast_antibuks_on
-        )
+        if (turnOff) {
+            toast(R.string.car_fn_toast_antibuks, R.string.car_fn_toast_status_off_m)
+        } else {
+            toast(R.string.car_fn_toast_antibuks, R.string.car_fn_toast_status_on_m)
+        }
     }
 
     private suspend fun triggerLight(): Boolean {
@@ -418,14 +448,12 @@ class CarFunctionController(
     }
 
     private suspend fun toastLight(value: Int) {
-        toast(
-            when (value) {
-                CarFunctionIds.LIGHT_POS -> R.string.car_fn_toast_light_pos
-                CarFunctionIds.LIGHT_LOW -> R.string.car_fn_toast_light_low
-                CarFunctionIds.LIGHT_AUTO -> R.string.car_fn_toast_light_auto
-                else -> R.string.car_fn_toast_light_off
-            }
-        )
+        when (value) {
+            CarFunctionIds.LIGHT_POS -> toast(R.string.car_fn_toast_light_pos)
+            CarFunctionIds.LIGHT_LOW -> toast(R.string.car_fn_toast_light_low)
+            CarFunctionIds.LIGHT_AUTO -> toast(R.string.car_fn_toast_light_auto)
+            else -> toast(R.string.car_fn_toast_light_title, R.string.car_fn_toast_status_off_m)
+        }
     }
 
     private suspend fun toggleFrontDefrost() {
@@ -434,7 +462,11 @@ class CarFunctionController(
         val current = car.getIntProperty(id)
         val enable = current != 1
         car.setPropertyIntValue(id, Integer.MIN_VALUE, if (enable) 1 else 0)
-        toast(if (enable) R.string.car_fn_toast_front_on else R.string.car_fn_toast_front_off)
+        if (enable) {
+            toast(R.string.car_fn_toast_front_on)
+        } else {
+            toast(R.string.car_fn_toast_front_on, R.string.car_fn_toast_status_off_n)
+        }
     }
 
     private suspend fun toggleMaxFan() {
@@ -445,10 +477,11 @@ class CarFunctionController(
             Integer.MIN_VALUE,
             if (enable) 1 else 0
         )
-        toast(
-            if (enable) R.string.car_fn_toast_max_defrost_on
-            else R.string.car_fn_toast_max_defrost_off
-        )
+        if (enable) {
+            toast(R.string.car_fn_toast_max_defrost_on)
+        } else {
+            toast(R.string.car_fn_toast_max_defrost_on, R.string.car_fn_toast_status_off_m)
+        }
     }
 
     private suspend fun toggleRearDefrost() {
@@ -459,7 +492,11 @@ class CarFunctionController(
             Integer.MIN_VALUE,
             if (enable) 1 else 0
         )
-        toast(if (enable) R.string.car_fn_toast_rear_on else R.string.car_fn_toast_rear_off)
+        if (enable) {
+            toast(R.string.car_fn_toast_rear_on)
+        } else {
+            toast(R.string.car_fn_toast_rear_on, R.string.car_fn_toast_status_off_n)
+        }
     }
 
     private suspend fun toggleTrunk() {
@@ -471,7 +508,11 @@ class CarFunctionController(
             area,
             if (open) CarFunctionIds.TRUNK_OPEN else CarFunctionIds.TRUNK_CLOSE
         )
-        toast(if (open) R.string.car_fn_toast_trunk_open else R.string.car_fn_toast_trunk_close)
+        if (open) {
+            toast(R.string.car_fn_toast_trunk_open)
+        } else {
+            toast(R.string.car_fn_toast_trunk_open, R.string.car_fn_toast_trunk_closing)
+        }
     }
 
     private suspend fun toggleMirrors() {
@@ -482,10 +523,11 @@ class CarFunctionController(
             Integer.MIN_VALUE,
             if (fold) 1 else 0
         )
-        toast(
-            if (fold) R.string.car_fn_toast_mirrors_fold
-            else R.string.car_fn_toast_mirrors_unfold
-        )
+        if (fold) {
+            toast(R.string.car_fn_toast_mirrors_folding, R.string.car_fn_toast_mirrors)
+        } else {
+            toast(R.string.car_fn_toast_mirrors_unfolding, R.string.car_fn_toast_mirrors)
+        }
     }
 
     private suspend fun toggleWipers() {
@@ -693,17 +735,41 @@ class CarFunctionController(
     }
 
     private suspend fun toast(@androidx.annotation.StringRes res: Int) {
-        context.inMainToast(context.getString(res))
+        CarFunctionToast.show(context, context.getString(res))
+    }
+
+    private suspend fun toast(
+        @androidx.annotation.StringRes titleRes: Int,
+        @androidx.annotation.StringRes subtitleRes: Int,
+    ) {
+        CarFunctionToast.show(
+            context,
+            context.getString(titleRes),
+            context.getString(subtitleRes),
+        )
+    }
+
+    private suspend fun toast(
+        @androidx.annotation.StringRes titleRes: Int,
+        subtitle: String,
+    ) {
+        CarFunctionToast.show(context, context.getString(titleRes), subtitle)
     }
 
     private suspend fun toast(text: String) {
-        context.inMainToast(text)
+        CarFunctionToast.show(context, text)
     }
 
     private fun Int.isMediaPadKey(): Boolean =
         this == KEY_PREV || this == KEY_NEXT || this == KEY_PLAY
 
     companion object {
+        private val CLIMATE_QUERY_URI = Uri.parse("content://com.geely.hvac/hvac/query")
+        private const val CLIMATE_QUERY_OPEN = "open"
+        private const val CLIMATE_QUERY_CLOSE = "close"
+        private const val CLIMATE_QUERY_GET_VISIBILITY = "getVisibility"
+        private const val CLIMATE_VISIBLE = 0L
+
         private const val LEVEL_LOCK_SEC = 5
         private const val TEMP_STEP = 0.5f
         private const val DEFAULT_TEMP_LO = 16f

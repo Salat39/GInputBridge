@@ -84,6 +84,7 @@ import com.salat.gbinder.components.inMainToast
 import com.salat.gbinder.components.onlyDigitsAndLeadingPlus
 import com.salat.gbinder.components.requireDisplayOverlay
 import com.salat.gbinder.datastore.DataStoreRepository
+import com.salat.gbinder.datastore.GeneralPrefs
 import com.salat.gbinder.datastore.KeyBindStorageRepository
 import com.salat.gbinder.entity.CarFunction
 import com.salat.gbinder.entity.CarModel
@@ -141,7 +142,6 @@ private enum class KeyBindingDialogActions {
     APP_LAUNCH,
     APP_CAROUSEL,
     NAVI_MEDIA_SWITCH,
-    NAVI_MEDIA_SPLIT,
     FULLSCREEN_TO_SPLIT,
     LINK_LAUNCH,
     APP_LAUNCHER,
@@ -224,11 +224,6 @@ fun KeyBindingDialog(
             add(KeyBindingDialogActions.APP_LAUNCHER)
             add(KeyBindingDialogActions.APP_CAROUSEL)
             add(KeyBindingDialogActions.NAVI_MEDIA_SWITCH)
-            if (systemApps.isPackageInstalled("com.salat.gsplit") ||
-                systemApps.isPackageInstalled("com.salat.gsplit.dev")
-            ) {
-                add(KeyBindingDialogActions.NAVI_MEDIA_SPLIT)
-            }
             if (systemApps.isPackageInstalled("ru.zapuskator")) {
                 add(KeyBindingDialogActions.FULLSCREEN_TO_SPLIT)
             }
@@ -329,12 +324,6 @@ fun KeyBindingDialog(
 
             KeyBindAction.NAVI_MEDIA_SWITCH -> {
                 naviMediaPickAction = KeyBindAction.NAVI_MEDIA_SWITCH
-                paramsEntryStep = KeyBindingDialogStep.SET_NAVI_MEDIA_PICK
-                step = KeyBindingDialogStep.SET_NAVI_MEDIA_PICK
-            }
-
-            KeyBindAction.NAVI_MEDIA_SPLIT -> {
-                naviMediaPickAction = KeyBindAction.NAVI_MEDIA_SPLIT
                 paramsEntryStep = KeyBindingDialogStep.SET_NAVI_MEDIA_PICK
                 step = KeyBindingDialogStep.SET_NAVI_MEDIA_PICK
             }
@@ -521,7 +510,6 @@ fun KeyBindingDialog(
             apps = if (editBind != null && editBind.config.action in listOf(
                     KeyBindAction.LAUNCH_APP,
                     KeyBindAction.NAVI_MEDIA_SWITCH,
-                    KeyBindAction.NAVI_MEDIA_SPLIT
                 )
             ) {
                 loaded.map { it.copy(isSelected = it.packageName == editBind.config.value) }
@@ -541,9 +529,7 @@ fun KeyBindingDialog(
     LaunchedEffect(Unit) {
         if (editBind != null && editBind.initialSection == EditKeyBindSection.PARAMS) {
             // Navi media switch has conditional params - open action change instead of params
-            if (editBind.config.action == KeyBindAction.NAVI_MEDIA_SWITCH ||
-                editBind.config.action == KeyBindAction.NAVI_MEDIA_SPLIT
-            ) {
+            if (editBind.config.action == KeyBindAction.NAVI_MEDIA_SWITCH) {
                 step = KeyBindingDialogStep.SET_ACTION
             } else {
                 openParamsEdit(editBind)
@@ -875,21 +861,6 @@ fun KeyBindingDialog(
                                         }
                                     }
 
-                                    KeyBindingDialogActions.NAVI_MEDIA_SPLIT -> {
-                                        naviMediaPickAction = KeyBindAction.NAVI_MEDIA_SPLIT
-                                        val appList = apps
-                                        if (appList == null) {
-                                            step = KeyBindingDialogStep.SET_NAVI_MEDIA_PICK
-                                        } else {
-                                            scope.launch {
-                                                if (!handleNaviMediaSwitch(appList)) {
-                                                    apps = appList.map { it.copy(isSelected = false) }
-                                                    step = KeyBindingDialogStep.SET_NAVI_MEDIA_PICK
-                                                }
-                                            }
-                                        }
-                                    }
-
                                     KeyBindingDialogActions.FULLSCREEN_TO_SPLIT -> scope.launch(Dispatchers.IO) {
                                         val name = bind?.bind
                                             ?.let { keyBindStorage.getBindName(it) }
@@ -1047,8 +1018,6 @@ fun KeyBindingDialog(
 
                                     KeyBindingDialogActions.NAVI_MEDIA_SWITCH -> stringResource(R.string.kbd_navi_media_switch_title)
 
-                                    KeyBindingDialogActions.NAVI_MEDIA_SPLIT -> stringResource(R.string.kbd_navi_media_split_title)
-
                                     KeyBindingDialogActions.FULLSCREEN_TO_SPLIT -> stringResource(R.string.kbd_fullscreen_to_split_title)
 
                                     KeyBindingDialogActions.LINK_LAUNCH -> stringResource(R.string.launch_shortcut)
@@ -1091,8 +1060,6 @@ fun KeyBindingDialog(
                                     KeyBindingDialogActions.APP_CAROUSEL -> stringResource(R.string.kbd_app_carousel_action_desc)
 
                                     KeyBindingDialogActions.NAVI_MEDIA_SWITCH -> stringResource(R.string.kbd_navi_media_switch_desc)
-
-                                    KeyBindingDialogActions.NAVI_MEDIA_SPLIT -> stringResource(R.string.kbd_navi_media_split_desc)
 
                                     KeyBindingDialogActions.FULLSCREEN_TO_SPLIT -> stringResource(R.string.kbd_fullscreen_to_split_desc)
 
@@ -1840,7 +1807,8 @@ fun KeyBindingDialog(
                 color = AppTheme.colors.contentPrimary
             )
 
-            KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD -> dmActions.forEach { dmAction ->
+            KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD -> Column(Modifier.fillMaxWidth()) {
+                dmActions.forEach { dmAction ->
                 if (dmAction == dmActions.first()) {
                     Spacer(Modifier.height(10.dp))
                 }
@@ -1896,6 +1864,9 @@ fun KeyBindingDialog(
                 if (dmAction == dmActions.last()) {
                     Spacer(Modifier.height(10.dp))
                 }
+            }
+
+                DriveModeToastPrefRow(dataStore = dataStore)
             }
 
             KeyBindingDialogStep.SET_TOGGLE_DRIVE_MODE -> {
@@ -3063,6 +3034,72 @@ fun KeyBindingDialog(
             },
             onDismiss = { defaultLevelFunction = null }
         )
+    }
+}
+
+@Composable
+private fun DriveModeToastPrefRow(
+    dataStore: DataStoreRepository,
+) {
+    val scope = rememberCoroutineScope()
+    val showToast by dataStore
+        .getValueFlow(GeneralPrefs.DRIVE_MODE_TOAST, true)
+        .collectAsState(initial = true)
+
+    Column(modifier = Modifier.padding(top = 10.dp, bottom = 4.dp)) {
+        Text(
+            text = stringResource(R.string.drive_mode_show_toast),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            color = AppTheme.colors.contentAccent,
+            style = AppTheme.typography.confirmDialogTitle,
+            textAlign = TextAlign.Center,
+            overflow = TextOverflow.Ellipsis,
+            maxLines = 2
+        )
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            listOf(true to R.string.yes, false to R.string.no).forEach { (value, labelRes) ->
+                val selected = showToast == value
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (selected) AppTheme.colors.contentAccent.copy(alpha = 0.25f)
+                            else AppTheme.colors.surfaceMenu
+                        )
+                        .border(
+                            width = if (selected) 2.dp else 0.dp,
+                            color = if (selected) AppTheme.colors.contentAccent
+                            else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .clickable {
+                            scope.launch(Dispatchers.IO) {
+                                dataStore.saveValue(GeneralPrefs.DRIVE_MODE_TOAST, value)
+                            }
+                        }
+                        .padding(vertical = 18.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(labelRes),
+                        color = AppTheme.colors.contentPrimary,
+                        style = AppTheme.typography.screenTitle,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
     }
 }
 
