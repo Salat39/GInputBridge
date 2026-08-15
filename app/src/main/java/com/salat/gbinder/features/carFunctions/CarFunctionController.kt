@@ -713,7 +713,7 @@ class CarFunctionController(
 
     private suspend fun isFanAutoMode(zone: Int): Boolean {
         val current = car.getIntProperty(CarPropertyKey.HVAC_FUNC_AUTO_FAN_SETTING, zone)
-        return current in CarFunctionIds.ATLAS_AUTO_FAN_LEVELS
+        return current in CarFunctionIds.ATLAS_AUTO_FAN_ALL
     }
 
     private suspend fun cycleAbsoluteLevel(

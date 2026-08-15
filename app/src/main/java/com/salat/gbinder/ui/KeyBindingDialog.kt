@@ -624,7 +624,7 @@ fun KeyBindingDialog(
                         .verticalScroll(rememberScrollState())
                 ) {
                     val editOptions = remember {
-                        listOf(EditOption.KEYS, EditOption.ACTION, EditOption.PARAMS)
+                        listOf(EditOption.KEYS, EditOption.ACTION)
                     }
 
                     editOptions.forEach { option ->

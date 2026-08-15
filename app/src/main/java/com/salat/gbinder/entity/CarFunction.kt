@@ -117,6 +117,11 @@ object CarFunctionIds {
 
     val ATLAS_AUTO_FAN_LEVELS = listOf(
         AUTO_FAN_QUIETER,
+        AUTO_FAN_MEDIUM,
+        AUTO_FAN_HIGHER,
+    )
+    val ATLAS_AUTO_FAN_ALL = listOf(
+        AUTO_FAN_QUIETER,
         AUTO_FAN_LOW,
         AUTO_FAN_MEDIUM,
         AUTO_FAN_HIGH,
