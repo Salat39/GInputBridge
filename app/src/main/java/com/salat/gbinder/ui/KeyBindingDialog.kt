@@ -3043,8 +3043,8 @@ private fun DriveModeToastPrefRow(
 ) {
     val scope = rememberCoroutineScope()
     val showToast by dataStore
-        .getValueFlow(GeneralPrefs.DRIVE_MODE_TOAST, true)
-        .collectAsState(initial = true)
+        .getValueFlow(GeneralPrefs.DRIVE_MODE_TOAST, false)
+        .collectAsState(initial = false)
 
     Column(modifier = Modifier.padding(top = 10.dp, bottom = 4.dp)) {
         Text(

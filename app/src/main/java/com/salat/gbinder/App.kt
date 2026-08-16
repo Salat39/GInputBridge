@@ -307,7 +307,7 @@ class App : Application(), ImageLoaderFactory {
     // Drive mode
     private var rememberDriveMode = false
     private var driveModeOverlay = false
-    private var driveModeToast = true
+    private var driveModeToast = false
 
     // Initialization flag to understand that the last mode
     // has been restored before storing new modes
@@ -994,7 +994,11 @@ class App : Application(), ImageLoaderFactory {
             }
         }
         launch {
-            dataStore.getValueFlow(GeneralPrefs.DRIVE_MODE_TOAST, true).collect { enabled ->
+            if (!dataStore.exists(GeneralPrefs.DRIVE_MODE_TOAST_OFF_MIGRATION)) {
+                dataStore.saveValue(GeneralPrefs.DRIVE_MODE_TOAST, false)
+                dataStore.saveValue(GeneralPrefs.DRIVE_MODE_TOAST_OFF_MIGRATION, true)
+            }
+            dataStore.getValueFlow(GeneralPrefs.DRIVE_MODE_TOAST, false).collect { enabled ->
                 driveModeToast = enabled
             }
         }
