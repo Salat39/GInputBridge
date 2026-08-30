@@ -54,6 +54,8 @@ enum class CarFunction(
         else -> false
     }
 
+    fun hasConfigurableTempStep(): Boolean = this == CLIMATE_MENU
+
     fun defaultLevelPrefKey(): Preferences.Key<Int>? = when (this) {
         WHEEL_HEAT -> GeneralPrefs.CAR_FN_DEFAULT_WHEEL_HEAT
         DRIVER_HEAT -> GeneralPrefs.CAR_FN_DEFAULT_DRIVER_HEAT
@@ -65,6 +67,8 @@ enum class CarFunction(
 
     companion object {
         const val DEFAULT_HEAT_VENT_LEVEL = 3
+        const val DEFAULT_CLIMATE_TEMP_STEP = 0.5f
+        val CLIMATE_TEMP_STEPS = listOf(0.5f, 1.0f)
 
         fun fromValue(raw: String): CarFunction? =
             entries.firstOrNull { it.name == raw.trim() }

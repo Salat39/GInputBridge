@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -244,6 +245,7 @@ fun KeyBindingDialog(
     }
     val carFunctions = remember(carModel) { CarFunction.availableFor(carModel) }
     var defaultLevelFunction by remember { mutableStateOf<CarFunction?>(null) }
+    var showClimateTempStepDialog by remember { mutableStateOf(false) }
     val dmActions = remember {
         listOf(
             DriveModeAction.SWITCHING,
@@ -1163,7 +1165,7 @@ fun KeyBindingDialog(
                             }
                         }
 
-                        if (function.hasConfigurableDefaultLevel()) {
+                        if (function.hasConfigurableDefaultLevel() || function.hasConfigurableTempStep()) {
                             Spacer(
                                 Modifier
                                     .fillMaxHeight()
@@ -1176,7 +1178,13 @@ fun KeyBindingDialog(
                                 modifier = Modifier
                                     .fillMaxHeight()
                                     .width(80.dp)
-                                    .clickable { defaultLevelFunction = function },
+                                    .clickable {
+                                        if (function.hasConfigurableTempStep()) {
+                                            showClimateTempStepDialog = true
+                                        } else {
+                                            defaultLevelFunction = function
+                                        }
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -1184,7 +1192,11 @@ fun KeyBindingDialog(
                                         R.drawable.ic_arrow_right_circle_outline
                                     ),
                                     contentDescription = stringResource(
-                                        R.string.car_fn_default_level_title
+                                        if (function.hasConfigurableTempStep()) {
+                                            R.string.car_fn_default_temp_step_title
+                                        } else {
+                                            R.string.car_fn_default_level_title
+                                        }
                                     ),
                                     tint = AppTheme.colors.contentAccent,
                                     modifier = Modifier.size(30.dp)
@@ -1865,8 +1877,6 @@ fun KeyBindingDialog(
                     Spacer(Modifier.height(10.dp))
                 }
             }
-
-                DriveModeToastPrefRow(dataStore = dataStore)
             }
 
             KeyBindingDialogStep.SET_TOGGLE_DRIVE_MODE -> {
@@ -2527,13 +2537,26 @@ fun KeyBindingDialog(
                 .background(Color.White.copy(.1f))
         )
 
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp, horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)
+                .padding(vertical = 8.dp)
         ) {
+            if (step == KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD) {
+                DriveModeToastPrefRow(
+                    modifier = Modifier.align(Alignment.CenterStart),
+                    dataStore = dataStore
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .align(Alignment.CenterEnd),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)
+            ) {
             Text(
                 modifier = Modifier
                     .clip(RoundedCornerShape(4.dp))
@@ -3003,6 +3026,7 @@ fun KeyBindingDialog(
                     } else AppTheme.colors.contentPrimary.copy(.3f)
                 )
             }
+            }
         }
     }
 
@@ -3035,10 +3059,38 @@ fun KeyBindingDialog(
             onDismiss = { defaultLevelFunction = null }
         )
     }
+
+    if (showClimateTempStepDialog) {
+        ClimateTempStepDialog(
+            uiScaleState = uiScaleState,
+            dataStore = dataStore,
+            onStepSelected = { step ->
+                scope.launch(Dispatchers.IO) {
+                    dataStore.saveValue(GeneralPrefs.CAR_FN_CLIMATE_TEMP_STEP, step)
+                    val name = bind?.bind
+                        ?.let { keyBindStorage.getBindName(it) }
+                        ?: ""
+                    keyBindStorage.saveBinds(
+                        name,
+                        KeyBindConfig(
+                            action = KeyBindAction.CAR_FUNCTION,
+                            value = CarFunction.CLIMATE_MENU.name
+                        )
+                    )
+                    withContext(Dispatchers.Main) {
+                        showClimateTempStepDialog = false
+                        onDismiss()
+                    }
+                }
+            },
+            onDismiss = { showClimateTempStepDialog = false }
+        )
+    }
 }
 
 @Composable
 private fun DriveModeToastPrefRow(
+    modifier: Modifier = Modifier,
     dataStore: DataStoreRepository,
 ) {
     val scope = rememberCoroutineScope()
@@ -3046,57 +3098,101 @@ private fun DriveModeToastPrefRow(
         .getValueFlow(GeneralPrefs.DRIVE_MODE_TOAST, false)
         .collectAsState(initial = false)
 
-    Column(modifier = Modifier.padding(top = 10.dp, bottom = 4.dp)) {
+    Row(
+        modifier = modifier
+            .wrapContentWidth(Alignment.Start)
+            .clip(RoundedCornerShape(4.dp))
+            .clickable {
+                scope.launch(Dispatchers.IO) {
+                    dataStore.saveValue(GeneralPrefs.DRIVE_MODE_TOAST, !showToast)
+                }
+            }
+            .padding(start = 43.dp, end = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Text(
             text = stringResource(R.string.drive_mode_show_toast),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-            color = AppTheme.colors.contentAccent,
-            style = AppTheme.typography.confirmDialogTitle,
-            textAlign = TextAlign.Center,
-            overflow = TextOverflow.Ellipsis,
-            maxLines = 2
+            style = AppTheme.typography.dialogSubtitle,
+            color = AppTheme.colors.contentPrimary.copy(.4f)
         )
+        ProfileSwitch(
+            scale = 0.6f,
+            checked = showToast,
+            enabled = true,
+            isNegative = false,
+            onCheckedChange = null
+        )
+    }
+}
 
-        Spacer(modifier = Modifier.height(18.dp))
+@Composable
+private fun ClimateTempStepDialog(
+    uiScaleState: Float?,
+    dataStore: DataStoreRepository,
+    onStepSelected: (Float) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val selectedStep by dataStore
+        .getValueFlow(
+            GeneralPrefs.CAR_FN_CLIMATE_TEMP_STEP,
+            CarFunction.DEFAULT_CLIMATE_TEMP_STEP,
+        )
+        .collectAsState(initial = CarFunction.DEFAULT_CLIMATE_TEMP_STEP)
+    val normalizedSelected = if (selectedStep >= 1.0f) 1.0f else 0.5f
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            listOf(true to R.string.yes, false to R.string.no).forEach { (value, labelRes) ->
-                val selected = showToast == value
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(
-                            if (selected) AppTheme.colors.contentAccent.copy(alpha = 0.25f)
-                            else AppTheme.colors.surfaceMenu
+    BaseDialog(
+        uiScaleState = uiScaleState,
+        maxWidth = 420,
+        onDismiss = onDismiss
+    ) {
+        Column(modifier = Modifier.padding(top = 22.dp, bottom = 18.dp)) {
+            Text(
+                text = stringResource(R.string.car_fn_default_temp_step_title),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                color = AppTheme.colors.contentPrimary,
+                style = AppTheme.typography.confirmDialogTitle,
+                textAlign = TextAlign.Center,
+                overflow = TextOverflow.Ellipsis,
+                maxLines = 2
+            )
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                CarFunction.CLIMATE_TEMP_STEPS.forEach { step ->
+                    val selected = normalizedSelected == step
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                if (selected) AppTheme.colors.contentAccent.copy(alpha = 0.25f)
+                                else AppTheme.colors.surfaceMenu
+                            )
+                            .border(
+                                width = if (selected) 2.dp else 0.dp,
+                                color = if (selected) AppTheme.colors.contentAccent
+                                else Color.Transparent,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .clickable { onStepSelected(step) }
+                            .padding(vertical = 18.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (step >= 1.0f) "1.0°" else "0.5°",
+                            color = AppTheme.colors.contentPrimary,
+                            style = AppTheme.typography.screenTitle,
+                            textAlign = TextAlign.Center
                         )
-                        .border(
-                            width = if (selected) 2.dp else 0.dp,
-                            color = if (selected) AppTheme.colors.contentAccent
-                            else Color.Transparent,
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .clickable {
-                            scope.launch(Dispatchers.IO) {
-                                dataStore.saveValue(GeneralPrefs.DRIVE_MODE_TOAST, value)
-                            }
-                        }
-                        .padding(vertical = 18.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = stringResource(labelRes),
-                        color = AppTheme.colors.contentPrimary,
-                        style = AppTheme.typography.screenTitle,
-                        textAlign = TextAlign.Center
-                    )
+                    }
                 }
             }
         }

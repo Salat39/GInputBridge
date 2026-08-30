@@ -209,6 +209,7 @@
                 <action android:name="com.salat.gbinder.GET_FLOAT_INFO" />
                 <action android:name="com.salat.gbinder.GET_STRING_INFO" />
                 <action android:name="com.salat.gbinder.TOGGLE_LAUNCHER" />
+                <action android:name="com.salat.gbinder.CAR_FUNCTION" />
             </intent-filter>
         </receiver>
 

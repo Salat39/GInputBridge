@@ -246,6 +246,8 @@ class App : Application(), ImageLoaderFactory {
                 put(it, CarFunction.DEFAULT_HEAT_VENT_LEVEL)
             }
         }
+    @Volatile
+    private var climateTempStep = CarFunction.DEFAULT_CLIMATE_TEMP_STEP
 
     private val runtimeTimer = SimpleTimer()
 
@@ -436,6 +438,7 @@ class App : Application(), ImageLoaderFactory {
             defaultHeatVentLevel = { function ->
                 heatVentDefaultLevels[function] ?: CarFunction.DEFAULT_HEAT_VENT_LEVEL
             },
+            climateTempStep = { climateTempStep },
             isIgnitionDriving = { ignitionDriving() },
         )
 
@@ -502,6 +505,7 @@ class App : Application(), ImageLoaderFactory {
             initRequestPlaybackInfoCollector()
             initDevicePackagesChangedCollector()
             initRequestPhoneCollector()
+            initRequestCarFunctionCollector()
             initAccessibilityStateCollector()
             initMediaSessionsStateCollector()
             initLauncherManagerWatchDog()
@@ -1054,6 +1058,14 @@ class App : Application(), ImageLoaderFactory {
                 }
             }
         }
+        launch {
+            dataStore.getValueFlow(
+                GeneralPrefs.CAR_FN_CLIMATE_TEMP_STEP,
+                CarFunction.DEFAULT_CLIMATE_TEMP_STEP,
+            ).collect { step ->
+                climateTempStep = if (step >= 1.0f) 1.0f else 0.5f
+            }
+        }
     }
 
     private fun releaseActiveMediaSessionFlow() {
@@ -1298,6 +1310,14 @@ class App : Application(), ImageLoaderFactory {
                 runCatching { mPhoneManager?.disconnectCall() }
                 debugDeepLog("[PHONE] disconnect")
             }
+        }
+    }
+
+    private fun CoroutineScope.initRequestCarFunctionCollector() = launch {
+        GlobalState.requestCarFunctionFlow.collect { raw ->
+            val function = CarFunction.fromValue(raw) ?: return@collect
+            carFunctions.trigger(function, explicit = true)
+            debugDeepLog("[CAR_FN] $raw")
         }
     }
 

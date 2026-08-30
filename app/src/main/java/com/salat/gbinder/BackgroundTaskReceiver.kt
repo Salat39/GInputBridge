@@ -262,6 +262,15 @@ class BackgroundTaskReceiver() : BroadcastReceiver() {
 
             "$BASE_PATH.TOGGLE_LAUNCHER" -> stataKeeper.toggleLauncher()
 
+            "$BASE_PATH.CAR_FUNCTION" -> {
+                val function = intent.getStringExtra("function").orEmpty()
+                if (function.isNotEmpty()) {
+                    scope.launch {
+                        GlobalState.requestCarFunctionFlow.emit(function)
+                    }
+                }
+            }
+
             else -> Unit
         }
     }

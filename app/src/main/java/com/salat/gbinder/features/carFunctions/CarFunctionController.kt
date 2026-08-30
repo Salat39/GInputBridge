@@ -19,6 +19,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.floor
 
 class CarFunctionController(
     private val context: Context,
@@ -30,6 +33,7 @@ class CarFunctionController(
     private val isClimateVisible: () -> Boolean,
     private val resolveCarModel: () -> CarModel?,
     private val defaultHeatVentLevel: (CarFunction) -> Int = { CarFunction.DEFAULT_HEAT_VENT_LEVEL },
+    private val climateTempStep: () -> Float = { CarFunction.DEFAULT_CLIMATE_TEMP_STEP },
     private val isIgnitionDriving: () -> Boolean = { true },
 ) {
     private val mutex = Mutex()
@@ -103,7 +107,11 @@ class CarFunctionController(
         }
     }
 
-    suspend fun trigger(function: CarFunction, triggerKeyCode: Int = -1): Boolean {
+    suspend fun trigger(
+        function: CarFunction,
+        triggerKeyCode: Int = -1,
+        explicit: Boolean = false,
+    ): Boolean {
         var consumePadEcho = false
         runCatching {
             mutex.withLock {
@@ -146,8 +154,38 @@ class CarFunctionController(
                     CarFunction.FRONT_DEFROST -> toggleFrontDefrost()
                     CarFunction.MAX_DEFROST -> toggleMaxFan()
                     CarFunction.REAR_DEFROST -> toggleRearDefrost()
-                    CarFunction.ME_HOT, CarFunction.ME_COOLED -> toggleImHotCooled()
-                    CarFunction.ME_COLD, CarFunction.ME_WARMED -> toggleImColdWarmed()
+                    CarFunction.ME_HOT, CarFunction.ME_COOLED -> {
+                        if (explicit) {
+                            when (function) {
+                                CarFunction.ME_HOT -> {
+                                    applyImHot()
+                                    imHotCooledNextIsHot = false
+                                }
+                                else -> {
+                                    applyImCooled()
+                                    imHotCooledNextIsHot = true
+                                }
+                            }
+                        } else {
+                            toggleImHotCooled()
+                        }
+                    }
+                    CarFunction.ME_COLD, CarFunction.ME_WARMED -> {
+                        if (explicit) {
+                            when (function) {
+                                CarFunction.ME_COLD -> {
+                                    applyImCold()
+                                    imColdWarmedNextIsCold = false
+                                }
+                                else -> {
+                                    applyImWarmed()
+                                    imColdWarmedNextIsCold = true
+                                }
+                            }
+                        } else {
+                            toggleImColdWarmed()
+                        }
+                    }
                     CarFunction.TRUNK -> toggleTrunk()
                     CarFunction.MIRRORS -> toggleMirrors()
                     CarFunction.WIPERS -> toggleWipers()
@@ -647,11 +685,20 @@ class CarFunctionController(
             CarFunctionIds.ZONE_DRIVER
         )
         val base = if (current < 0f) 22f else current
-        val rawNext = base + if (up) TEMP_STEP else -TEMP_STEP
+        val step = climateTempStep().coerceIn(0.5f, 1.0f)
         val next = when {
-            rawNext <= tempLo -> tempLo
-            rawNext >= tempHi -> tempHi
-            else -> rawNext
+            step >= 1.0f && up && isAtTempLimit(base, tempLo) ->
+                ceil(tempLo).coerceAtMost(tempHi)
+            step >= 1.0f && !up && isAtTempLimit(base, tempHi) ->
+                floor(tempHi).coerceAtLeast(tempLo)
+            else -> {
+                val rawNext = base + if (up) step else -step
+                when {
+                    rawNext <= tempLo -> tempLo
+                    rawNext >= tempHi -> tempHi
+                    else -> rawNext
+                }
+            }
         }
         if (next == base) return
         car.setPropertyFloatValue(
@@ -660,6 +707,9 @@ class CarFunctionController(
             next
         )
     }
+
+    private fun isAtTempLimit(value: Float, limit: Float): Boolean =
+        abs(value - limit) < 0.01f
 
     private suspend fun refreshTempLimits() {
         val lo = readTempLimit(CarPropertyKey.HVAC_FUNC_TEMP_MIN)
@@ -771,7 +821,6 @@ class CarFunctionController(
         private const val CLIMATE_VISIBLE = 0L
 
         private const val LEVEL_LOCK_SEC = 5
-        private const val TEMP_STEP = 0.5f
         private const val DEFAULT_TEMP_LO = 16f
         private const val DEFAULT_TEMP_HI = 28f
         private const val SEAT_MEMORY_PACKAGE = "com.geely.hvac"

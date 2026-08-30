@@ -50,6 +50,7 @@ object GeneralPrefs {
     val CAR_FN_DEFAULT_PASSENGER_HEAT = intPreferencesKey("CAR_FN_DEFAULT_PASSENGER_HEAT")
     val CAR_FN_DEFAULT_DRIVER_VENT = intPreferencesKey("CAR_FN_DEFAULT_DRIVER_VENT")
     val CAR_FN_DEFAULT_PASSENGER_VENT = intPreferencesKey("CAR_FN_DEFAULT_PASSENGER_VENT")
+    val CAR_FN_CLIMATE_TEMP_STEP = floatPreferencesKey("CAR_FN_CLIMATE_TEMP_STEP")
 
     // Not in ALL_KEYS - import restores these keys only when the backup contains them
     val ENABLED_MEDIA_APPS = stringPreferencesKey("ENABLED_MEDIA_APPS")
@@ -106,6 +107,7 @@ object GeneralPrefs {
             CAR_FN_DEFAULT_PASSENGER_HEAT,
             CAR_FN_DEFAULT_DRIVER_VENT,
             CAR_FN_DEFAULT_PASSENGER_VENT,
+            CAR_FN_CLIMATE_TEMP_STEP,
         )
 
     val DYNAMIC_PREFIX_KEYS

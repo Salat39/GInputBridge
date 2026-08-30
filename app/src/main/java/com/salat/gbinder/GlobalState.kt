@@ -20,6 +20,7 @@ object GlobalState {
     val requestPhoneAnswerFlow = MutableSharedFlow<Boolean>()
     val requestPhoneRejectFlow = MutableSharedFlow<Boolean>()
     val requestPhoneDisconnectFlow = MutableSharedFlow<Boolean>()
+    val requestCarFunctionFlow = MutableSharedFlow<String>()
     val tempDisableMediaControlFlow = MutableSharedFlow<Int>()
 
     val keyBindingMode = MutableStateFlow(false)

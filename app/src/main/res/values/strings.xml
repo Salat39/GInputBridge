@@ -157,7 +157,7 @@
     <string name="car_fn_trunk">Trunk</string>
     <string name="car_fn_mirrors">Mirrors</string>
     <string name="car_fn_wipers">Wipers</string>
-    <string name="car_fn_climate_menu_desc">Show the system climate menu on screen</string>
+    <string name="car_fn_climate_menu_desc">Show the standard climate menu.\nSecond press will hide climate</string>
     <string name="car_fn_seat_memory_desc">Open the seat memory settings</string>
     <string name="car_fn_wheel_heat_desc">Cycles the heating level</string>
     <string name="car_fn_driver_heat_desc">Cycles the heating level</string>
@@ -176,6 +176,7 @@
     <string name="car_fn_mirrors_desc">Fold / unfold</string>
     <string name="car_fn_wipers_desc">Moves the wipers to the service position and back</string>
     <string name="car_fn_default_level_title">Default level</string>
+    <string name="car_fn_default_temp_step_title">Default step</string>
     <string name="drive_mode_show_toast">Show easter eggs</string>
     <string name="car_fn_toast_temperature">Temperature</string>
     <string name="car_fn_toast_status_off_m">Off</string>
