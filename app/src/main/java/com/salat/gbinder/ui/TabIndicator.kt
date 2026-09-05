@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -26,12 +27,17 @@ fun TabIndicator(currentTabPosition: TabPosition, tabsAccent: Color) {
 }
 
 @Composable
-fun TabIndicatorScope.MaterialTabIndicator(selectedTabIndex: Int, tabsAccent: Color) {
+fun TabIndicatorScope.MaterialTabIndicator(
+    selectedTabIndex: Int,
+    tabsAccent: Color,
+    matchContentSize: Boolean = false,
+    horizontalPadding: Dp = 28.dp
+) {
     Box(
         modifier = Modifier
-            .tabIndicatorOffset(selectedTabIndex)
+            .tabIndicatorOffset(selectedTabIndex, matchContentSize)
             .height(4.dp)
-            .padding(horizontal = 28.dp)
+            .padding(horizontal = horizontalPadding)
             .background(
                 color = tabsAccent,
                 shape = remember { RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp) }

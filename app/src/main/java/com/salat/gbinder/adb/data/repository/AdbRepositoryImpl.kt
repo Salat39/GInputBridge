@@ -4,6 +4,7 @@ import android.util.Base64
 import com.salat.gbinder.BuildConfig
 import com.salat.gbinder.NATIVE_LAUNCHER_BATCH_SIZE
 import com.salat.gbinder.TELNET_HELPER_PORT
+import com.salat.gbinder.adb.data.entity.AdbCommandResult
 import com.salat.gbinder.adb.data.entity.AdbConnectionState
 import com.salat.gbinder.adb.domain.repository.AdbRepository
 import com.salat.gbinder.datastore.DataStoreRepository
@@ -38,6 +39,10 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
 
     companion object {
         private const val TIMEOUT_MS = 5_000
+        private const val TERMINAL_TIMEOUT_MS = 15_000L
+
+        // Must be longer than the terminal watchdog, so one limit stops a silent command
+        private const val TERMINAL_TELNET_READ_TIMEOUT_MS = 16_000
         private const val ATLAS_LOCALHOST_PORT = 5555
         private const val RECONNECT_DELAY_MS = 3_000L
         private const val MAX_RECONNECT_RETRIES = 5
@@ -82,6 +87,9 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
 
     @Volatile
     private var telnetTransport: TelnetShellTransport? = null
+
+    @Volatile
+    private var terminalSession: TerminalSession? = null
 
     private val taskIdRegex = Regex(
         pattern = """\bTask\{[^}]*#(\d+)\b""",
@@ -301,6 +309,98 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
             scheduleReconnect(host, port, "execute error")
             t.message ?: "ADB execute error"
         }
+    }
+
+    override suspend fun executeRaw(command: String): AdbCommandResult = withContext(Dispatchers.IO) {
+        val enable = dataStore.getValueFlow(GeneralPrefs.ENABLE_ADB_HELPER, false).first()
+        if (!enable) {
+            disconnect()
+            return@withContext transportError("ADB helper disabled")
+        }
+
+        if (isManuallyDisconnected || _connectionState.value is AdbConnectionState.Disconnected) {
+            return@withContext transportError("ADB disconnected")
+        }
+
+        val port = dataStore.getValueFlow(GeneralPrefs.ADB_HELPER_PORT, 5555).first()
+
+        if (!isConnectedForPortUnsafe(port)) {
+            val ok = connect(host, port)
+            if (!ok) return@withContext transportError("ADB connect failed")
+        }
+
+        if (command.isEmpty()) return@withContext transportError("empty command")
+
+        val telnetMode = isTelnetMode(port)
+        val session = TerminalSession()
+        terminalSession = session
+
+        // Lives outside the execution lock, so it never waits for the command it must break
+        val watchdog = ioScope.launch {
+            delay(TERMINAL_TIMEOUT_MS)
+            session.stop(byTimeout = true)
+        }
+
+        try {
+            val output = if (telnetMode) {
+                executeTelnetLocked(command, session)
+            } else {
+                executeLocked(command, session)
+            }
+            AdbCommandResult(0, output)
+        } catch (t: CommandFailedException) {
+            AdbCommandResult(t.exitCode, t.output)
+        } catch (t: StoppedBeforeSendException) {
+            // Nothing reached the device and no transport was closed, so the connection stays
+            stoppedResult(session)
+        } catch (t: MissingMarkerException) {
+            // An adb command owns its own shell, so the connection is still good and must not
+            // be dropped. The telnet shell is shared and a half parsed line leaves it out of
+            // sync, so there the socket has to go
+            if (telnetMode) {
+                Timber.w(t, "[Telnet] shell out of sync")
+                dropConnectionForRetry(t)
+                scheduleReconnect(host, port, "telnet shell out of sync")
+            }
+            transportError(t.output.ifBlank { t.message ?: "no completion marker" })
+        } catch (t: Throwable) {
+            if (session.stopped) {
+                // Telnet interrupt closes the shared socket, an ADB interrupt closes one stream only
+                if (telnetMode) {
+                    dropConnectionForRetry(t)
+                    scheduleReconnect(host, port, "terminal interrupt")
+                }
+                stoppedResult(session)
+            } else if (isManuallyDisconnected ||
+                _connectionState.value is AdbConnectionState.Disconnected
+            ) {
+                transportError("ADB disconnected")
+            } else {
+                Timber.w(t, "[ADB] terminal execute failed")
+                dropConnectionForRetry(t)
+                scheduleReconnect(host, port, "terminal execute error")
+                transportError(t.message ?: "ADB execute error")
+            }
+        } finally {
+            watchdog.cancel()
+            if (terminalSession === session) terminalSession = null
+        }
+    }
+
+    override fun cancelTerminalCommand() {
+        terminalSession?.stop(byTimeout = false)
+    }
+
+    private fun transportError(message: String) =
+        AdbCommandResult(AdbCommandResult.EXIT_TRANSPORT_ERROR, message)
+
+    private fun stoppedResult(session: TerminalSession): AdbCommandResult {
+        val exitCode = if (session.timedOut) {
+            AdbCommandResult.EXIT_TIMEOUT
+        } else {
+            AdbCommandResult.EXIT_CANCELLED
+        }
+        return AdbCommandResult(exitCode, "")
     }
 
     override suspend fun setAtlasWheelSettings(): String {
@@ -781,7 +881,10 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         }
     }
 
-    private suspend fun executeLocked(command: String): String = lock.withLock {
+    private suspend fun executeLocked(
+        command: String,
+        session: TerminalSession? = null
+    ): String = lock.withLock {
         val (conn, myEpoch) = synchronized(connGuard) {
             val c = checkNotNull(connection) { "ADB is not connected" }
             c to connectionEpoch
@@ -797,7 +900,9 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         val marker = buildDoneMarker()
         val effectiveCommand = appendMarker(command, marker)
 
+        session?.checkNotStopped()
         val stream: AdbStream = conn.open("shell:$effectiveCommand")
+        session?.attach(stream)
         return@withLock try {
             val (output, exitCode) = readUntilMarker(stream, marker)
 
@@ -812,6 +917,7 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
 
             output.also { Timber.d("[ADB] result length=%d", it.length) }
         } finally {
+            session?.detach()
             try {
                 stream.close()
             } catch (_: Throwable) {
@@ -820,7 +926,10 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         }
     }
 
-    private suspend fun executeTelnetLocked(command: String): String = lock.withLock {
+    private suspend fun executeTelnetLocked(
+        command: String,
+        session: TerminalSession? = null
+    ): String = lock.withLock {
         val (transport, myEpoch) = synchronized(connGuard) {
             val t = checkNotNull(telnetTransport) { "Telnet is not connected" }
             t to connectionEpoch
@@ -833,7 +942,17 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         }
 
         val marker = buildDoneMarker()
-        val (output, exitCode) = transport.exec(command, marker)
+        session?.checkNotStopped()
+        session?.attach(transport)
+        val (output, exitCode) = try {
+            if (session == null) {
+                transport.exec(command, marker)
+            } else {
+                transport.exec(command, marker, TERMINAL_TELNET_READ_TIMEOUT_MS)
+            }
+        } finally {
+            session?.detach()
+        }
 
         synchronized(connGuard) {
             check(connectionEpoch == myEpoch && !isManuallyDisconnected) { "Telnet disconnected" }
@@ -867,10 +986,12 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         while (!stream.isClosed) {
             val chunk = stream.read() ?: break
             if (chunk.isEmpty()) break
+            val appendedAt = out.length
             out.append(String(chunk))
 
             if (markerIndex < 0) {
-                markerIndex = out.indexOf(marker)
+                // Only the new text can hold the marker - the overlap covers a split marker
+                markerIndex = out.indexOf(marker, (appendedAt - marker.length).coerceAtLeast(0))
             }
             if (markerIndex >= 0) {
                 val after = out.substring(markerIndex + marker.length)
@@ -881,7 +1002,7 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
                 }
             }
         }
-        throw IOException("ADB stream closed before completion marker")
+        throw MissingMarkerException(out.toString().trimEnd())
     }
 
     private fun parseLeadingInt(value: String): Int? {
@@ -901,6 +1022,58 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         val exitCode: Int,
         val output: String,
     ) : IOException("ADB command failed (exit=$exitCode)")
+
+    // The shell ended before it echoed the trailer, which a syntax error alone can cause
+    private class MissingMarkerException(
+        val output: String,
+    ) : IOException("ADB stream closed before completion marker")
+
+    // The stop came while the command still waited for the execution lock
+    private class StoppedBeforeSendException : IOException("terminal command stopped before send")
+
+    // Lets the terminal watchdog break a blocking read from outside the execution lock
+    private class TerminalSession {
+        private var stream: AdbStream? = null
+        private var telnet: TelnetShellTransport? = null
+
+        @Volatile
+        var timedOut: Boolean = false
+            private set
+
+        @Volatile
+        var stopped: Boolean = false
+            private set
+
+        // A command that is already stopped must not reach the device at all
+        fun checkNotStopped() {
+            if (stopped) throw StoppedBeforeSendException()
+        }
+
+        @Synchronized
+        fun attach(value: AdbStream) {
+            if (stopped) runCatching { value.close() } else stream = value
+        }
+
+        @Synchronized
+        fun attach(value: TelnetShellTransport) {
+            if (stopped) value.close() else telnet = value
+        }
+
+        // Keeps a late watchdog away from the transport of the next command
+        @Synchronized
+        fun detach() {
+            stream = null
+            telnet = null
+        }
+
+        @Synchronized
+        fun stop(byTimeout: Boolean) {
+            if (byTimeout) timedOut = true
+            stopped = true
+            runCatching { stream?.close() }
+            telnet?.close()
+        }
+    }
 
     private suspend fun dropConnectionForRetry(t: Throwable) {
         lock.withLock {

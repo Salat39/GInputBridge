@@ -192,6 +192,17 @@ fun Context.openAccessibilitySettings() = try {
     println(e)
 }
 
+fun Context.openDeveloperSettings() = runCatching {
+    startActivity(
+        Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    )
+}.recoverCatching {
+    startActivity(
+        Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    )
+}.onFailure { Timber.e(it) }
+
 fun Context.toast(text: String) {
     try {
         Toast.makeText(this, text, Toast.LENGTH_LONG).show()

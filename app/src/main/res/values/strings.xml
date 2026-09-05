@@ -78,7 +78,8 @@
     <string name="back">Back</string>
 
     <string name="show_documentation">Show API</string>
-    <string name="hide_documentation">Hide API</string>
+    <string name="api_documentation_title">API</string>
+    <string name="api_documentation_subtitle">Broadcast intents for MacroDroid and other automation apps</string>
     <string name="detect_multi_long">Detect multi-long</string>
     <string name="multi_long_trigger">If other buttons are held during a long press event, a multi-long event is triggered instead of a regular long press</string>
     <string name="suppression_mode">Suppression mode</string>
@@ -265,6 +266,8 @@
     <string name="not_that_interested">Not that interested</string>
     <string name="configurator">Configurator</string>
     <string name="search">Search</string>
+    <string name="all_functions">All functions</string>
+    <string name="favorites">Favorites</string>
     <string name="favorites_display">Functions added to \"Favorites\" will be displayed here</string>
     <string name="nothing_found">Nothing found</string>
 
@@ -378,7 +381,7 @@
     <string name="steering_wheel_buttons">Steering wheel buttons</string>
     <string name="playback_control">Playback control</string>
     <string name="audio_control">Audio control</string>
-    <string name="general">General</string>
+    <string name="advanced_settings">Advanced settings</string>
 
     <string name="public_notes">Public notes</string>
     <string name="changes_saved">Changes saved</string>
@@ -558,6 +561,8 @@
     <string name="launcher_extra_features_desc">Opens additional capabilities in the launcher: detects application status in the system (running/not running), force-stop, and other functions.</string>
     <string name="stop_dim_interaction_on_boot_title">Stop DIM interaction on system boot</string>
     <string name="stop_dim_interaction_on_boot_desc">Automatically stops the DIM interaction service (which blocks login and interferes with some apps) every time the system starts.</string>
+    <string name="app_aot_compile_title">Speed up GInputBridge (code compilation)</string>
+    <string name="app_aot_compile_desc">Compiles the GInputBridge code to native code once. The launcher, menus and overlays open without delay, especially the first time after power-on. The rest of the system is not affected. Runs once, in the background, for 1–3 minutes; the result is visible after the next restart. Safe: a standard Android mechanism, settings are not changed. Repeats automatically only after an app update.</string>
     <string name="rear_wiper_auto_title">Rear wiper auto mode</string>
     <string name="rear_wiper_auto_desc">Disabling this feature prevents the rear wiper from automatically activating when reverse gear (R) is engaged.</string>
     <string name="open">Open</string>
@@ -609,20 +614,20 @@ In MacroDroid: Triggers -> Intent Received
 <br>
 <br>
 <strong>Actions</strong>:
-<br>\"com.salat.gbinder.SHORT_CLICK\"
-<br>\"com.salat.gbinder.LONG_PRESS\"
-<br>\"com.salat.gbinder.MULTI_LONG_PRESS\"
-<br>\"com.salat.gbinder.DOUBLE_CLICK\"
-<br>\"com.salat.gbinder.HOLD_START\"
-<br>\"com.salat.gbinder.HOLD_STOP\"
-<br>\"com.salat.gbinder.KEY_EVENT\"
+<br>com.salat.gbinder.SHORT_CLICK
+<br>com.salat.gbinder.LONG_PRESS
+<br>com.salat.gbinder.MULTI_LONG_PRESS
+<br>com.salat.gbinder.DOUBLE_CLICK
+<br>com.salat.gbinder.HOLD_START
+<br>com.salat.gbinder.HOLD_STOP
+<br>com.salat.gbinder.KEY_EVENT
 <br>
 <br>
 <strong>Additional</strong>:
-<br>\"code\" -> keyCode of the key.
-<br>for KEY_EVENT additionally: \"event\" -> [0|1|3] where 0 = DOWN, 1 = UP, 3 = CANCEL <br>and \"func\" -> system function code
+<br>code -> keyCode of the key.
+<br>for KEY_EVENT additionally: event -> [0|1|3] where 0 = DOWN, 1 = UP, 3 = CANCEL <br>and func -> system function code
 <br>
-<br>for MULTI_LONG_PRESS, the \"code\" parameter is received in the format -> 119+200087 with key codes, the code is formed from the smaller number to the larger
+<br>for MULTI_LONG_PRESS, the code parameter is received in the format 119+200087 with key codes, the code is formed from the smaller number to the larger
 ]]></string>
     <string name="api_text2"><![CDATA[<strong>Working with Audio Sources</strong>
 <br>
@@ -661,7 +666,7 @@ In MacroDroid: Actions -> Send Intent
 <br>com.salat.gbinder.SMART_ENABLE_MEDIA_CONTROL
 <br>com.salat.gbinder.DISABLE_MEDIA_CONTROL<br><br>
 <strong>Package</strong>: com.salat.gbinder<br>
-"SMART" - Enables only if it was previously enabled manually
+SMART - Enables only if it was previously enabled manually
 ]]></string>
     <string name="api_text4"><![CDATA[<strong>Receiving Active Media Session Data</strong>
 <br>
@@ -694,7 +699,7 @@ In MacroDroid: Actions -> Send Intent
 <br>
 Make a phone call<br>
 <strong>Action 1:</strong> com.salat.gbinder.PHONE_CALL
-<br><strong>Additional:</strong> number -> phone number (specify the variable type as "string", otherwise the "+" in the number will be lost)
+<br><strong>Additional:</strong> number -> phone number (specify the variable type as string, otherwise the + in the number will be lost)
 <br>
 <br>
 Answer a call<br>
@@ -857,4 +862,14 @@ Send pkg when the overlay opens and always release = 1 when it closes, otherwise
     <string name="cluster_bg_err_no_file">No cluster file loaded</string>
     <string name="cluster_bg_err_unknown">Something went wrong</string>
     <string name="cluster_theme_replacement_desc">This feature replaces the pre-installed instrument cluster themes. If the themes do not switch in your system, there is no point in trying to replace them.</string>
+    <string name="adb_terminal">Terminal</string>
+    <string name="adb_terminal_warning">Commands run directly on the head unit shell. Do not enter commands whose purpose you do not understand — a wrong command can disable system apps or wipe their data.</string>
+    <string name="adb_terminal_warning_accept">I understand, open the terminal</string>
+    <string name="adb_terminal_empty">Head unit shell. Type a command or pick one from the suggestions.</string>
+    <string name="adb_terminal_execute">Run</string>
+    <string name="adb_terminal_stop">Stop</string>
+    <string name="adb_terminal_timeout">Stopped by timeout (15s)</string>
+    <string name="adb_terminal_cancelled">Stopped</string>
+    <string name="adb_terminal_truncated">Showing first %1$d lines of %2$d</string>
+    <string name="adb_terminal_hint">Command</string>
 </resources>

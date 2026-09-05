@@ -14,8 +14,8 @@ internal class TelnetShellTransport private constructor(
     private val input: InputStream,
     private val output: OutputStream
 ) {
-    fun exec(command: String, marker: String): Pair<String, Int> {
-        socket.soTimeout = READ_TIMEOUT_MS
+    fun exec(command: String, marker: String, readTimeoutMs: Int = READ_TIMEOUT_MS): Pair<String, Int> {
+        socket.soTimeout = readTimeoutMs
         val effectiveCommand = appendMarker(command, marker) + "\n"
         output.write(effectiveCommand.toByteArray(StandardCharsets.UTF_8))
         output.flush()

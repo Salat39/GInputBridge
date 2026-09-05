@@ -74,7 +74,8 @@
     <string name="back">Назад</string>
 
     <string name="show_documentation">Показать API</string>
-    <string name="hide_documentation">Скрыть API</string>
+    <string name="api_documentation_title">API</string>
+    <string name="api_documentation_subtitle">Broadcast-интенты для MacroDroid и других приложений автоматизации</string>
     <string name="media_control">Управление медиа</string>
     <string name="media_control_desc">Активируйте эту функцию, чтобы использовать кнопки руля для переключения треков, паузы и воспроизведения. Когда медиаприложение показывается на экране, управление автоматически переходит к нему</string>
     <string name="media_apps">Медиаприложения</string>
@@ -257,6 +258,8 @@
     <string name="not_that_interested">Не так уж и хотелось</string>
     <string name="configurator">Конфигуратор</string>
     <string name="search">Поиск</string>
+    <string name="all_functions">Все функции</string>
+    <string name="favorites">Избранное</string>
     <string name="favorites_display">Функции, добавленные в «Избранное», появятся здесь</string>
     <string name="nothing_found">Ничего не найдено</string>
 
@@ -370,7 +373,7 @@
     <string name="steering_wheel_buttons">Кнопки руля</string>
     <string name="playback_control">Управление воспроизведением</string>
     <string name="audio_control">Аудиоуправление</string>
-    <string name="general">Общее</string>
+    <string name="advanced_settings">Расширенные настройки</string>
 
     <string name="public_notes">Публичные заметки</string>
     <string name="changes_saved">Изменения сохранены</string>
@@ -549,6 +552,8 @@
     <string name="launcher_extra_features_desc">Открывает дополнительные возможности в лаунчере: закрытие приложений, определение статуса приложения в системе (запущено/не запущено) и другие функции.</string>
     <string name="stop_dim_interaction_on_boot_title">Останавливать DIM interaction при запуске системы</string>
     <string name="stop_dim_interaction_on_boot_desc">Автоматическая остановка DIM interaction службы (блокирует логин и работу некоторых приложений) при каждом запуске системы.</string>
+    <string name="app_aot_compile_title">Ускорить GInputBridge (компиляция кода)</string>
+    <string name="app_aot_compile_desc">Один раз переводит код GInputBridge в машинный. Лаунчер, меню и оверлеи открываются без задержки, особенно первый раз после включения. Остальную систему не затрагивает. Выполняется однократно, в фоне, 1–3 минуты, результат виден после следующей перезагрузки. Безопасно: штатный механизм Android, настройки не меняются. Повторяется автоматически только после обновления приложения.</string>
     <string name="rear_wiper_auto_title">Задний дворник в авторежиме</string>
     <string name="rear_wiper_auto_desc">Позволяет выключить работу авторежима для заднего дворника при включении \"R\".</string>
     <string name="open">Открыть</string>
@@ -600,20 +605,20 @@
 <br>
 <br>
 <strong>Действия</strong>:
-<br>\"com.salat.gbinder.SHORT_CLICK\"
-<br>\"com.salat.gbinder.LONG_PRESS\"
-<br>\"com.salat.gbinder.MULTI_LONG_PRESS\"
-<br>\"com.salat.gbinder.DOUBLE_CLICK\"
-<br>\"com.salat.gbinder.HOLD_START\"
-<br>\"com.salat.gbinder.HOLD_STOP\"
-<br>\"com.salat.gbinder.KEY_EVENT\"
+<br>com.salat.gbinder.SHORT_CLICK
+<br>com.salat.gbinder.LONG_PRESS
+<br>com.salat.gbinder.MULTI_LONG_PRESS
+<br>com.salat.gbinder.DOUBLE_CLICK
+<br>com.salat.gbinder.HOLD_START
+<br>com.salat.gbinder.HOLD_STOP
+<br>com.salat.gbinder.KEY_EVENT
 <br>
 <br>
 <strong>Дополнение</strong>:
-<br>\"code\" -> keyCode клавиши.
-<br>для KEY_EVENT дополнительно: \"event\" -> [0|1|3] где 0 = DONW, 1 = UP, 3 = CANCEL <br>и \"func\" -> системный код функции
+<br>code -> keyCode клавиши.
+<br>для KEY_EVENT дополнительно: event -> [0|1|3] где 0 = DONW, 1 = UP, 3 = CANCEL <br>и func -> системный код функции
 <br>
-<br>для MULTI_LONG_PRESS параметр \"code\" приходит в формате -> 119+200087 с кодами клавиш, код формируется от меньшего числа к большему
+<br>для MULTI_LONG_PRESS параметр code приходит в формате 119+200087 с кодами клавиш, код формируется от меньшего числа к большему
 ]]></string>
 
     <string name="api_text2"><![CDATA[<strong>Работа с аудио источниками</strong>
@@ -654,7 +659,7 @@
 <br>com.salat.gbinder.SMART_ENABLE_MEDIA_CONTROL
 <br>com.salat.gbinder.DISABLE_MEDIA_CONTROL<br><br>
 <strong>Пакет</strong>: com.salat.gbinder<br>
-"SMART" - Включает только если ранее было включено вручную
+SMART - Включает только если ранее было включено вручную
 ]]></string>
 
     <string name="api_text4"><![CDATA[<strong>Получение данных активной медсессии</strong>
@@ -690,7 +695,7 @@
 <br>
 Позвонить по номеру<br>
 <strong>Действие 1:</strong> com.salat.gbinder.PHONE_CALL
-<br><strong>Дополнение:</strong> number -> номер телефона (указывайте тип переменной - \"строка\", иначе \"+\" в номере потеряется)
+<br><strong>Дополнение:</strong> number -> номер телефона (указывайте тип переменной - строка, иначе + в номере потеряется)
 <br>
 <br>
 Ответить на звонок<br>
@@ -857,4 +862,14 @@
     <string name="cluster_bg_err_no_file">Файл приборки не загружен</string>
     <string name="cluster_bg_err_unknown">Что-то пошло не так</string>
     <string name="cluster_theme_replacement_desc">Эта функция подменяет предустановленные темы приборки. Если в вашей системе они не переключаются — нет смысла их пытаться подменить.</string>
+    <string name="adb_terminal">Терминал</string>
+    <string name="adb_terminal_warning">Команды выполняются напрямую в shell головного устройства. Не вводите команды, назначения которых вы не понимаете — ошибочная команда может отключить системные приложения или стереть их данные.</string>
+    <string name="adb_terminal_warning_accept">Я понимаю, открыть терминал</string>
+    <string name="adb_terminal_empty">Shell головного устройства. Введите команду или выберите из подсказок.</string>
+    <string name="adb_terminal_execute">Выполнить</string>
+    <string name="adb_terminal_stop">Стоп</string>
+    <string name="adb_terminal_timeout">Прервано по таймауту (15с)</string>
+    <string name="adb_terminal_cancelled">Прервано</string>
+    <string name="adb_terminal_truncated">Показаны первые %1$d строк из %2$d</string>
+    <string name="adb_terminal_hint">Команда</string>
 </resources>

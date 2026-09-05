@@ -41,6 +41,7 @@ object GeneralPrefs {
     val ENABLE_ADB_HELPER = booleanPreferencesKey("ENABLE_ADB_HELPER")
     val ADB_HELPER_PORT = intPreferencesKey("ADB_HELPER_PORT")
     val ADB_DIM_AUTO_STOP = booleanPreferencesKey("ADB_DIM_AUTO_STOP")
+    val ADB_AOT_COMPILE = booleanPreferencesKey("ADB_AOT_COMPILE")
     val ALT_MUTE = booleanPreferencesKey("ALT_MUTE")
     val ALT_MENU = booleanPreferencesKey("ALT_MENU")
     val ALT_LONG_TIME = intPreferencesKey("ALT_LONG_TIME")
@@ -98,6 +99,7 @@ object GeneralPrefs {
             ENABLE_ADB_HELPER,
             ADB_HELPER_PORT,
             ADB_DIM_AUTO_STOP,
+            ADB_AOT_COMPILE,
             ALT_MUTE,
             ALT_MENU,
             ALT_LONG_TIME,

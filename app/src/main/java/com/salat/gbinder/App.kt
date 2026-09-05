@@ -57,6 +57,7 @@ import com.salat.gbinder.datastore.DataStoreRepository
 import com.salat.gbinder.datastore.GeneralPrefs
 import com.salat.gbinder.datastore.KeyBindStorageRepository
 import com.salat.gbinder.datastore.LauncherPrefs
+import com.salat.gbinder.datastore.NoBackupPrefs
 import com.salat.gbinder.entity.AppMediaAction
 import com.salat.gbinder.entity.CarFunction
 import com.salat.gbinder.entity.CarModel
@@ -199,6 +200,7 @@ class App : Application(), ImageLoaderFactory {
         private const val PERMISSIONS_CHECK_DELAY_MS = 1_000
 
         private const val MINIMIZE_SYSTEM_DELAY = 360L
+        private const val AOT_COMPILE_START_DELAY_MS = 60_000L
         private const val SILENT_START = 4 // in sec
         private const val ONLINE_SWITCH_RETRY_INTERVAL_MS = 1200L
         private const val KARAOKE_RETRY_COUNT = 15
@@ -2175,6 +2177,7 @@ class App : Application(), ImageLoaderFactory {
 
     private fun CoroutineScope.handleAdbActions() = launch {
         var stopDimByLaunch: Job? = null
+        var aotCompile: Job? = null
 
         dataStore.getValueFlow(GeneralPrefs.ENABLE_ADB_HELPER, false).collect { enabled ->
             adbIsEnabled = enabled
@@ -2188,8 +2191,37 @@ class App : Application(), ImageLoaderFactory {
                     }
                 }
             } else null
+
+            aotCompile?.cancel()
+            aotCompile = if (enabled) launch {
+                dataStore.getValueFlow(GeneralPrefs.ADB_AOT_COMPILE, false).collectLatest { needCompile ->
+                    if (needCompile) compileAppToNativeIfNeeded()
+                }
+            } else null
         }
     }
+
+    private suspend fun compileAppToNativeIfNeeded() {
+        val installTime = packageManager.getPackageInfo(packageName, 0).lastUpdateTime
+        val compiledInstallTime =
+            dataStore.getValueFlow(NoBackupPrefs.ADB_AOT_COMPILED_UPDATE_TIME).first()
+        if (compiledInstallTime == installTime) return
+
+        adb.connectionState.first { it is AdbConnectionState.Connected }
+        if (isAppCompiledToNative()) {
+            dataStore.saveValue(NoBackupPrefs.ADB_AOT_COMPILED_UPDATE_TIME, installTime)
+            return
+        }
+
+        delay(AOT_COMPILE_START_DELAY_MS)
+        // Detached - dex2oat runs for minutes and must not hold the shared ADB command lock
+        adb.execute("(setsid nohup cmd package compile -m speed -f $packageName >/dev/null 2>&1 &)")
+        Timber.d("[ADB] AOT compile started")
+    }
+
+    private suspend fun isAppCompiledToNative() =
+        adb.execute("dumpsys package $packageName | grep -m1 status=")
+            .contains("[status=speed]")
 
     // -----------------------------------
     // Key triggers

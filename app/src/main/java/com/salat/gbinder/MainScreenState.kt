@@ -34,7 +34,10 @@ internal data class MainScreenState(
     val adbDimAutoStop: Boolean = false,
     val altMenu: Boolean = true,
     val altMute: Boolean = true,
-    val altLongTime: Int = ADDITIONAL_KEYS_MIN_LONG_PRESS_TIME
+    val altLongTime: Int = ADDITIONAL_KEYS_MIN_LONG_PRESS_TIME,
+    val adbTerminalWarning: Boolean = true,
+    val advancedSettingsExpanded: Boolean = false,
+    val adbAotCompile: Boolean = false
 ) {
     fun updateFrom(row: List<Any?>): MainScreenState {
         return copy(
@@ -66,7 +69,10 @@ internal data class MainScreenState(
             adbDimAutoStop = row[25] as Boolean,
             altMenu = row[26] as Boolean,
             altMute = row[27] as Boolean,
-            altLongTime = row[28] as Int
+            altLongTime = row[28] as Int,
+            adbTerminalWarning = row[29] as Boolean,
+            advancedSettingsExpanded = row[30] as Boolean,
+            adbAotCompile = row[31] as Boolean
         )
     }
 
@@ -99,7 +105,10 @@ internal data class MainScreenState(
         adbDimAutoStop,
         altMenu,
         altMute,
-        altLongTime
+        altLongTime,
+        adbTerminalWarning,
+        advancedSettingsExpanded,
+        adbAotCompile
     )
 
     companion object {

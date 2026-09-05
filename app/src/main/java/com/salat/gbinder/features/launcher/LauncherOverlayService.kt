@@ -90,6 +90,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import androidx.core.view.doOnPreDraw
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.setViewTreeLifecycleOwner
@@ -307,7 +308,7 @@ class LauncherOverlayService : Service() {
         if (launcherContainer != null) return
 
         // Build ui
-        setupLauncherOverlay()
+        val overlayAdded = setupLauncherOverlay()
         ioScope.launch {
             for (payload in saveQueue) {
                 runCatching { data.saveMyApps(payload) }
@@ -315,19 +316,26 @@ class LauncherOverlayService : Service() {
             }
         }
 
-        // Set state + Launch activity if not launched yet
         stateKeeper.setLauncherOverlayEnabled(true)
-        // Activity not launched -> launch now
-        if (!stateKeeper.launcherActivityEnabled.value) {
-            val intent = Intent(this, LauncherEntryActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(intent)
+        if (overlayAdded) {
+            // The entry activity composes on the same main thread - the overlay draws its first frame first
+            launcherContainer?.doOnPreDraw { view -> view.post { startEntryActivityIfNeeded() } }
+        } else {
+            startEntryActivityIfNeeded()
         }
         Timber.d("[LAUNCHER] onCreated")
     }
 
-    private fun setupLauncherOverlay() {
+    private fun startEntryActivityIfNeeded() {
+        if (isClosing.get() || stateKeeper.launcherActivityEnabled.value) return
+        val intent = Intent(this, LauncherEntryActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(intent)
+        Timber.d("[LAUNCHER] entry activity started")
+    }
+
+    private fun setupLauncherOverlay(): Boolean {
         launcherContainer = ComposeView(this).apply {
             setViewTreeLifecycleOwner(composeLifecycleOwner)
             setViewTreeSavedStateRegistryOwner(composeLifecycleOwner)
@@ -362,8 +370,9 @@ class LauncherOverlayService : Service() {
             PixelFormat.TRANSLUCENT
         )
 
-        runCatching { windowManager.addView(launcherContainer, launcherWindowParams) }
+        return runCatching { windowManager.addView(launcherContainer, launcherWindowParams) }
             .onFailure { Timber.e(it) }
+            .isSuccess
     }
 
     @Composable

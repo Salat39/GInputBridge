@@ -52,6 +52,8 @@ fun RenderSystemParams(
     enableAdbHelper: Boolean,
     adbDimAutoStop: Boolean,
     onAdbDimAutoStopChanged: (Boolean) -> Unit,
+    adbAotCompile: Boolean,
+    onAdbAotCompileChanged: (Boolean) -> Unit,
     onNavigateToGeelyLauncherSettings: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -69,6 +71,8 @@ fun RenderSystemParams(
             enableAdbHelper = enableAdbHelper,
             adbDimAutoStop = adbDimAutoStop,
             onAdbDimAutoStopChanged = onAdbDimAutoStopChanged,
+            adbAotCompile = adbAotCompile,
+            onAdbAotCompileChanged = onAdbAotCompileChanged,
             onNavigateToGeelyLauncherSettings = onNavigateToGeelyLauncherSettings,
             viewModel = viewModel
         )
@@ -117,6 +121,8 @@ private fun ColumnScope.RenderConfiguratorPresetsContent(
     enableAdbHelper: Boolean,
     adbDimAutoStop: Boolean,
     onAdbDimAutoStopChanged: (Boolean) -> Unit,
+    adbAotCompile: Boolean,
+    onAdbAotCompileChanged: (Boolean) -> Unit,
     onNavigateToGeelyLauncherSettings: () -> Unit,
     viewModel: ConfiguratorPresetsViewModel
 ) {
@@ -166,12 +172,28 @@ private fun ColumnScope.RenderConfiguratorPresetsContent(
 
                 Spacer(Modifier.height(12.dp))
 
+                RenderAdbAotCompileSwitcher(
+                    enableAdbHelper = enableAdbHelper,
+                    adbAotCompile = adbAotCompile,
+                    onAdbAotCompileChanged = onAdbAotCompileChanged
+                )
+
+                Spacer(Modifier.height(12.dp))
+
                 if (isAtlas) {
                     RearWiperAutoSwitcher(
                         value = rearWiperAuto == true,
                         onChange = { viewModel.setrearWiperAuto(it) }
                     )
                 }
+
+//                Spacer(Modifier.height(12.dp))
+//
+//                RenderListButton(
+//                    modifier = Modifier.padding(horizontal = 20.dp),
+//                    title = stringResource(R.string.developer_options),
+//                    onClick = { context.openDeveloperSettings() }
+//                )
 
                 Spacer(Modifier.height(90.dp))
             }
@@ -272,6 +294,23 @@ private fun RenderAdbDimAutoStopSwitcher(
         value = adbDimAutoStop,
         groupDivider = false,
         onChange = { onAdbDimAutoStopChanged(it) }
+    )
+}
+
+@Composable
+private fun RenderAdbAotCompileSwitcher(
+    enableAdbHelper: Boolean,
+    adbAotCompile: Boolean,
+    onAdbAotCompileChanged: (Boolean) -> Unit
+) {
+    RenderSwitcher(
+        modifier = Modifier.padding(horizontal = 20.dp),
+        title = "[ADB] ${stringResource(R.string.app_aot_compile_title)}",
+        subtitle = stringResource(R.string.app_aot_compile_desc),
+        enable = enableAdbHelper,
+        value = adbAotCompile,
+        groupDivider = false,
+        onChange = { onAdbAotCompileChanged(it) }
     )
 }
 

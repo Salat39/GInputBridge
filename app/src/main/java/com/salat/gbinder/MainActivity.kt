@@ -38,7 +38,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
@@ -61,12 +60,15 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
@@ -108,6 +110,8 @@ import com.salat.gbinder.entity.HugeTogglerItem
 import com.salat.gbinder.entity.KeyBindAction
 import com.salat.gbinder.entity.parseAppCarouselValueSegment
 import com.salat.gbinder.entity.UiDownloadState
+import com.salat.gbinder.features.adbTerminal.RenderAdbTerminalScreen
+import com.salat.gbinder.features.apiDocumentation.RenderApiDocumentationScreen
 import com.salat.gbinder.features.configurator.RenderConfigurator
 import com.salat.gbinder.features.configurator.RenderSystemParams
 import com.salat.gbinder.features.geelyLauncher.RenderGeelyLauncherSettings
@@ -120,10 +124,10 @@ import com.salat.gbinder.mappers.toDisplayAdbState
 import com.salat.gbinder.mappers.toDisplayIcon
 import com.salat.gbinder.screenParts.InputPortDialog
 import com.salat.gbinder.screenParts.RenderDebugSettingsBlock
-import com.salat.gbinder.screenParts.RenderDocumentationBlock
 import com.salat.gbinder.screenParts.RenderGroupDivider
 import com.salat.gbinder.screenParts.RenderGroupTitle
 import com.salat.gbinder.screenParts.RenderKeyBinds
+import com.salat.gbinder.screenParts.RenderSpoilerButton
 import com.salat.gbinder.screenParts.UiScaleDialog
 import com.salat.gbinder.statekeeper.domain.repository.StateKeeperRepository
 import com.salat.gbinder.ui.BaseButton
@@ -240,9 +244,11 @@ class MainActivity : ComponentActivity() {
             val appUpdateInfo by viewModel.appUpdateInfo.collectAsStateWithLifecycle()
             val updateDownloadState by viewModel.updateDownloadState.collectAsStateWithLifecycle()
 
-            var showConfigurator by rememberSaveable { mutableStateOf(Pair(false, false)) }
+            var showConfigurator by rememberSaveable { mutableStateOf(false) }
             var showSystemParams by remember { mutableStateOf(false) }
             var showGeelyLauncherSettings by remember { mutableStateOf(false) }
+            var showAdbTerminal by rememberSaveable { mutableStateOf(false) }
+            var showApiDocumentation by rememberSaveable { mutableStateOf(false) }
 
             var mainScreenState by rememberSaveable(
                 stateSaver = MainScreenState.saver
@@ -408,7 +414,7 @@ class MainActivity : ComponentActivity() {
                             .background(AppTheme.colors.surfaceBackground)
                             .padding(innerPadding)
                             .then(
-                                if (showConfigurator.first || showSystemParams) {
+                                if (showConfigurator || showSystemParams || showAdbTerminal || showApiDocumentation) {
                                     Modifier
                                 } else Modifier.verticalScroll(scrollState)
                             ),
@@ -434,8 +440,8 @@ class MainActivity : ComponentActivity() {
                                     title = stringResource(R.string.accessibility_features),
                                     onClick = { context.openAccessibilitySettings() })
                             }
-                        } else if (showConfigurator.first) {
-                            BackHandler { showConfigurator = false to false }
+                        } else if (showConfigurator) {
+                            BackHandler { showConfigurator = false }
 
                             if (mainScreenState.configuratorWarning) {
 
@@ -473,15 +479,14 @@ class MainActivity : ComponentActivity() {
                                         title = stringResource(R.string.not_that_interested),
                                         backgroundColor = AppTheme.colors.surfaceMenu,
                                         onClick = {
-                                            showConfigurator = false to false
+                                            showConfigurator = false
                                         })
                                 }
                             } else RenderConfigurator(
                                 viewModel = viewModel,
                                 uiScaleState = uiScale,
-                                onlyFavorite = showConfigurator.second,
                                 favoriteStorage = remember { favoriteStorage },
-                                onClose = { showConfigurator = false to false }
+                                onClose = { showConfigurator = false }
                             )
                         } else if (showGeelyLauncherSettings) {
                             RenderGeelyLauncherSettings(
@@ -499,11 +504,65 @@ class MainActivity : ComponentActivity() {
                                         dataStore.saveValue(GeneralPrefs.ADB_DIM_AUTO_STOP, it)
                                     }
                                 },
+                                adbAotCompile = mainScreenState.adbAotCompile,
+                                onAdbAotCompileChanged = {
+                                    mainScreenState = mainScreenState.copy(adbAotCompile = it)
+                                    scope.launch {
+                                        dataStore.saveValue(GeneralPrefs.ADB_AOT_COMPILE, it)
+                                    }
+                                },
                                 onNavigateToGeelyLauncherSettings = {
                                     showGeelyLauncherSettings = true
                                 },
                                 onClose = { showSystemParams = false }
                             )
+                        } else if (showAdbTerminal) {
+                            BackHandler { showAdbTerminal = false }
+
+                            if (mainScreenState.adbTerminalWarning) {
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.Center,
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        modifier = Modifier
+                                            .padding(horizontal = 24.dp),
+                                        text = stringResource(R.string.adb_terminal_warning),
+                                        textAlign = TextAlign.Center,
+                                        style = AppTheme.typography.screenTitle.copy(
+                                            lineHeight = 23.sp
+                                        ),
+                                        color = AppTheme.colors.contentPrimary
+                                    )
+                                    Spacer(Modifier.height(36.dp))
+                                    BaseButton(
+                                        title = stringResource(R.string.adb_terminal_warning_accept),
+                                        backgroundColor = AppTheme.colors.addSplitTop,
+                                        onClick = {
+                                            scope.launch {
+                                                dataStore.saveValue(
+                                                    NoBackupPrefs.ADB_TERMINAL_WARNING,
+                                                    false
+                                                )
+                                                mainScreenState =
+                                                    mainScreenState.copy(adbTerminalWarning = false)
+                                            }
+                                        })
+                                    Spacer(Modifier.height(24.dp))
+                                    BaseButton(
+                                        title = stringResource(R.string.not_that_interested),
+                                        backgroundColor = AppTheme.colors.surfaceMenu,
+                                        onClick = {
+                                            showAdbTerminal = false
+                                        })
+                                }
+                            } else RenderAdbTerminalScreen(
+                                uiScaleState = uiScale,
+                                onClose = { showAdbTerminal = false }
+                            )
+                        } else if (showApiDocumentation) {
+                            RenderApiDocumentationScreen(onClose = { showApiDocumentation = false })
                         } else if (readyUi) {
                             RenderMainContent(
                                 mainScreenState = mainScreenState,
@@ -518,10 +577,12 @@ class MainActivity : ComponentActivity() {
                                 isDebugMInstalled = isDebugMInstalled,
                                 isMConfigMInstalled = isMConfigMInstalled,
                                 adbConnectionState = adbConnectionState,
-                                openConfigurator = { onlyFavorite ->
-                                    showConfigurator = true to onlyFavorite
+                                openConfigurator = {
+                                    showConfigurator = true
                                 },
                                 openSystemParams = { showSystemParams = true },
+                                openAdbTerminal = { showAdbTerminal = true },
+                                openApiDocumentation = { showApiDocumentation = true },
                                 showActionBindLockConfirmDialog = {
                                     actionBindLockConfirmDialog = true
                                 },
@@ -551,8 +612,10 @@ class MainActivity : ComponentActivity() {
         isDebugMInstalled: Boolean,
         isMConfigMInstalled: Boolean,
         adbConnectionState: DisplayAdbState,
-        openConfigurator: (onlyFavorite: Boolean) -> Unit,
+        openConfigurator: () -> Unit,
         openSystemParams: () -> Unit,
+        openAdbTerminal: () -> Unit,
+        openApiDocumentation: () -> Unit,
         showActionBindLockConfirmDialog: () -> Unit,
         showDeleteBindConfirmDialog: (String) -> Unit
     ) {
@@ -1453,87 +1516,6 @@ class MainActivity : ComponentActivity() {
         RenderGroupDivider()
         Spacer(Modifier.height(24.dp))
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Min)
-                .padding(horizontal = 42.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(AppTheme.colors.addSplitTop)
-        ) {
-            Text(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(
-                        vertical = 14.dp,
-                        horizontal = 64.dp
-                    ),
-                text = stringResource(R.string.configurator),
-                color = AppTheme.colors.contentPrimary,
-                style = AppTheme.typography.buttonTitle,
-                textAlign = TextAlign.Center
-            )
-
-            Row(Modifier.fillMaxWidth()) {
-
-                Spacer(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .clickable { openConfigurator(false) }
-                        .weight(1f)
-                        .padding(
-                            start = 4.dp,
-                            end = 4.dp,
-                            top = 14.dp,
-                            bottom = 14.dp,
-                        )
-                )
-
-                Spacer(
-                    Modifier
-                        .fillMaxHeight()
-                        .width(1.dp)
-                        .padding(vertical = 10.dp)
-                        .background(AppTheme.colors.contentPrimary.copy(.2f))
-                )
-
-                Box(
-                    modifier = Modifier
-                        .clickable {
-                            openConfigurator(true)
-                        }
-                        .padding(horizontal = 32.dp)
-                        .fillMaxHeight(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Favorite,
-                        tint = AppTheme.colors.contentPrimary,
-                        contentDescription = stringResource(R.string.back)
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(28.dp))
-
-        BaseButton(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.Start)
-                .padding(horizontal = 42.dp),
-            title = stringResource(R.string.system_parameters),
-            backgroundColor = AppTheme.colors.addSplitBottom
-        ) {
-            openSystemParams()
-        }
-
-        Spacer(Modifier.height(24.dp))
-        RenderGroupDivider()
-        Spacer(Modifier.height(24.dp))
-
-        RenderDocumentationBlock()
-
         RenderGroupTitle("CLI Gateways")
 
         Row(
@@ -1567,7 +1549,9 @@ class MainActivity : ComponentActivity() {
                         is DisplayAdbState.Error -> stringResource(R.string.error)
                     },
                     style = AppTheme.typography.statusTitle,
-                    color = AppTheme.colors.contentPrimary
+                    color = AppTheme.colors.contentPrimary,
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 1
                 )
 
                 val conState = adbConnectionState
@@ -1578,6 +1562,15 @@ class MainActivity : ComponentActivity() {
                         color = AppTheme.colors.contentPrimary,
                         overflow = TextOverflow.Ellipsis,
                         maxLines = 2
+                    )
+                }
+
+                // The connected state has no subtitle, so the button takes that line.
+                // Without a connection every command answers "ADB disconnected"
+                if (adbConnectionState == DisplayAdbState.Connected) {
+                    AdbTerminalPill(
+                        modifier = Modifier.padding(top = 2.dp),
+                        onClick = openAdbTerminal
                     )
                 }
             }
@@ -1755,117 +1748,176 @@ class MainActivity : ComponentActivity() {
         RenderGroupDivider()
         Spacer(Modifier.height(24.dp))
 
-        RenderGroupTitle(stringResource(R.string.general))
+        BaseButton(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.Start)
+                .padding(horizontal = 42.dp),
+            title = stringResource(R.string.configurator),
+            backgroundColor = AppTheme.colors.addSplitTop,
+            onClick = openConfigurator
+        )
 
-        var uiScaleDialog by rememberSaveable { mutableStateOf(false) }
-        if (uiScaleDialog) {
-            UiScaleDialog(
-                uiScaleState = uiScale,
-                onChangeUiScale = { newValue ->
-                    updateUiScale(newValue)
-                    scope.launch(Dispatchers.IO) {
-                        dataStore.saveValue(
-                            GeneralPrefs.APP_UI_SCALE,
-                            newValue
-                        )
-                    }
-                },
-                onDismiss = { uiScaleDialog = false }
-            )
-        }
+        Spacer(Modifier.height(28.dp))
 
-        RenderListButton(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.interface_scale),
-            subtitle = "${uiScale.roundScale()}x"
+        BaseButton(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.Start)
+                .padding(horizontal = 42.dp),
+            title = stringResource(R.string.system_parameters),
+            backgroundColor = AppTheme.colors.addSplitBottom
         ) {
-            uiScaleDialog = true
+            openSystemParams()
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(28.dp))
 
-        // is md target broadcast
-        RenderSwitcher(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.broadcast_intents),
-            subtitle = stringResource(R.string.broadcast_intents_desc),
-            value = mainScreenState.fullBroadcast,
-            enable = true,
-            groupDivider = false,
-            onChange = {
-                updateMainScreenState(mainScreenState.copy(fullBroadcast = it))
+        RenderSpoilerButton(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.Start)
+                .padding(horizontal = 42.dp),
+            title = stringResource(R.string.advanced_settings),
+            backgroundColor = AppTheme.colors.surfaceMenu,
+            expanded = mainScreenState.advancedSettingsExpanded,
+            onClick = {
+                val expanded = !mainScreenState.advancedSettingsExpanded
+                updateMainScreenState(mainScreenState.copy(advancedSettingsExpanded = expanded))
                 scope.launch(Dispatchers.IO) {
-                    dataStore.saveValue(GeneralPrefs.FULL_BROADCAST, it)
+                    dataStore.saveValue(NoBackupPrefs.ADVANCED_SETTINGS_EXPANDED, expanded)
                 }
             }
         )
 
-        Spacer(Modifier.height(12.dp))
+        AnimatedVisibility(
+            visible = mainScreenState.advancedSettingsExpanded,
+            enter = expandVertically(expandFrom = Alignment.Top, animationSpec = tween(300)),
+            exit = shrinkVertically(shrinkTowards = Alignment.Top, animationSpec = tween(300))
+        ) {
+            Column(Modifier.fillMaxWidth()) {
+                Spacer(Modifier.height(12.dp))
 
-        // track keycode event
-        RenderSwitcher(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.track_keycode_event),
-            subtitle = stringResource(R.string.low_level_key_events),
-            value = mainScreenState.trackKeyEvents,
-            enable = true,
-            groupDivider = false,
-            onChange = {
-                updateMainScreenState(mainScreenState.copy(trackKeyEvents = it))
-                scope.launch(Dispatchers.IO) {
-                    dataStore.saveValue(GeneralPrefs.TRACK_KEY_EVENTS, it)
+                var uiScaleDialog by rememberSaveable { mutableStateOf(false) }
+                if (uiScaleDialog) {
+                    UiScaleDialog(
+                        uiScaleState = uiScale,
+                        onChangeUiScale = { newValue ->
+                            updateUiScale(newValue)
+                            scope.launch(Dispatchers.IO) {
+                                dataStore.saveValue(
+                                    GeneralPrefs.APP_UI_SCALE,
+                                    newValue
+                                )
+                            }
+                        },
+                        onDismiss = { uiScaleDialog = false }
+                    )
                 }
-            }
-        )
 
-        // debug options
-        RenderDebugSettingsBlock(
-            isDebugMode = mainScreenState.isDebugMode,
-            deepLogs = mainScreenState.deepLogs,
-            onSaveBooleanPref = { pref, value ->
-                updateMainScreenState(
-                    when (pref) {
-                        GeneralPrefs.DEBUG_MODE -> {
-                            mainScreenState.copy(isDebugMode = value)
+                RenderListButton(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    title = stringResource(R.string.interface_scale),
+                    subtitle = "${uiScale.roundScale()}x"
+                ) {
+                    uiScaleDialog = true
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // is md target broadcast
+                RenderSwitcher(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    title = stringResource(R.string.broadcast_intents),
+                    subtitle = stringResource(R.string.broadcast_intents_desc),
+                    value = mainScreenState.fullBroadcast,
+                    enable = true,
+                    groupDivider = false,
+                    onChange = {
+                        updateMainScreenState(mainScreenState.copy(fullBroadcast = it))
+                        scope.launch(Dispatchers.IO) {
+                            dataStore.saveValue(GeneralPrefs.FULL_BROADCAST, it)
                         }
-
-                        GeneralPrefs.DEEP_LOGS -> {
-                            mainScreenState.copy(deepLogs = value)
-                        }
-
-                        else -> mainScreenState
                     }
                 )
-                scope.launch(Dispatchers.IO) { dataStore.saveValue(pref, value) }
-            }
-        )
 
-        Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(12.dp))
 
-        // suppression mode
-        RenderSwitcher(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            title = stringResource(R.string.suppression_mode),
-            subtitle = stringResource(R.string.suppression_mode_desc),
-            value = mainScreenState.suppressionMode,
-            enable = true,
-            groupDivider = false,
-            onChange = { newValue ->
-                if (newValue) {
-                    showActionBindLockConfirmDialog()
-                } else {
-                    updateMainScreenState(mainScreenState.copy(suppressionMode = false))
-                    scope.launch(Dispatchers.IO) {
-                        dataStore.saveValue(
-                            GeneralPrefs.SUPPRESSION_MODE,
-                            false
-                        )
+                // track keycode event
+                RenderSwitcher(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    title = stringResource(R.string.track_keycode_event),
+                    subtitle = stringResource(R.string.low_level_key_events),
+                    value = mainScreenState.trackKeyEvents,
+                    enable = true,
+                    groupDivider = false,
+                    onChange = {
+                        updateMainScreenState(mainScreenState.copy(trackKeyEvents = it))
+                        scope.launch(Dispatchers.IO) {
+                            dataStore.saveValue(GeneralPrefs.TRACK_KEY_EVENTS, it)
+                        }
                     }
-                }
-            }
-        )
+                )
 
-        Spacer(Modifier.height(16.dp))
+                // debug options
+                RenderDebugSettingsBlock(
+                    isDebugMode = mainScreenState.isDebugMode,
+                    deepLogs = mainScreenState.deepLogs,
+                    onSaveBooleanPref = { pref, value ->
+                        updateMainScreenState(
+                            when (pref) {
+                                GeneralPrefs.DEBUG_MODE -> {
+                                    mainScreenState.copy(isDebugMode = value)
+                                }
+
+                                GeneralPrefs.DEEP_LOGS -> {
+                                    mainScreenState.copy(deepLogs = value)
+                                }
+
+                                else -> mainScreenState
+                            }
+                        )
+                        scope.launch(Dispatchers.IO) { dataStore.saveValue(pref, value) }
+                    }
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                // suppression mode
+                RenderSwitcher(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    title = stringResource(R.string.suppression_mode),
+                    subtitle = stringResource(R.string.suppression_mode_desc),
+                    value = mainScreenState.suppressionMode,
+                    enable = true,
+                    groupDivider = false,
+                    onChange = { newValue ->
+                        if (newValue) {
+                            showActionBindLockConfirmDialog()
+                        } else {
+                            updateMainScreenState(mainScreenState.copy(suppressionMode = false))
+                            scope.launch(Dispatchers.IO) {
+                                dataStore.saveValue(
+                                    GeneralPrefs.SUPPRESSION_MODE,
+                                    false
+                                )
+                            }
+                        }
+                    }
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                RenderListButton(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    title = stringResource(R.string.show_documentation),
+                    subtitle = stringResource(R.string.api_documentation_subtitle),
+                    onClick = openApiDocumentation
+                )
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
         RenderGroupDivider()
         Spacer(Modifier.height(24.dp))
 
@@ -2659,6 +2711,53 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@Composable
+private fun AdbTerminalPill(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    SubcomposeLayout(modifier) { constraints ->
+        val full = subcompose(true) { AdbTerminalPillContent(withLabel = true, onClick = onClick) }
+            .first()
+            .measure(Constraints())
+
+        val placeable = if (full.width <= constraints.maxWidth) {
+            full
+        } else {
+            // Measured without a bound - a zero remainder would collapse the button to nothing
+            subcompose(false) { AdbTerminalPillContent(withLabel = false, onClick = onClick) }
+                .first()
+                .measure(Constraints())
+        }
+
+        layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+    }
+}
+
+@Composable
+private fun AdbTerminalPillContent(withLabel: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(AppTheme.colors.surfaceMenu)
+            .clickable(onClick = onClick)
+            .padding(horizontal = if (withLabel) 12.dp else 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            modifier = Modifier.size(16.dp),
+            painter = painterResource(R.drawable.ic_terminal),
+            tint = AppTheme.colors.contentPrimary,
+            contentDescription = null
+        )
+        if (withLabel) {
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = stringResource(R.string.adb_terminal),
+                style = AppTheme.typography.togglerTitle,
+                color = AppTheme.colors.contentPrimary
+            )
+        }
+    }
+}
+
 private object MainScreenSettingsRow {
     val keys: Array<Preferences.Key<*>> = arrayOf(
         GeneralPrefs.DATA_SYNC_ENABLED,
@@ -2690,6 +2789,9 @@ private object MainScreenSettingsRow {
         GeneralPrefs.ALT_MENU,
         GeneralPrefs.ALT_MUTE,
         GeneralPrefs.ALT_LONG_TIME,
+        NoBackupPrefs.ADB_TERMINAL_WARNING,
+        NoBackupPrefs.ADVANCED_SETTINGS_EXPANDED,
+        GeneralPrefs.ADB_AOT_COMPILE,
     )
 
     val defaults: List<Any?> = MainScreenState.Default.toSettingsRow()

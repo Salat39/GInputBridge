@@ -23,10 +23,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -47,6 +50,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -102,6 +107,7 @@ import com.salat.gbinder.entity.NoteStatus
 import com.salat.gbinder.entity.PropertyListEmptyType
 import com.salat.gbinder.ui.ConfirmDialog
 import com.salat.gbinder.ui.FullScreenDialog
+import com.salat.gbinder.ui.MaterialTabIndicator
 import com.salat.gbinder.ui.TopShadow
 import com.salat.gbinder.ui.theme.AppTheme
 import com.salat.gbinder.util.KvResult
@@ -124,7 +130,6 @@ private const val BOTTOM_OFFSET = 380
 fun RenderConfigurator(
     viewModel: MainViewModel,
     uiScaleState: Float? = null,
-    onlyFavorite: Boolean = false,
     favoriteStorage: FavoriteStorageRepository,
     onClose: () -> Unit
 ) {
@@ -145,8 +150,16 @@ fun RenderConfigurator(
     }
 
     val favorites by favoriteStorage.getFavoritesFlow().collectAsState(initial = emptyList())
+    val favoritePropertyList by remember {
+        derivedStateOf {
+            filteredPropertyList.filter { "${it.value}_${it.alias}" in favorites }
+        }
+    }
+    val pagerState = rememberPagerState { 2 }
+    val scope = rememberCoroutineScope()
+    val tabsAccent = AppTheme.colors.contentAccent
 
-    LaunchedEffect(favorites) {
+    LaunchedEffect(Unit) {
         withContext(Dispatchers.Default) {
             allZones = glyCarAreaIdMap()
             val allProp = getAllProperty()
@@ -160,18 +173,10 @@ fun RenderConfigurator(
                     possibleValues = it.possibleValues
                 )
             }
-
-            val showList = if (onlyFavorite) {
-                allPropertyList.filter {
-                    "${it.value}_${it.alias}" in favorites
-                }
-            } else allPropertyList
-
-            filteredPropertyList = showList
         }
     }
 
-    LaunchedEffect(searchTextValue, filteredPropertyList) {
+    LaunchedEffect(searchTextValue.text, allPropertyList) {
         withContext(Dispatchers.Default) {
             filteredPropertyList = if (searchTextValue.text.isEmpty()) {
                 allPropertyList
@@ -192,10 +197,6 @@ fun RenderConfigurator(
                             }
                         )
                     }
-            }.filter {
-                if (onlyFavorite) {
-                    "${it.value}_${it.alias}" in favorites
-                } else true
             }
         }
     }
@@ -302,150 +303,62 @@ fun RenderConfigurator(
             }
         }
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .background(AppTheme.colors.surfaceSettingsLayer1)
+        SecondaryTabRow(
+            selectedTabIndex = pagerState.currentPage,
+            containerColor = Color.Transparent,
+            contentColor = tabsAccent,
+            indicator = {
+                MaterialTabIndicator(
+                    pagerState.currentPage,
+                    tabsAccent,
+                    matchContentSize = true,
+                    horizontalPadding = 0.dp
+                )
+            },
+            divider = {},
         ) {
-            TopShadow()
+            listOf(R.string.all_functions, R.string.favorites).forEachIndexed { index, title ->
+                val selected = pagerState.currentPage == index
 
-            val emptyTitle: PropertyListEmptyType? by remember {
-                derivedStateOf {
-                    if (filteredPropertyList.isEmpty()) {
-                        if (searchTextValue.text.isNotEmpty()) {
-                            PropertyListEmptyType.NO_FOUND
-                        } else if (onlyFavorite) {
-                            PropertyListEmptyType.ADD_FAVORITE
-                        } else null
+                Tab(
+                    modifier = Modifier.requiredHeight(40.dp),
+                    selected = selected,
+                    onClick = {
+                        scope.launch { pagerState.animateScrollToPage(index) }
+                    },
+                    text = {
+                        Text(
+                            modifier = Modifier.padding(horizontal = 8.dp),
+                            text = stringResource(title),
+                            color = if (selected) tabsAccent else AppTheme.colors.contentPrimary.copy(.6f),
+                            style = AppTheme.typography.cardFormatTitle
+                        )
+                    },
+                )
+            }
+        }
+
+        CompositionLocalProvider(LocalOverscrollFactory provides null) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) { page ->
+                val items = if (page == 0) filteredPropertyList else favoritePropertyList
+                val emptyType = if (items.isEmpty()) {
+                    if (searchTextValue.text.isNotEmpty()) {
+                        PropertyListEmptyType.NO_FOUND
+                    } else if (page == 1) {
+                        PropertyListEmptyType.ADD_FAVORITE
                     } else null
-                }
-            }
+                } else null
 
-            when (emptyTitle) {
-                PropertyListEmptyType.NO_FOUND -> {
-                    Text(
-                        text = stringResource(R.string.nothing_found),
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(horizontal = 36.dp),
-                        color = AppTheme.colors.contentPrimary.copy(.4f),
-                        style = AppTheme.typography.dialogSubtitle,
-                        textAlign = TextAlign.Center
-                    )
-                }
-
-                PropertyListEmptyType.ADD_FAVORITE -> {
-                    Text(
-                        text = stringResource(R.string.favorites_display),
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(horizontal = 36.dp),
-                        color = AppTheme.colors.contentPrimary.copy(.4f),
-                        style = AppTheme.typography.dialogSubtitle,
-                        textAlign = TextAlign.Center
-                    )
-                }
-
-                else -> Unit
-            }
-
-            CompositionLocalProvider(LocalOverscrollFactory provides null) {
-                LazyColumn {
-                    item(key = -1) {
-                        Spacer(Modifier.height(.5.dp))
-                    }
-
-                    items(
-                        items = filteredPropertyList,
-                        key = { item -> item.alias.text + item.value }
-                    ) { item ->
-
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    pickedProperty = item
-                                }
-                                .padding(horizontal = 20.dp, vertical = 16.dp)
-                        ) {
-
-
-                            Text(
-                                text = item.alias,
-                                color = AppTheme.colors.contentPrimary,
-                                style = AppTheme.typography.cardTitle
-                            )
-
-                            item.description?.let { description ->
-                                Spacer(modifier = Modifier.height(4.dp))
-
-                                Text(
-                                    text = description,
-                                    color = AppTheme.colors.contentPrimary.copy(.7f),
-                                    style = AppTheme.typography.dialogSubtitle
-                                )
-
-                                Spacer(modifier = Modifier.height(2.dp))
-                            }
-
-                            Spacer(Modifier.height(6.dp))
-
-                            Row {
-                                Text(
-                                    text = buildAnnotatedString {
-                                        append("ID: ")
-                                        append(item.key)
-                                    },
-                                    color = AppTheme.colors.contentPrimary.copy(.4f),
-                                    style = AppTheme.typography.dialogSubtitle
-                                )
-
-                                Spacer(Modifier.width(12.dp))
-                                Text(
-                                    text = "${stringResource(R.string.type)}:",
-                                    color = AppTheme.colors.contentPrimary.copy(.4f),
-                                    style = AppTheme.typography.dialogSubtitle
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(
-                                            when (item.type) {
-                                                1 -> AppTheme.colors.addSplitBottom
-                                                2 -> AppTheme.colors.addSplitTop
-                                                3 -> AppTheme.colors.deleteButton
-                                                else -> AppTheme.colors.surfaceSettings
-                                            }
-                                        )
-                                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                                    text = when (item.type) {
-                                        1 -> stringResource(R.string.info)
-                                        2 -> stringResource(R.string.function)
-                                        3 -> stringResource(R.string.single_sensor)
-                                        else -> stringResource(R.string.unknown)
-                                    },
-                                    color = AppTheme.colors.contentPrimary,
-                                    style = AppTheme.typography.idTitle
-                                )
-                            }
-                        }
-
-                        if (filteredPropertyList.last().value != item.value) {
-                            Spacer(
-                                Modifier
-                                    .height(1.dp)
-                                    .fillMaxWidth()
-                                    .background(AppTheme.colors.surfaceMenuDivider)
-                            )
-                        }
-                    }
-
-                    item(key = -2) {
-                        Spacer(Modifier.height(BOTTOM_OFFSET.dp))
-                    }
-                }
+                RenderPropertyList(
+                    items = items,
+                    emptyType = emptyType,
+                    onPick = { pickedProperty = it }
+                )
             }
         }
     }
@@ -459,6 +372,145 @@ fun RenderConfigurator(
             uiScaleState = uiScaleState,
             onDismiss = { pickedProperty = null }
         )
+    }
+}
+
+@Composable
+private fun RenderPropertyList(
+    items: List<DisplayPropertyItem>,
+    emptyType: PropertyListEmptyType?,
+    onPick: (DisplayPropertyItem) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(AppTheme.colors.surfaceSettingsLayer1)
+    ) {
+        TopShadow()
+
+        when (emptyType) {
+            PropertyListEmptyType.NO_FOUND -> {
+                Text(
+                    text = stringResource(R.string.nothing_found),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(horizontal = 36.dp),
+                    color = AppTheme.colors.contentPrimary.copy(.4f),
+                    style = AppTheme.typography.dialogSubtitle,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            PropertyListEmptyType.ADD_FAVORITE -> {
+                Text(
+                    text = stringResource(R.string.favorites_display),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(horizontal = 36.dp),
+                    color = AppTheme.colors.contentPrimary.copy(.4f),
+                    style = AppTheme.typography.dialogSubtitle,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            else -> Unit
+        }
+
+        LazyColumn {
+            item(key = -1) {
+                Spacer(Modifier.height(.5.dp))
+            }
+
+            items(
+                items = items,
+                key = { item -> item.alias.text + item.value }
+            ) { item ->
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onPick(item)
+                        }
+                        .padding(horizontal = 20.dp, vertical = 16.dp)
+                ) {
+
+
+                    Text(
+                        text = item.alias,
+                        color = AppTheme.colors.contentPrimary,
+                        style = AppTheme.typography.cardTitle
+                    )
+
+                    item.description?.let { description ->
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = description,
+                            color = AppTheme.colors.contentPrimary.copy(.7f),
+                            style = AppTheme.typography.dialogSubtitle
+                        )
+
+                        Spacer(modifier = Modifier.height(2.dp))
+                    }
+
+                    Spacer(Modifier.height(6.dp))
+
+                    Row {
+                        Text(
+                            text = buildAnnotatedString {
+                                append("ID: ")
+                                append(item.key)
+                            },
+                            color = AppTheme.colors.contentPrimary.copy(.4f),
+                            style = AppTheme.typography.dialogSubtitle
+                        )
+
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = "${stringResource(R.string.type)}:",
+                            color = AppTheme.colors.contentPrimary.copy(.4f),
+                            style = AppTheme.typography.dialogSubtitle
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(
+                                    when (item.type) {
+                                        1 -> AppTheme.colors.addSplitBottom
+                                        2 -> AppTheme.colors.addSplitTop
+                                        3 -> AppTheme.colors.deleteButton
+                                        else -> AppTheme.colors.surfaceSettings
+                                    }
+                                )
+                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                            text = when (item.type) {
+                                1 -> stringResource(R.string.info)
+                                2 -> stringResource(R.string.function)
+                                3 -> stringResource(R.string.single_sensor)
+                                else -> stringResource(R.string.unknown)
+                            },
+                            color = AppTheme.colors.contentPrimary,
+                            style = AppTheme.typography.idTitle
+                        )
+                    }
+                }
+
+                if (items.last().value != item.value) {
+                    Spacer(
+                        Modifier
+                            .height(1.dp)
+                            .fillMaxWidth()
+                            .background(AppTheme.colors.surfaceMenuDivider)
+                    )
+                }
+            }
+
+            item(key = -2) {
+                Spacer(Modifier.height(BOTTOM_OFFSET.dp))
+            }
+        }
     }
 }
 

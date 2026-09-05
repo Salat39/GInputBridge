@@ -1,5 +1,6 @@
 package com.salat.gbinder.adb.domain.repository
 
+import com.salat.gbinder.adb.data.entity.AdbCommandResult
 import com.salat.gbinder.adb.data.entity.AdbConnectionState
 import com.salat.gbinder.entity.AdbRecentTaskInfo
 import kotlinx.coroutines.flow.StateFlow
@@ -8,6 +9,11 @@ interface AdbRepository {
     val connectionState: StateFlow<AdbConnectionState>
 
     suspend fun execute(command: String): String
+
+    // Keeps the command output even when the exit code is not zero
+    suspend fun executeRaw(command: String): AdbCommandResult
+
+    fun cancelTerminalCommand()
 
     suspend fun setAtlasWheelSettings(): String
 

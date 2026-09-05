@@ -20,22 +20,47 @@ suspend fun Context.shareTextAsGibbFile(
     prefix: String? = null,
     nameType: String? = prefix
 ) {
-    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
-    val timestamp = LocalDateTime.now().format(formatter)
-    val fileName = "${timestamp}_${nameType}.gibb"
     val fileContent = buildString {
         prefix?.let { append(it) }
         append(text)
     }
+    shareAsFile(
+        fileName = "${timestampedName()}_${nameType}.gibb",
+        content = fileContent,
+        mimeType = "application/gibb",
+        chooserTitle = "Share .gibb file"
+    )
+}
+
+suspend fun Context.shareTextAsLogFile(text: String, nameType: String) {
+    shareAsFile(
+        fileName = "${timestampedName()}_$nameType.txt",
+        content = text,
+        mimeType = "text/plain",
+        chooserTitle = "Share log file"
+    )
+}
+
+private fun timestampedName(): String {
+    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
+    return LocalDateTime.now().format(formatter)
+}
+
+private suspend fun Context.shareAsFile(
+    fileName: String,
+    content: String,
+    mimeType: String,
+    chooserTitle: String
+) {
     val file = File(cacheDir, fileName).apply {
-        writeText(fileContent)
+        writeText(content)
     }
 
     val authority = "${packageName}.fileprovider"
     val uri = FileProvider.getUriForFile(this, authority, file)
 
     val sendIntent = Intent(Intent.ACTION_SEND).apply {
-        type = "application/gibb"
+        type = mimeType
 
         putExtra(Intent.EXTRA_STREAM, uri)
 
@@ -44,7 +69,7 @@ suspend fun Context.shareTextAsGibbFile(
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
 
-    val chooser = Intent.createChooser(sendIntent, "Share .gibb file").apply {
+    val chooser = Intent.createChooser(sendIntent, chooserTitle).apply {
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
 
