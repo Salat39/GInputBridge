@@ -945,6 +945,26 @@ fun ColumnScope.RenderLauncherSettings(
         }
     )
 
+    Spacer(Modifier.height(26.dp))
+
+    RenderSwitcher(
+        modifier = Modifier.padding(horizontal = 18.dp),
+        title = stringResource(R.string.car_function_amber_theme),
+        subtitle = stringResource(R.string.car_function_amber_theme_desc),
+        value = config.carFunctionAmber,
+        enable = true,
+        isNegative = false,
+        groupDivider = false,
+        subtitleColor = AppTheme.colors.contentPrimary.copy(.7f),
+        titleStyle = AppTheme.typography.overlayLauncherSettingsTitle,
+        subtitleStyle = AppTheme.typography.overlayLauncherSettingsSubtitle,
+        onChange = {
+            scope.launch {
+                storage.dataStore.saveValue(LauncherPrefs.LAUNCHER_CAR_FUNCTION_AMBER, it)
+            }
+        }
+    )
+
     Spacer(Modifier.height(64.dp))
 }
 

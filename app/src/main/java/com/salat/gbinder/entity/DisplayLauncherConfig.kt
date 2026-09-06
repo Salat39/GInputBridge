@@ -31,5 +31,6 @@ data class DisplayLauncherConfig(
     val autoLightThemeEnd: Int,
     val enableAdbHelper: Boolean,
     val showFrozenApps: Boolean,
-    val allowSystemAppUninstall: Boolean
+    val allowSystemAppUninstall: Boolean,
+    val carFunctionAmber: Boolean
 )

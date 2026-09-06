@@ -1537,22 +1537,34 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Text(
-                    modifier = Modifier,
-                    text = when (adbConnectionState) {
-                        DisplayAdbState.Connected -> stringResource(R.string.connected)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // No weight - the title keeps its width and the pill drops its label first
+                    Text(
+                        text = when (adbConnectionState) {
+                            DisplayAdbState.Connected -> stringResource(R.string.connected)
 
-                        DisplayAdbState.Connecting -> stringResource(R.string.connecting)
+                            DisplayAdbState.Connecting -> stringResource(R.string.connecting)
 
-                        DisplayAdbState.Disconnected -> stringResource(R.string.disconnected)
+                            DisplayAdbState.Disconnected -> stringResource(R.string.disconnected)
 
-                        is DisplayAdbState.Error -> stringResource(R.string.error)
-                    },
-                    style = AppTheme.typography.statusTitle,
-                    color = AppTheme.colors.contentPrimary,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 1
-                )
+                            is DisplayAdbState.Error -> stringResource(R.string.error)
+                        },
+                        style = AppTheme.typography.statusTitle,
+                        color = AppTheme.colors.contentPrimary,
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1
+                    )
+
+                    // Without a connection every command answers "ADB disconnected"
+                    if (adbConnectionState == DisplayAdbState.Connected) {
+                        Spacer(Modifier.width(16.dp))
+                        AdbTerminalPill(onClick = openAdbTerminal)
+                    }
+                }
 
                 val conState = adbConnectionState
                 if (conState is DisplayAdbState.Error) {
@@ -1562,15 +1574,6 @@ class MainActivity : ComponentActivity() {
                         color = AppTheme.colors.contentPrimary,
                         overflow = TextOverflow.Ellipsis,
                         maxLines = 2
-                    )
-                }
-
-                // The connected state has no subtitle, so the button takes that line.
-                // Without a connection every command answers "ADB disconnected"
-                if (adbConnectionState == DisplayAdbState.Connected) {
-                    AdbTerminalPill(
-                        modifier = Modifier.padding(top = 2.dp),
-                        onClick = openAdbTerminal
                     )
                 }
             }
@@ -2735,20 +2738,25 @@ private fun AdbTerminalPill(modifier: Modifier = Modifier, onClick: () -> Unit) 
 private fun AdbTerminalPillContent(withLabel: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(10.dp))
             .background(AppTheme.colors.surfaceMenu)
+            .border(
+                width = 1.dp,
+                color = AppTheme.colors.contentPrimary.copy(alpha = .25f),
+                shape = RoundedCornerShape(10.dp)
+            )
             .clickable(onClick = onClick)
-            .padding(horizontal = if (withLabel) 12.dp else 8.dp, vertical = 6.dp),
+            .padding(horizontal = if (withLabel) 14.dp else 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(20.dp),
             painter = painterResource(R.drawable.ic_terminal),
             tint = AppTheme.colors.contentPrimary,
             contentDescription = null
         )
         if (withLabel) {
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(8.dp))
             Text(
                 text = stringResource(R.string.adb_terminal),
                 style = AppTheme.typography.togglerTitle,

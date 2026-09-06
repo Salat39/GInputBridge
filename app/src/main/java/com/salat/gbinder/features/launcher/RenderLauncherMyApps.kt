@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,18 +36,26 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.salat.gbinder.BuildConfig
+import com.salat.gbinder.entity.CarFunction
+import com.salat.gbinder.entity.CarModel
 import com.salat.gbinder.entity.DisplayLauncherConfig
 import com.salat.gbinder.entity.DisplayLauncherItem
 import com.salat.gbinder.entity.DisplayLauncherItemType
+import com.salat.gbinder.features.carFunctions.CarFunctionState
 import com.salat.gbinder.ui.reordable.ReorderableItem
 import com.salat.gbinder.ui.reordable.ScrollMoveMode
 import com.salat.gbinder.ui.reordable.rememberReorderableLazyGridState
 import com.salat.gbinder.ui.theme.AppTheme
+import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 fun ColumnScope.RenderLauncherMyApps(
     items: List<DisplayLauncherItem>,
     config: DisplayLauncherConfig,
+    carFunctionStates: StateFlow<Map<CarFunction, CarFunctionState>>,
+    carModel: CarModel?,
     lockMode: Boolean,
     gridState: LazyGridState,
     onClick: (item: DisplayLauncherItem) -> Unit,
@@ -59,6 +68,8 @@ fun ColumnScope.RenderLauncherMyApps(
         .fillMaxWidth()
         .weight(1f)
 ) {
+
+    val states by carFunctionStates.collectAsStateWithLifecycle()
 
     // Reorderable state bound to your existing LazyGridState
     val reorderState = rememberReorderableLazyGridState(
@@ -83,7 +94,13 @@ fun ColumnScope.RenderLauncherMyApps(
         items(
             items = items,
             key = { it.id },
-            contentType = { it.type == DisplayLauncherItemType.GROUP },
+            contentType = {
+                when (it.type) {
+                    DisplayLauncherItemType.GROUP -> 0
+                    DisplayLauncherItemType.CAR_FUNCTION -> 1
+                    else -> 2
+                }
+            },
             span = { item ->
                 if (item.type == DisplayLauncherItemType.GROUP) {
                     GridItemSpan(maxLineSpan)
@@ -123,6 +140,42 @@ fun ColumnScope.RenderLauncherMyApps(
                             onHideApp = onHideApp,
                             onClick = onClick,
                             onLongClick = onLongClick
+                        )
+                    }
+
+                    DisplayLauncherItemType.CAR_FUNCTION -> Box(
+                        dragModifier
+                    ) {
+                        val function = CarFunction.fromValue(app.data)
+                        RenderLauncherMyAppCell(
+                            app = app,
+                            cellSize = config.iconSize,
+                            enableText = config.iconTextEnable,
+                            iconRound = config.iconRound,
+                            textSize = config.iconTextSize,
+                            textPadding = config.iconTextPadding,
+                            enableShortcuts = config.enableShortcuts,
+                            shortcutSize = config.shortcutSize,
+                            enableMultiline = config.iconTextMultiline,
+                            frozenIconColorFilter = frozenIconColorFilter,
+                            lockMode = lockMode,
+                            enableClick = lockMode,
+                            onHideApp = onHideApp,
+                            onClick = onClick,
+                            onLongClick = onLongClick,
+                            iconContent = { pressed ->
+                                RenderLauncherCarFunctionIcon(
+                                    function = function,
+                                    state = states[function],
+                                    customIcon = app.customIcon,
+                                    cellSize = config.iconSize,
+                                    iconRound = config.iconRound,
+                                    available = function != null &&
+                                        (BuildConfig.DEBUG || function.isAvailableFor(carModel)),
+                                    amber = config.carFunctionAmber,
+                                    pressed = pressed
+                                )
+                            }
                         )
                     }
 

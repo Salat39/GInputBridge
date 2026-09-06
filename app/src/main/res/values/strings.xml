@@ -872,4 +872,8 @@ Send pkg when the overlay opens and always release = 1 when it closes, otherwise
     <string name="adb_terminal_cancelled">Stopped</string>
     <string name="adb_terminal_truncated">Showing first %1$d lines of %2$d</string>
     <string name="adb_terminal_hint">Command</string>
+    <string name="launcher_fn_on">ON</string>
+    <string name="launcher_fn_off">OFF</string>
+    <string name="car_function_amber_theme">Orange highlights</string>
+    <string name="car_function_amber_theme_desc">Use orange instead of blue for active car functions</string>
 </resources>

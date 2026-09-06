@@ -12,6 +12,7 @@ import com.ecarx.xui.adaptapi.car.ICar
 import com.ecarx.xui.adaptapi.car.base.ICarFunction
 import com.ecarx.xui.adaptapi.car.sensor.ISensor
 import com.salat.gbinder.car.data.CarPropertyKey
+import com.salat.gbinder.car.domain.entity.CarFunctionChange
 import com.salat.gbinder.car.domain.entity.IdType
 import com.salat.gbinder.car.domain.entity.PropertyStatus
 import com.salat.gbinder.car.domain.repository.CarRepository
@@ -25,7 +26,10 @@ import ecarx.car.hardware.vehicle.ECarXCarSetManager
 import ecarx.car.hardware.vehicle.ECarXCarVfmiscManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -36,6 +40,12 @@ class CarRepositoryImpl(
     private val scope: CoroutineScope,
     private val stateKeeper: StateKeeperRepository
 ) : CarRepository, ECarXCarProxy.ECarXCarProxyMethod {
+
+    private val _functionChangedFlow = MutableSharedFlow<CarFunctionChange>(
+        extraBufferCapacity = 64,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    override val functionChangedFlow = _functionChangedFlow.asSharedFlow()
 
     private val _driveModeStateFlow = MutableStateFlow(-1 to -1)
     override val driveModeStateFlow = _driveModeStateFlow.asStateFlow()
@@ -118,6 +128,7 @@ class CarRepositoryImpl(
 
     private val functionListener = object : ICarFunction.IFunctionValueWatcher {
         override fun onCustomizeFunctionValueChanged(id: Int, area: Int, value: Float) {
+            _functionChangedFlow.tryEmit(CarFunctionChange(id, area))
 
             val key = "${id}_$area"
             if (functionListenList.contains(key)) {
@@ -141,6 +152,7 @@ class CarRepositoryImpl(
         }
 
         override fun onFunctionValueChanged(id: Int, area: Int, value: Int) {
+            _functionChangedFlow.tryEmit(CarFunctionChange(id, area))
 
             val key = "${id}_$area"
             if (functionListenList.contains(key)) {

@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -63,10 +64,12 @@ fun RenderLauncherMyAppCell(
     enableClick: Boolean,
     onHideApp: (item: DisplayLauncherItem) -> Unit,
     onClick: (item: DisplayLauncherItem) -> Unit = {},
-    onLongClick: (item: DisplayLauncherItem, offset: Offset) -> Unit
+    onLongClick: (item: DisplayLauncherItem, offset: Offset) -> Unit,
+    iconContent: (@Composable BoxScope.(pressed: Boolean) -> Unit)? = null
 ) {
     var clickLock by rememberTimeLockedBoolean(1000L)
     var rootOffset by remember { mutableStateOf(Offset.Zero) }
+    var pressed by remember(app.id) { mutableStateOf(false) }
     val frozenModifier = if (app.isFrozen) Modifier.alpha(DISABLED_APP_TRANSPARENCY) else Modifier
 
     Column(
@@ -80,6 +83,14 @@ fun RenderLauncherMyAppCell(
                     Modifier
                         .pointerInput(app) {
                             detectTapGestures(
+                                onPress = {
+                                    pressed = true
+                                    try {
+                                        tryAwaitRelease()
+                                    } finally {
+                                        pressed = false
+                                    }
+                                },
                                 onLongPress = {
                                     onLongClick(
                                         app,
@@ -93,7 +104,10 @@ fun RenderLauncherMyAppCell(
                                     if (!clickLock) {
                                         onClick(app)
                                     }
-                                    clickLock = true
+                                    // Car function tiles cycle levels by repeated taps
+                                    if (app.type != DisplayLauncherItemType.CAR_FUNCTION) {
+                                        clickLock = true
+                                    }
                                 }
                             )
                         }
@@ -107,7 +121,9 @@ fun RenderLauncherMyAppCell(
         Box(Modifier.size(cellSize.dp)) {
             val ir = app.iconRef
 
-            if (ir != null) {
+            if (iconContent != null) {
+                iconContent(pressed)
+            } else if (ir != null) {
 
                 val model = remember(app.iconRef, app.customIcon, pxSize.takeIf { sizeSensitive }) {
                     launcherIconRequest(ctx, app.iconRef, app.customIcon, pxSize)

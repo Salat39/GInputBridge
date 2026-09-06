@@ -68,12 +68,20 @@ class CarFunctionController(
             is PadSession.LevelCycle -> {
                 when (keyCode) {
                     KEY_PREV -> {
-                        cycleLevel(current.function, forward = false, includeOff = current.includeOff)
+                        cycleLevel(
+                            current.function,
+                            forward = false,
+                            includeOff = current.includeOff && current.function != CarFunction.LIGHT
+                        )
                         lockMediaControl(LEVEL_LOCK_SEC, false)
                         true
                     }
                     KEY_NEXT -> {
-                        cycleLevel(current.function, forward = true, includeOff = current.includeOff)
+                        cycleLevel(
+                            current.function,
+                            forward = true,
+                            includeOff = current.includeOff && current.function != CarFunction.LIGHT
+                        )
                         lockMediaControl(LEVEL_LOCK_SEC, false)
                         true
                     }
@@ -195,6 +203,26 @@ class CarFunctionController(
         return consumePadEcho
     }
 
+    suspend fun triggerFromTouch(function: CarFunction) {
+        when {
+            function == CarFunction.ME_HOT -> {
+                val active = car.readImHotActive(carModel) ?: false
+                trigger(if (active) CarFunction.ME_COOLED else CarFunction.ME_HOT, explicit = true)
+            }
+            function == CarFunction.ME_COLD -> {
+                val active = car.readImColdActive() ?: false
+                trigger(if (active) CarFunction.ME_WARMED else CarFunction.ME_COLD, explicit = true)
+            }
+            levelSpec(function) == null -> trigger(function)
+            else -> runCatching {
+                mutex.withLock {
+                    if (!function.isAvailableFor(carModel)) return@withLock
+                    cycleLevel(function, forward = true, includeOff = true)
+                }
+            }.onFailure { Timber.e(it) }
+        }
+    }
+
     private fun CarFunction.requiresIgnition(): Boolean = when (this) {
         CarFunction.WHEEL_HEAT,
         CarFunction.DRIVER_HEAT,
@@ -286,7 +314,7 @@ class CarFunctionController(
 
     private suspend fun toggleHeatVent(function: CarFunction): Boolean {
         val (propertyId, areaId, levels) = levelSpec(function) ?: return false
-        val raw = readLevelValue(propertyId, areaId)
+        val raw = car.readLevelValue(propertyId, areaId)
         val current = normalizeLevelValue(function, raw)
         val isOn = current != 0
         val nextIndex = if (isOn) {
@@ -306,7 +334,7 @@ class CarFunctionController(
     ) {
         if (function.requiresIgnition() && !isIgnitionDriving()) return
         val (propertyId, areaId, allLevels) = levelSpec(function) ?: return
-        val levels = if (!includeOff || function == CarFunction.LIGHT) {
+        val levels = if (!includeOff) {
             allLevels.drop(1)
         } else {
             allLevels
@@ -315,7 +343,7 @@ class CarFunctionController(
         val raw = if (function == CarFunction.LIGHT) {
             car.getIntProperty(propertyId)
         } else {
-            readLevelValue(propertyId, areaId)
+            car.readLevelValue(propertyId, areaId)
         }
         val current = if (function == CarFunction.LIGHT) {
             raw
@@ -351,83 +379,6 @@ class CarFunctionController(
                 session.compareAndSet(current, null)
             }
         }
-    }
-
-    private fun levelSpec(function: CarFunction): Triple<Int, Int, List<Int>>? = when (function) {
-        CarFunction.WHEEL_HEAT -> Triple(
-            CarPropertyKey.HVAC_FUNC_STEERING_WHEEL_HEAT,
-            Integer.MIN_VALUE,
-            CarFunctionIds.STEERING_HEAT_LEVELS
-        )
-        CarFunction.DRIVER_HEAT -> Triple(
-            CarPropertyKey.HVAC_FUNC_SEAT_HEATING,
-            CarFunctionIds.ZONE_DRIVER,
-            CarFunctionIds.SEAT_HEAT_LEVELS
-        )
-        CarFunction.PASSENGER_HEAT -> Triple(
-            CarPropertyKey.HVAC_FUNC_SEAT_HEATING,
-            CarFunctionIds.ZONE_PASSENGER,
-            CarFunctionIds.SEAT_HEAT_LEVELS
-        )
-        CarFunction.DRIVER_VENT -> Triple(
-            CarPropertyKey.HVAC_FUNC_SEAT_VENTILATION,
-            CarFunctionIds.ZONE_DRIVER,
-            CarFunctionIds.SEAT_VENT_LEVELS
-        )
-        CarFunction.PASSENGER_VENT -> Triple(
-            CarPropertyKey.HVAC_FUNC_SEAT_VENTILATION,
-            CarFunctionIds.ZONE_PASSENGER,
-            CarFunctionIds.SEAT_VENT_LEVELS
-        )
-        CarFunction.LIGHT -> Triple(
-            CarPropertyKey.SETTING_FUNC_LAMP_EXTERIOR_LIGHT_CONTROL,
-            Integer.MIN_VALUE,
-            CarFunctionIds.LIGHT_LEVELS
-        )
-        else -> null
-    }
-
-    private suspend fun readLevelValue(propertyId: Int, areaId: Int): Int {
-        val primary = car.getIntProperty(propertyId, areaId)
-        if (primary != -1) return primary
-        if (areaId != Integer.MIN_VALUE) {
-            val fallback = car.getIntProperty(propertyId, Integer.MIN_VALUE)
-            if (fallback != -1) return fallback
-        }
-        return car.getIntProperty(propertyId)
-    }
-
-    private fun normalizeLevelValue(function: CarFunction, value: Int): Int = when (function) {
-        CarFunction.WHEEL_HEAT -> when (value) {
-            1 -> CarFunctionIds.STEERING_HEAT_L1
-            2 -> CarFunctionIds.STEERING_HEAT_L2
-            3 -> CarFunctionIds.STEERING_HEAT_L3
-            CarFunctionIds.STEERING_HEAT_L1,
-            CarFunctionIds.STEERING_HEAT_L2,
-            CarFunctionIds.STEERING_HEAT_L3 -> value
-            else -> 0
-        }
-        CarFunction.DRIVER_HEAT, CarFunction.PASSENGER_HEAT -> when (value) {
-            1 -> CarFunctionIds.SEAT_HEAT_L1
-            2 -> CarFunctionIds.SEAT_HEAT_L2
-            3 -> CarFunctionIds.SEAT_HEAT_L3
-            CarFunctionIds.SEAT_HEAT_L1,
-            CarFunctionIds.SEAT_HEAT_L2,
-            CarFunctionIds.SEAT_HEAT_L3 -> value
-            0x1005020F -> CarFunctionIds.SEAT_HEAT_L3
-            else -> 0
-        }
-        CarFunction.DRIVER_VENT, CarFunction.PASSENGER_VENT -> when (value) {
-            1 -> CarFunctionIds.SEAT_VENT_L1
-            2 -> CarFunctionIds.SEAT_VENT_L2
-            3 -> CarFunctionIds.SEAT_VENT_L3
-            CarFunctionIds.SEAT_VENT_L1,
-            CarFunctionIds.SEAT_VENT_L2,
-            CarFunctionIds.SEAT_VENT_L3 -> value
-            0x1005010F -> CarFunctionIds.SEAT_VENT_L3
-            else -> 0
-        }
-        else -> value
     }
 
     private suspend fun toastLevel(function: CarFunction, levelIndex: Int) {
@@ -539,7 +490,7 @@ class CarFunctionController(
 
     private suspend fun toggleTrunk() {
         val area = CarFunctionIds.ZONE_TRUNK
-        val current = readLevelValue(CarPropertyKey.BCM_FUNC_DOOR, area)
+        val current = car.readLevelValue(CarPropertyKey.BCM_FUNC_DOOR, area)
         val open = current != CarFunctionIds.TRUNK_OPEN
         car.setPropertyIntValue(
             CarPropertyKey.BCM_FUNC_DOOR,
@@ -570,7 +521,7 @@ class CarFunctionController(
 
     private suspend fun toggleWipers() {
         val area = CarFunctionIds.ZONE_DRIVER
-        val current = readLevelValue(
+        val current = car.readLevelValue(
             CarPropertyKey.SETTING_FUNC_WINDSCREEN_SERVICE_POSITION,
             area
         )
@@ -712,18 +663,12 @@ class CarFunctionController(
         abs(value - limit) < 0.01f
 
     private suspend fun refreshTempLimits() {
-        val lo = readTempLimit(CarPropertyKey.HVAC_FUNC_TEMP_MIN)
-        val hi = readTempLimit(CarPropertyKey.HVAC_FUNC_TEMP_MAX)
+        val lo = car.readTempLimit(CarPropertyKey.HVAC_FUNC_TEMP_MIN)
+        val hi = car.readTempLimit(CarPropertyKey.HVAC_FUNC_TEMP_MAX)
         if (lo >= 0f && hi >= 0f && hi > lo) {
             tempLo = lo
             tempHi = hi
         }
-    }
-
-    private suspend fun readTempLimit(propertyId: Int): Float {
-        val global = car.getFloatProperty(propertyId, Integer.MIN_VALUE)
-        if (global >= 0f) return global
-        return car.getFloatProperty(propertyId, CarFunctionIds.ZONE_DRIVER)
     }
 
     private suspend fun adjustFan(up: Boolean) {
@@ -821,7 +766,6 @@ class CarFunctionController(
         private const val CLIMATE_VISIBLE = 0L
 
         private const val LEVEL_LOCK_SEC = 5
-        private const val DEFAULT_TEMP_LO = 16f
         private const val DEFAULT_TEMP_HI = 28f
         private const val SEAT_MEMORY_PACKAGE = "com.geely.hvac"
         private const val SEAT_MEMORY_ACTIVITY =

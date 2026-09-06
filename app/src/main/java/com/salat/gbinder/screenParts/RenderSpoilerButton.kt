@@ -1,10 +1,13 @@
 package com.salat.gbinder.screenParts
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
@@ -31,6 +34,8 @@ fun RenderSpoilerButton(
     onClick: () -> Unit
 ) {
     val chevronRotation by animateFloatAsState(if (expanded) 180f else 0f)
+    val chevronSize = 18.dp
+    val chevronGap = 6.dp
 
     Button(
         modifier = modifier,
@@ -43,21 +48,27 @@ fun RenderSpoilerButton(
         shape = RoundedCornerShape(8.dp),
         onClick = onClick
     ) {
-        Box(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Spacer(Modifier.width(chevronSize + chevronGap))
+
             Text(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(4.dp),
+                modifier = Modifier.padding(4.dp),
                 text = title,
                 color = AppTheme.colors.contentPrimary,
                 style = AppTheme.typography.buttonTitle,
                 textAlign = TextAlign.Center
             )
 
+            Spacer(Modifier.width(chevronGap))
+
             Icon(
                 modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .size(18.dp)
+                    .padding(top = 2.dp)
+                    .size(chevronSize)
                     .rotate(chevronRotation),
                 painter = painterResource(R.drawable.ic_chevron_down),
                 tint = AppTheme.colors.contentPrimary.copy(.35f),

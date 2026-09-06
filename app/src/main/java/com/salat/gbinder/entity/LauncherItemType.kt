@@ -7,5 +7,6 @@ enum class LauncherItemType {
     GROUP,
     APP,
     ACTIVITY,
-    MACRO
+    MACRO,
+    CAR_FUNCTION
 }

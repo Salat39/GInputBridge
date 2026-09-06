@@ -15,6 +15,7 @@ fun LauncherItemType.toDisplayType(): DisplayLauncherItemType = when (this) {
     LauncherItemType.APP -> DisplayLauncherItemType.APP
     LauncherItemType.ACTIVITY -> DisplayLauncherItemType.ACTIVITY
     LauncherItemType.MACRO -> DisplayLauncherItemType.MACRO
+    LauncherItemType.CAR_FUNCTION -> DisplayLauncherItemType.CAR_FUNCTION
 }
 
 fun LauncherItem.toDisplayItem(
@@ -27,7 +28,7 @@ fun LauncherItem.toDisplayItem(
         LauncherItemType.ACTIVITY -> allPackages[packageName + launchActivity]
             ?: allPackages.firstByPrefix(packageName)?.second
         LauncherItemType.MACRO -> allPackagesByPackage[packageName]
-        LauncherItemType.GROUP -> null
+        LauncherItemType.GROUP, LauncherItemType.CAR_FUNCTION -> null
     }
 
     return DisplayLauncherItem(
@@ -35,7 +36,9 @@ fun LauncherItem.toDisplayItem(
         id = id,
         order = order,
         title = title,
-        iconRef = if (type == LauncherItemType.APP) {
+        iconRef = if (type == LauncherItemType.CAR_FUNCTION) {
+            null
+        } else if (type == LauncherItemType.APP) {
             allPackages[packageName + launchActivity]?.iconRef
         } else {
             allPackages.firstByPrefix(packageName)?.second?.iconRef
@@ -46,8 +49,8 @@ fun LauncherItem.toDisplayItem(
         packageName = packageName,
         launchActivity = launchActivity,
         data = data,
-        isCall = data.isPhoneCallIntent,
-        isSplit = data.isSplitIntent,
+        isCall = type != LauncherItemType.CAR_FUNCTION && data.isPhoneCallIntent,
+        isSplit = type != LauncherItemType.CAR_FUNCTION && data.isSplitIntent,
         isFrozen = appInfo?.isFrozen ?: false,
         isSystem = appInfo?.isSystem ?: false
     )
@@ -68,6 +71,7 @@ fun DisplayLauncherItemType.toDataType(): LauncherItemType = when (this) {
     DisplayLauncherItemType.APP -> LauncherItemType.APP
     DisplayLauncherItemType.ACTIVITY -> LauncherItemType.ACTIVITY
     DisplayLauncherItemType.MACRO -> LauncherItemType.MACRO
+    DisplayLauncherItemType.CAR_FUNCTION -> LauncherItemType.CAR_FUNCTION
 }
 
 fun DisplayLauncherItem.toDataItem(context: Context): LauncherItem = LauncherItem(

@@ -157,7 +157,7 @@ fun RenderConfigurator(
     }
     val pagerState = rememberPagerState { 2 }
     val scope = rememberCoroutineScope()
-    val tabsAccent = AppTheme.colors.contentAccent
+    val tabsAccent = AppTheme.colors.contentPrimary
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.Default) {

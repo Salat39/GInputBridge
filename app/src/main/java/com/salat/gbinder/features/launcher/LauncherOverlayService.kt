@@ -96,7 +96,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import coil.compose.AsyncImage
+import com.salat.gbinder.App
 import com.salat.gbinder.BuildConfig
+import com.salat.gbinder.ModelHelper
 import com.salat.gbinder.R
 import com.salat.gbinder.adb.data.entity.AdbConnectionState
 import com.salat.gbinder.adb.domain.repository.AdbRepository
@@ -113,6 +115,7 @@ import com.salat.gbinder.datastore.LauncherPrefs
 import com.salat.gbinder.datastore.LauncherStorageRepository
 import com.salat.gbinder.entity.AllAppMenuItem
 import com.salat.gbinder.entity.AppLaunchedState
+import com.salat.gbinder.entity.CarFunction
 import com.salat.gbinder.entity.DisplayLauncherApp
 import com.salat.gbinder.entity.DisplayLauncherConfig
 import com.salat.gbinder.entity.DisplayLauncherItem
@@ -122,6 +125,7 @@ import com.salat.gbinder.entity.LauncherTabs
 import com.salat.gbinder.entity.MyAppMenuItem
 import com.salat.gbinder.entity.biggestId
 import com.salat.gbinder.entity.biggestOrder
+import com.salat.gbinder.features.carFunctions.opensExternalScreen
 import com.salat.gbinder.mappers.isPhoneCallIntent
 import com.salat.gbinder.mappers.isSplitIntent
 import com.salat.gbinder.statekeeper.domain.entity.LauncherActivitySignal
@@ -189,6 +193,7 @@ class LauncherOverlayService : Service() {
     @IoCoroutineScope
     lateinit var ioScope: CoroutineScope
 
+    private val carFunctionStates get() = (application as App).launcherCarFunctionStates
     private lateinit var windowManager: WindowManager
 
     private var launcherContainer: ComposeView? = null
@@ -401,6 +406,13 @@ class LauncherOverlayService : Service() {
                 //density.fontScale * config.uiScale
             )
         }
+        val trackedFunctions = remember(items) {
+            items.filter { it.type == DisplayLauncherItemType.CAR_FUNCTION }
+                .mapNotNull { CarFunction.fromValue(it.data) }
+                .toSet()
+        }
+        val carModel = remember { ModelHelper.detectCarModel() }
+        LaunchedEffect(trackedFunctions) { carFunctionStates.track(trackedFunctions) }
         var screen by remember { mutableStateOf(LauncherScreen.MAIN) }
 
         // Add new element menu
@@ -446,10 +458,11 @@ class LauncherOverlayService : Service() {
                             y = offset.y.toInt()
                         ),
                         appData = apps.find { it.packageName == item.packageName },
-                        launchedStatus = launchedState(
-                            item.packageName,
-                            config.enableAdbHelper
-                        )
+                        launchedStatus = if (item.type == DisplayLauncherItemType.CAR_FUNCTION) {
+                            AppLaunchedState.NO
+                        } else {
+                            launchedState(item.packageName, config.enableAdbHelper)
+                        }
                     )
                 }
             }
@@ -495,6 +508,12 @@ class LauncherOverlayService : Service() {
         }
 
         fun launchMyApp(app: DisplayLauncherItem) {
+            if (app.type == DisplayLauncherItemType.CAR_FUNCTION) {
+                val function = CarFunction.fromValue(app.data) ?: return
+                carFunctionStates.tap(function)
+                if (function.opensExternalScreen()) hideLauncherOverlay()
+                return
+            }
             if (app.isFrozen) {
                 serviceScope.launch(Dispatchers.IO) {
                     if (isAdbConnected()) {
@@ -583,7 +602,8 @@ class LauncherOverlayService : Service() {
                                     }
                                     if (screen in setOf(
                                             LauncherScreen.SETTINGS,
-                                            LauncherScreen.ADD_APPS
+                                            LauncherScreen.ADD_APPS,
+                                            LauncherScreen.ADD_CAR_FUNCTIONS
                                         )
                                     ) {
                                         screen = LauncherScreen.MAIN
@@ -689,6 +709,10 @@ class LauncherOverlayService : Service() {
                                 screen = LauncherScreen.MAIN
                             }
 
+                            LauncherScreen.ADD_CAR_FUNCTIONS -> RenderLauncherAddAppsToolbar(
+                                title = R.string.kbd_car_functions_title
+                            ) { screen = LauncherScreen.MAIN }
+
                             LauncherScreen.ADD_APPS -> RenderLauncherAddAppsToolbar {
                                 screen = LauncherScreen.MAIN
                             }
@@ -753,6 +777,8 @@ class LauncherOverlayService : Service() {
 
                                                     RenderLauncherMyApps(
                                                         items = uiItems,
+                                                        carFunctionStates = carFunctionStates.states,
+                                                        carModel = carModel,
                                                         config = config,
                                                         lockMode = lockMode,
                                                         gridState = myAppsGridState,
@@ -836,6 +862,19 @@ class LauncherOverlayService : Service() {
                                 )
                             }
 
+                            LauncherScreen.ADD_CAR_FUNCTIONS -> {
+                                RenderLauncherAddCarFunctions(
+                                    myApps = items,
+                                    config = config,
+                                    carModel = carModel
+                                ) { newMyApps ->
+                                    ioScope.launch {
+                                        data.saveMyApps(newMyApps)
+                                        screen = LauncherScreen.MAIN
+                                    }
+                                }
+                            }
+
                             LauncherScreen.ADD_APPS -> {
                                 val list by data.allApps.collectAsStateWithLifecycle()
 
@@ -905,6 +944,15 @@ class LauncherOverlayService : Service() {
                     )
                     addMenu = null
                 }
+                OptionsMenuItem(
+                    icon = R.drawable.ic_fn_car,
+                    title = stringResource(R.string.kbd_car_functions_title),
+                    textColor = Color.White,
+                    scale = 1.25f
+                ) {
+                    screen = LauncherScreen.ADD_CAR_FUNCTIONS
+                    addMenu = null
+                }
             }
         }
 
@@ -915,48 +963,50 @@ class LauncherOverlayService : Service() {
                 onDismiss = { myAppItemMenu = null },
                 uiScale = config.uiScale
             ) {
-                if (item.app.iconRef == null) {
-                    Box(
-                        modifier = Modifier
-                            .background(AppTheme.colors.surfaceMenuDivider)
-                    ) {
-                        Text(
+                if (item.app.type != DisplayLauncherItemType.CAR_FUNCTION) {
+                    if (item.app.iconRef == null) {
+                        Box(
                             modifier = Modifier
-                                .padding(horizontal = 22.dp, vertical = 14.dp)
-                                .widthIn(max = 280.dp),
-                            text = stringResource(R.string.app_not_installed, item.app.packageName),
-                            color = AppTheme.colors.deleteButton,
-                            style = AppTheme.typography.overlayLauncherMenuTitle
-                        )
+                                .background(AppTheme.colors.surfaceMenuDivider)
+                        ) {
+                            Text(
+                                modifier = Modifier
+                                    .padding(horizontal = 22.dp, vertical = 14.dp)
+                                    .widthIn(max = 280.dp),
+                                text = stringResource(R.string.app_not_installed, item.app.packageName),
+                                color = AppTheme.colors.deleteButton,
+                                style = AppTheme.typography.overlayLauncherMenuTitle
+                            )
 
-                        BottomShadow(modifier = Modifier.align(Alignment.BottomCenter))
-                    }
-                } else {
-                    RenderAppActionsMenu(
-                        packageName = item.app.packageName,
-                        isFrozen = item.app.isFrozen,
-                        canUninstall = config.allowSystemAppUninstall || !item.app.isSystem,
-                        enableAdbHelper = config.enableAdbHelper,
-                        launchedStatus = item.launchedStatus,
-                        onOpen = { launchMyApp(item.app) },
-                        onForceStop = {
-                            myAppItemMenu = myAppItemMenu?.copy(
-                                launchedStatus = AppLaunchedState.NO
-                            )
-                        },
-                        onToggleFreeze = {
-                            requestTogglePackageFreeze(
-                                packageName = item.app.packageName,
-                                isFrozen = item.app.isFrozen,
-                                isSystem = item.app.isSystem
-                            )
+                            BottomShadow(modifier = Modifier.align(Alignment.BottomCenter))
+                        }
+                    } else {
+                        RenderAppActionsMenu(
+                            packageName = item.app.packageName,
+                            isFrozen = item.app.isFrozen,
+                            canUninstall = config.allowSystemAppUninstall || !item.app.isSystem,
+                            enableAdbHelper = config.enableAdbHelper,
+                            launchedStatus = item.launchedStatus,
+                            onOpen = { launchMyApp(item.app) },
+                            onForceStop = {
+                                myAppItemMenu = myAppItemMenu?.copy(
+                                    launchedStatus = AppLaunchedState.NO
+                                )
+                            },
+                            onToggleFreeze = {
+                                requestTogglePackageFreeze(
+                                    packageName = item.app.packageName,
+                                    isFrozen = item.app.isFrozen,
+                                    isSystem = item.app.isSystem
+                                )
+                                myAppItemMenu = null
+                            }
+                        ) {
                             myAppItemMenu = null
                         }
-                    ) {
-                        myAppItemMenu = null
-                    }
 
-                    RenderMenuDivider()
+                        RenderMenuDivider()
+                    }
                 }
 
                 if (item.app.type == DisplayLauncherItemType.APP) {
@@ -976,9 +1026,9 @@ class LauncherOverlayService : Service() {
                 }
 
                 RenderAppLabelAndIconMenu(
-                    packageName = item.app.packageName,
-                    isFrozen = item.app.isFrozen,
-                    enableAdbHelper = config.enableAdbHelper,
+                    packageName = if (item.app.type == DisplayLauncherItemType.CAR_FUNCTION) "" else item.app.packageName,
+                    isFrozen = item.app.type != DisplayLauncherItemType.CAR_FUNCTION && item.app.isFrozen,
+                    enableAdbHelper = item.app.type != DisplayLauncherItemType.CAR_FUNCTION && config.enableAdbHelper,
                     onRename = {
                         minimizeOverlayForSystemDialog()
                         stateKeeper.sendLauncherOverlaySignal(
@@ -1000,12 +1050,14 @@ class LauncherOverlayService : Service() {
                         myAppItemMenu = null
                     },
                     onToggleFreeze = {
-                        requestTogglePackageFreeze(
-                            packageName = item.app.packageName,
-                            isFrozen = item.app.isFrozen,
-                            isSystem = item.app.isSystem
-                        )
-                        myAppItemMenu = null
+                        if (item.app.type != DisplayLauncherItemType.CAR_FUNCTION) {
+                            requestTogglePackageFreeze(
+                                packageName = item.app.packageName,
+                                isFrozen = item.app.isFrozen,
+                                isSystem = item.app.isSystem
+                            )
+                            myAppItemMenu = null
+                        }
                     }
                 )
 

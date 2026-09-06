@@ -1,5 +1,6 @@
 package com.salat.gbinder.features.launcher
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
@@ -17,7 +18,10 @@ import com.salat.gbinder.R
 import com.salat.gbinder.ui.theme.AppTheme
 
 @Composable
-fun RowScope.RenderLauncherAddAppsToolbar(onCloseClick: () -> Unit) {
+fun RowScope.RenderLauncherAddAppsToolbar(
+    @StringRes title: Int = R.string.select_apps,
+    onCloseClick: () -> Unit
+) {
     Spacer(Modifier.width(8.dp))
 
     IconButton(
@@ -36,7 +40,7 @@ fun RowScope.RenderLauncherAddAppsToolbar(onCloseClick: () -> Unit) {
 
     Text(
         modifier = Modifier.weight(1f),
-        text = stringResource(R.string.select_apps),
+        text = stringResource(title),
         style = AppTheme.typography.overlayLauncherToolbarTitle,
         color = AppTheme.colors.contentPrimary
     )

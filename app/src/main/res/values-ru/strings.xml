@@ -872,4 +872,8 @@ SMART - Включает только если ранее было включе�
     <string name="adb_terminal_cancelled">Прервано</string>
     <string name="adb_terminal_truncated">Показаны первые %1$d строк из %2$d</string>
     <string name="adb_terminal_hint">Команда</string>
+    <string name="launcher_fn_on">ВКЛ</string>
+    <string name="launcher_fn_off">ВЫКЛ</string>
+    <string name="car_function_amber_theme">Оранжевая подсветка</string>
+    <string name="car_function_amber_theme_desc">Подсвечивать включённые функции авто оранжевым вместо синего</string>
 </resources>

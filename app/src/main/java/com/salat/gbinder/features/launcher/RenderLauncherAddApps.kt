@@ -147,7 +147,7 @@ fun ColumnScope.RenderLauncherAddApps(
             when (it.type) {
                 DisplayLauncherItemType.GROUP -> true
 
-                DisplayLauncherItemType.MACRO -> true
+                DisplayLauncherItemType.MACRO, DisplayLauncherItemType.CAR_FUNCTION -> true
 
                 DisplayLauncherItemType.APP -> (it.packageName + it.launchActivity) in selectedApps
 
@@ -515,7 +515,7 @@ private fun String.afterLastDot(): String {
  * If there are existing non-zero values, continues from max+1.
  * If none exist, starts id from currentTimeMillis() and order from a timestamp Int.
  */
-private fun List<DisplayLauncherItem>.assignIdsAndOrder(): List<DisplayLauncherItem> {
+internal fun List<DisplayLauncherItem>.assignIdsAndOrder(): List<DisplayLauncherItem> {
     // find last non-zero id/order among existing items
     val lastId: Long = this.asSequence().map { it.id }.filter { it != 0L }.maxOrNull() ?: 0L
     val lastOrder: Int = this.asSequence().map { it.order }.filter { it != 0 }.maxOrNull() ?: 0

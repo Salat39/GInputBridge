@@ -74,7 +74,9 @@ import com.salat.gbinder.entity.PressState
 import com.salat.gbinder.entity.ToggleMediaControl
 import com.salat.gbinder.entity.parseAppCarouselValueSegment
 import com.salat.gbinder.features.carFunctions.CarFunctionController
+import com.salat.gbinder.features.carFunctions.CarFunctionStateReader
 import com.salat.gbinder.features.carFunctions.CarFunctionToast
+import com.salat.gbinder.features.launcher.LauncherCarFunctionStates
 import com.salat.gbinder.features.launcher.LauncherDataRepository
 import com.salat.gbinder.features.launcher.LauncherEntryActivity
 import com.salat.gbinder.features.launcher.LauncherIconPrewarmer
@@ -242,6 +244,7 @@ class App : Application(), ImageLoaderFactory {
     lateinit var launcherIconPrewarmer: LauncherIconPrewarmer
 
     private lateinit var carFunctions: CarFunctionController
+    lateinit var launcherCarFunctionStates: LauncherCarFunctionStates
     private val heatVentDefaultLevels =
         ConcurrentHashMap<CarFunction, Int>().apply {
             CarFunction.entries.filter { it.hasConfigurableDefaultLevel() }.forEach {
@@ -442,6 +445,13 @@ class App : Application(), ImageLoaderFactory {
             },
             climateTempStep = { climateTempStep },
             isIgnitionDriving = { ignitionDriving() },
+        )
+        launcherCarFunctionStates = LauncherCarFunctionStates(
+            scope = appScope,
+            car = carManager,
+            reader = CarFunctionStateReader(carManager) { carModel },
+            trigger = carFunctions::triggerFromTouch,
+            simulate = BuildConfig.DEBUG && carModel == null
         )
 
         logActor = appScope.actor(capacity = Channel.UNLIMITED) {

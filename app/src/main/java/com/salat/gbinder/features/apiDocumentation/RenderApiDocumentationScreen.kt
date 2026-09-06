@@ -83,7 +83,7 @@ fun RenderApiDocumentationScreen(onClose: () -> Unit) {
             CompositionLocalProvider(LocalOverscrollFactory provides null) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
+                    contentPadding = PaddingValues(start = 20.dp, top = 18.dp, end = 20.dp, bottom = 96.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     items(documentationSections, key = { it }) { sectionId ->

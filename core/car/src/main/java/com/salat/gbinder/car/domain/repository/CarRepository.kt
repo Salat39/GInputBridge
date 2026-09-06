@@ -1,9 +1,13 @@
 package com.salat.gbinder.car.domain.repository
 
+import com.salat.gbinder.car.domain.entity.CarFunctionChange
 import com.salat.gbinder.car.domain.entity.PropertyStatus
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 
 interface CarRepository {
+    val functionChangedFlow: SharedFlow<CarFunctionChange>
+
     val driveModeStateFlow: StateFlow<Pair<Int, Int>>
 
     val ignitionStateFlow: StateFlow<Int>

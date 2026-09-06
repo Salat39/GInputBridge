@@ -87,7 +87,8 @@ class LauncherDataRepositoryImpl(
                         LauncherPrefs.LAUNCHER_AUTO_LIGHT_THEME_END,
                         GeneralPrefs.ENABLE_ADB_HELPER,
                         LauncherPrefs.LAUNCHER_SHOW_FROZEN_APPS,
-                        LauncherPrefs.LAUNCHER_ALLOW_SYSTEM_APP_UNINSTALL
+                        LauncherPrefs.LAUNCHER_ALLOW_SYSTEM_APP_UNINSTALL,
+                        LauncherPrefs.LAUNCHER_CAR_FUNCTION_AMBER
                     ),
                     listOf(
                         if (BuildConfig.DEBUG) .85f else DEFAULT_UI_SCALE,
@@ -117,7 +118,8 @@ class LauncherDataRepositoryImpl(
                         DEFAULT_AUTO_LIGHT_THEME_END, // auto light theme end
                         false, // adb helper
                         true, // show frozen apps in all-apps grid
-                        false // allow system app uninstall
+                        false, // allow system app uninstall
+                        false // amber highlight for car functions
                     )
                 )
                     .flowOn(Dispatchers.IO)
@@ -153,6 +155,7 @@ class LauncherDataRepositoryImpl(
                                 enableAdbHelper = prefs[25] as Boolean,
                                 showFrozenApps = prefs[26] as Boolean,
                                 allowSystemAppUninstall = prefs[27] as Boolean,
+                                carFunctionAmber = prefs[28] as Boolean,
                             )
                         }
                     }
@@ -333,7 +336,7 @@ class LauncherDataRepositoryImpl(
             LauncherItemType.ACTIVITY -> allPackages[packageName + launchActivity]
                 ?: allPackages.firstByPrefix(packageName)?.second
             LauncherItemType.MACRO -> allPackagesByPackage[packageName]
-            LauncherItemType.GROUP -> null
+            LauncherItemType.GROUP, LauncherItemType.CAR_FUNCTION -> null
         }
         return appInfo?.isFrozen == true
     }

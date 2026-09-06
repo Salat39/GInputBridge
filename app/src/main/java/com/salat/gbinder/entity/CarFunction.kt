@@ -1,5 +1,6 @@
 package com.salat.gbinder.entity
 
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.datastore.preferences.core.Preferences
 import com.salat.gbinder.BuildConfig
@@ -17,28 +18,29 @@ enum class CarModel {
 @Serializable
 enum class CarFunction(
     @StringRes val titleRes: Int,
+    @DrawableRes val iconRes: Int,
     @StringRes val descRes: Int? = null,
 ) {
-    CLIMATE_MENU(R.string.car_fn_climate_menu, R.string.car_fn_climate_menu_desc),
-    WHEEL_HEAT(R.string.car_fn_wheel_heat, R.string.car_fn_wheel_heat_desc),
-    DRIVER_HEAT(R.string.car_fn_driver_heat, R.string.car_fn_driver_heat_desc),
-    PASSENGER_HEAT(R.string.car_fn_passenger_heat, R.string.car_fn_passenger_heat_desc),
-    DRIVER_VENT(R.string.car_fn_driver_vent, R.string.car_fn_driver_vent_desc),
-    PASSENGER_VENT(R.string.car_fn_passenger_vent, R.string.car_fn_passenger_vent_desc),
-    FRONT_DEFROST(R.string.car_fn_front_defrost, R.string.car_fn_front_defrost_desc),
-    REAR_DEFROST(R.string.car_fn_rear_defrost, R.string.car_fn_rear_defrost_desc),
-    MAX_DEFROST(R.string.car_fn_max_defrost, R.string.car_fn_max_defrost_desc),
-    RECIRCULATION(R.string.car_fn_recirculation, R.string.car_fn_recirculation_desc),
-    ME_HOT(R.string.car_fn_me_hot, R.string.car_fn_me_hot_desc),
-    ME_COOLED(R.string.car_fn_me_cooled),
-    ME_COLD(R.string.car_fn_me_cold, R.string.car_fn_me_cold_desc),
-    ME_WARMED(R.string.car_fn_me_warmed),
-    ANTIBUKS(R.string.car_fn_antibuks, R.string.car_fn_antibuks_desc),
-    MIRRORS(R.string.car_fn_mirrors, R.string.car_fn_mirrors_desc),
-    LIGHT(R.string.car_fn_light, R.string.car_fn_light_desc),
-    SEAT_MEMORY(R.string.car_fn_seat_memory, R.string.car_fn_seat_memory_desc),
-    TRUNK(R.string.car_fn_trunk, R.string.car_fn_trunk_desc),
-    WIPERS(R.string.car_fn_wipers, R.string.car_fn_wipers_desc),
+    CLIMATE_MENU(R.string.car_fn_climate_menu, R.drawable.ic_fn_climate, R.string.car_fn_climate_menu_desc),
+    WHEEL_HEAT(R.string.car_fn_wheel_heat, R.drawable.ic_fn_wheel_heat, R.string.car_fn_wheel_heat_desc),
+    DRIVER_HEAT(R.string.car_fn_driver_heat, R.drawable.ic_fn_seat_heat_driver, R.string.car_fn_driver_heat_desc),
+    PASSENGER_HEAT(R.string.car_fn_passenger_heat, R.drawable.ic_fn_seat_heat_passenger, R.string.car_fn_passenger_heat_desc),
+    DRIVER_VENT(R.string.car_fn_driver_vent, R.drawable.ic_fn_seat_vent_driver, R.string.car_fn_driver_vent_desc),
+    PASSENGER_VENT(R.string.car_fn_passenger_vent, R.drawable.ic_fn_seat_vent_passenger, R.string.car_fn_passenger_vent_desc),
+    FRONT_DEFROST(R.string.car_fn_front_defrost, R.drawable.ic_fn_front_defrost, R.string.car_fn_front_defrost_desc),
+    REAR_DEFROST(R.string.car_fn_rear_defrost, R.drawable.ic_fn_rear_defrost, R.string.car_fn_rear_defrost_desc),
+    MAX_DEFROST(R.string.car_fn_max_defrost, R.drawable.ic_fn_max_defrost, R.string.car_fn_max_defrost_desc),
+    RECIRCULATION(R.string.car_fn_recirculation, R.drawable.ic_fn_recirculation, R.string.car_fn_recirculation_desc),
+    ME_HOT(R.string.car_fn_me_hot, R.drawable.ic_fn_me_hot, R.string.car_fn_me_hot_desc),
+    ME_COOLED(R.string.car_fn_me_cooled, R.drawable.ic_fn_me_hot),
+    ME_COLD(R.string.car_fn_me_cold, R.drawable.ic_fn_me_cold, R.string.car_fn_me_cold_desc),
+    ME_WARMED(R.string.car_fn_me_warmed, R.drawable.ic_fn_me_cold),
+    ANTIBUKS(R.string.car_fn_antibuks, R.drawable.ic_fn_antibuks, R.string.car_fn_antibuks_desc),
+    MIRRORS(R.string.car_fn_mirrors, R.drawable.ic_fn_mirrors, R.string.car_fn_mirrors_desc),
+    LIGHT(R.string.car_fn_light, R.drawable.ic_fn_light, R.string.car_fn_light_desc),
+    SEAT_MEMORY(R.string.car_fn_seat_memory, R.drawable.ic_fn_seat_memory, R.string.car_fn_seat_memory_desc),
+    TRUNK(R.string.car_fn_trunk, R.drawable.ic_fn_trunk, R.string.car_fn_trunk_desc),
+    WIPERS(R.string.car_fn_wipers, R.drawable.ic_fn_wipers, R.string.car_fn_wipers_desc),
     ;
 
     fun isAvailableFor(model: CarModel?): Boolean = when (this) {
@@ -75,6 +77,9 @@ enum class CarFunction(
 
         fun availableFor(model: CarModel?): List<CarFunction> =
             entries.filter { (BuildConfig.DEBUG || it.isAvailableFor(model)) && it.isListedInMenu() }
+
+        fun availableForLauncher(model: CarModel?): List<CarFunction> =
+            availableFor(model).filter { it != CLIMATE_MENU }
 
         private fun CarFunction.isListedInMenu(): Boolean = when (this) {
             ME_COOLED, ME_WARMED -> false

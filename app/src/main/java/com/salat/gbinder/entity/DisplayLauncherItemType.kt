@@ -7,5 +7,6 @@ enum class DisplayLauncherItemType {
     GROUP,
     APP,
     ACTIVITY,
-    MACRO
+    MACRO,
+    CAR_FUNCTION
 }
