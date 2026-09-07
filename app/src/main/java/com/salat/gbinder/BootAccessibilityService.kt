@@ -2,6 +2,7 @@ package com.salat.gbinder
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityWindowInfo
 import com.salat.gbinder.repository.AccessibilityRepository
@@ -63,6 +64,13 @@ class BootAccessibilityService : AccessibilityService() {
         configureAccessibilityService()
         accessibility.setCanAccessibility(true)
         logs.deepLog("[AS] Connected")
+    }
+
+    // Debug builds only - the "/" key on any screen fires the test key bind
+    override fun onKeyEvent(event: KeyEvent): Boolean {
+        if (!BuildConfig.DEBUG || event.keyCode != KeyEvent.KEYCODE_SLASH) return false
+        if (event.action == KeyEvent.ACTION_DOWN) (application as App).debugTriggerTestBind()
+        return true
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -136,6 +144,7 @@ class BootAccessibilityService : AccessibilityService() {
             val info = AccessibilityServiceInfo().apply {
                 eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
                 flags = AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+                if (BuildConfig.DEBUG) flags = flags or AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
                 feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
                 notificationTimeout = 100
             }

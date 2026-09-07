@@ -945,6 +945,38 @@ fun ColumnScope.RenderLauncherSettings(
         }
     )
 
+    Spacer(Modifier.height(32.dp))
+
+    // Car functions section
+    Text(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 42.dp),
+        text = stringResource(R.string.car_functions_group),
+        style = AppTheme.typography.overlayLauncherSettingsGroup,
+        color = AppTheme.colors.contentAccent
+    )
+
+    Spacer(Modifier.height(24.dp))
+
+    RenderSwitcher(
+        modifier = Modifier.padding(horizontal = 18.dp),
+        title = stringResource(R.string.car_function_accent_mode),
+        subtitle = stringResource(R.string.car_function_accent_mode_desc),
+        value = config.carFunctionAccent,
+        enable = true,
+        isNegative = false,
+        groupDivider = false,
+        subtitleColor = AppTheme.colors.contentPrimary.copy(.7f),
+        titleStyle = AppTheme.typography.overlayLauncherSettingsTitle,
+        subtitleStyle = AppTheme.typography.overlayLauncherSettingsSubtitle,
+        onChange = {
+            scope.launch {
+                storage.dataStore.saveValue(LauncherPrefs.LAUNCHER_CAR_FUNCTION_ACCENT, it)
+            }
+        }
+    )
+
     Spacer(Modifier.height(26.dp))
 
     RenderSwitcher(

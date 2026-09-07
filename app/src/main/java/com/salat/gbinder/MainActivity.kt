@@ -96,6 +96,7 @@ import com.salat.gbinder.datastore.FavoriteStorageRepository
 import com.salat.gbinder.datastore.GeneralPrefs
 import com.salat.gbinder.datastore.KeyBindStorageRepository
 import com.salat.gbinder.datastore.NoBackupPrefs
+import com.salat.gbinder.entity.AppPanelConfig
 import com.salat.gbinder.entity.CarFunction
 import com.salat.gbinder.entity.DISPLAY_AUDIO_SOURCES
 import com.salat.gbinder.entity.DISPLAY_LAMP_MODES
@@ -502,13 +503,6 @@ class MainActivity : ComponentActivity() {
                                     mainScreenState = mainScreenState.copy(adbDimAutoStop = it)
                                     scope.launch {
                                         dataStore.saveValue(GeneralPrefs.ADB_DIM_AUTO_STOP, it)
-                                    }
-                                },
-                                adbAotCompile = mainScreenState.adbAotCompile,
-                                onAdbAotCompileChanged = {
-                                    mainScreenState = mainScreenState.copy(adbAotCompile = it)
-                                    scope.launch {
-                                        dataStore.saveValue(GeneralPrefs.ADB_AOT_COMPILE, it)
                                     }
                                 },
                                 onNavigateToGeelyLauncherSettings = {
@@ -1862,6 +1856,64 @@ class MainActivity : ComponentActivity() {
                     }
                 )
 
+                Spacer(Modifier.height(16.dp))
+
+                val appPanelStepSlider = stringResource(R.string.app_panel_step_delay)
+                Text(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 42.dp),
+                    textAlign = TextAlign.Left,
+                    text = "$appPanelStepSlider: " +
+                            mainScreenState.appPanelStepDelay.toDecimalSecondString(1),
+                    color = AppTheme.colors.contentPrimary
+                )
+                ValueSlider(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 36.dp),
+                    value = mainScreenState.appPanelStepDelay,
+                    valueRange = 500..5000,
+                    onValueChange = { newValue ->
+                        updateMainScreenState(mainScreenState.copy(appPanelStepDelay = newValue))
+                        scope.launch(Dispatchers.IO) {
+                            dataStore.saveValue(GeneralPrefs.APP_PANEL_STEP_DELAY, newValue)
+                        }
+                    },
+                    enabled = true,
+                    defaultMark = MainScreenState.Default.appPanelStepDelay,
+                    step = 100
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                val fnPanelHideSlider = stringResource(R.string.fn_panel_hide_delay)
+                Text(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 42.dp),
+                    textAlign = TextAlign.Left,
+                    text = "$fnPanelHideSlider: " +
+                            mainScreenState.fnPanelHideDelay.toDecimalSecondString(1),
+                    color = AppTheme.colors.contentPrimary
+                )
+                ValueSlider(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 36.dp),
+                    value = mainScreenState.fnPanelHideDelay,
+                    valueRange = 1000..10000,
+                    onValueChange = { newValue ->
+                        updateMainScreenState(mainScreenState.copy(fnPanelHideDelay = newValue))
+                        scope.launch(Dispatchers.IO) {
+                            dataStore.saveValue(GeneralPrefs.FN_PANEL_HIDE_DELAY, newValue)
+                        }
+                    },
+                    enabled = true,
+                    defaultMark = MainScreenState.Default.fnPanelHideDelay,
+                    step = 100
+                )
+
                 // debug options
                 RenderDebugSettingsBlock(
                     isDebugMode = mainScreenState.isDebugMode,
@@ -2566,11 +2618,16 @@ class MainActivity : ComponentActivity() {
         } else null
 
     private suspend fun resolveBindAppCarousel(action: KeyBindAction, value: String): String? {
-        if (action != KeyBindAction.APP_CAROUSEL) return null
-        val parts = value.split('|')
-        if (parts.size < 2) return ""
-        val packages = parts.drop(1).map { parseAppCarouselValueSegment(it).first }
-            .filter { it.isNotEmpty() }
+        val packages = when (action) {
+            KeyBindAction.APP_CAROUSEL -> {
+                val parts = value.split('|')
+                if (parts.size < 2) return ""
+                parts.drop(1).map { parseAppCarouselValueSegment(it).first }
+            }
+
+            KeyBindAction.APP_PANEL -> AppPanelConfig.parse(value).packages
+            else -> return null
+        }.filter { it.isNotEmpty() }
         return packages.mapNotNull { pkg ->
             systemApps.getApps(APP_ICON_ROUND, APP_ICON_QUALITY, pkg)
                 .toAllDisplay()
@@ -2686,9 +2743,18 @@ class MainActivity : ComponentActivity() {
         action: KeyBindAction,
         value: String
     ): String? {
-        if (action != KeyBindAction.CAR_FUNCTION) return null
-        val function = CarFunction.fromValue(value) ?: return value
-        return context.getString(function.titleRes)
+        return when (action) {
+            KeyBindAction.CAR_FUNCTION -> {
+                val function = CarFunction.fromValue(value) ?: return value
+                context.getString(function.titleRes)
+            }
+
+            KeyBindAction.CAR_FUNCTION_PANEL ->
+                CarFunction.parsePanel(value, ModelHelper.detectCarModel())
+                    .joinToString(", ") { context.getString(it.titleRes) }
+
+            else -> null
+        }
     }
 
     private fun KeyBindAction.toDisplayKeyAction() = when (this) {
@@ -2711,6 +2777,8 @@ class MainActivity : ComponentActivity() {
         KeyBindAction.ANDROID_HOME -> DisplayKeyAction.ANDROID_HOME
         KeyBindAction.NAVIGATE_TO_PAST_APP -> DisplayKeyAction.NAVIGATE_TO_PAST_APP
         KeyBindAction.CAR_FUNCTION -> DisplayKeyAction.CAR_FUNCTION
+        KeyBindAction.CAR_FUNCTION_PANEL -> DisplayKeyAction.CAR_FUNCTION_PANEL
+        KeyBindAction.APP_PANEL -> DisplayKeyAction.APP_PANEL
     }
 }
 
@@ -2799,7 +2867,8 @@ private object MainScreenSettingsRow {
         GeneralPrefs.ALT_LONG_TIME,
         NoBackupPrefs.ADB_TERMINAL_WARNING,
         NoBackupPrefs.ADVANCED_SETTINGS_EXPANDED,
-        GeneralPrefs.ADB_AOT_COMPILE,
+        GeneralPrefs.APP_PANEL_STEP_DELAY,
+        GeneralPrefs.FN_PANEL_HIDE_DELAY,
     )
 
     val defaults: List<Any?> = MainScreenState.Default.toSettingsRow()

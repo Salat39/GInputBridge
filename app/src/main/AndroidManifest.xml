@@ -172,6 +172,11 @@
             android:foregroundServiceType="mediaPlayback" />
 
         <service
+            android:name=".features.carFunctions.CarFunctionPanelOverlayService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <service
             android:name=".TaskManagerOverlayService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />

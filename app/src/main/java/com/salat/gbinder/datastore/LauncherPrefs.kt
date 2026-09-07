@@ -36,6 +36,7 @@ object LauncherPrefs {
     val LAUNCHER_ALLOW_SYSTEM_APP_UNINSTALL =
         booleanPreferencesKey("LAUNCHER_ALLOW_SYSTEM_APP_UNINSTALL")
     val LAUNCHER_CAR_FUNCTION_AMBER = booleanPreferencesKey("LAUNCHER_CAR_FUNCTION_AMBER")
+    val LAUNCHER_CAR_FUNCTION_ACCENT = booleanPreferencesKey("LAUNCHER_CAR_FUNCTION_ACCENT")
 
     val ALL_KEYS
         get() = listOf(
@@ -67,6 +68,7 @@ object LauncherPrefs {
             LAUNCHER_AUTO_LIGHT_THEME_END,
             LAUNCHER_SHOW_FROZEN_APPS,
             LAUNCHER_ALLOW_SYSTEM_APP_UNINSTALL,
-            LAUNCHER_CAR_FUNCTION_AMBER
+            LAUNCHER_CAR_FUNCTION_AMBER,
+            LAUNCHER_CAR_FUNCTION_ACCENT
         )
 }

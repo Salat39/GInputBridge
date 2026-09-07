@@ -173,6 +173,7 @@ fun ColumnScope.RenderLauncherMyApps(
                                     available = function != null &&
                                         (BuildConfig.DEBUG || function.isAvailableFor(carModel)),
                                     amber = config.carFunctionAmber,
+                                    accent = config.carFunctionAccent,
                                     pressed = pressed
                                 )
                             }

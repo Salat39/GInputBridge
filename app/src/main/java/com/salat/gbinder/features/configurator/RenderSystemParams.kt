@@ -1,5 +1,6 @@
 package com.salat.gbinder.features.configurator
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.foundation.background
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -24,6 +26,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,10 +34,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.salat.gbinder.AotCompileState
 import com.salat.gbinder.ConfiguratorPresetsViewModel
 import com.salat.gbinder.R
 import com.salat.gbinder.car.data.CarPropertyValue
@@ -52,12 +57,17 @@ fun RenderSystemParams(
     enableAdbHelper: Boolean,
     adbDimAutoStop: Boolean,
     onAdbDimAutoStopChanged: (Boolean) -> Unit,
-    adbAotCompile: Boolean,
-    onAdbAotCompileChanged: (Boolean) -> Unit,
     onNavigateToGeelyLauncherSettings: () -> Unit,
     onClose: () -> Unit
 ) {
     val viewModel: ConfiguratorPresetsViewModel = hiltViewModel()
+    val context = LocalContext.current
+
+    LaunchedEffect(viewModel) {
+        viewModel.toastMessage.collect { messageRes ->
+            Toast.makeText(context, context.getString(messageRes), Toast.LENGTH_LONG).show()
+        }
+    }
 
     BackHandler(onBack = onClose)
 
@@ -71,8 +81,6 @@ fun RenderSystemParams(
             enableAdbHelper = enableAdbHelper,
             adbDimAutoStop = adbDimAutoStop,
             onAdbDimAutoStopChanged = onAdbDimAutoStopChanged,
-            adbAotCompile = adbAotCompile,
-            onAdbAotCompileChanged = onAdbAotCompileChanged,
             onNavigateToGeelyLauncherSettings = onNavigateToGeelyLauncherSettings,
             viewModel = viewModel
         )
@@ -121,13 +129,12 @@ private fun ColumnScope.RenderConfiguratorPresetsContent(
     enableAdbHelper: Boolean,
     adbDimAutoStop: Boolean,
     onAdbDimAutoStopChanged: (Boolean) -> Unit,
-    adbAotCompile: Boolean,
-    onAdbAotCompileChanged: (Boolean) -> Unit,
     onNavigateToGeelyLauncherSettings: () -> Unit,
     viewModel: ConfiguratorPresetsViewModel
 ) {
     val isAtlas by viewModel.isAtlas.collectAsStateWithLifecycle()
     val rearWiperAuto by viewModel.rearWiperAuto.collectAsStateWithLifecycle()
+    val aotCompileState by viewModel.aotCompileState.collectAsStateWithLifecycle()
 
     Box(
         modifier = Modifier
@@ -172,10 +179,10 @@ private fun ColumnScope.RenderConfiguratorPresetsContent(
 
                 Spacer(Modifier.height(12.dp))
 
-                RenderAdbAotCompileSwitcher(
+                RenderAdbAotCompileButton(
                     enableAdbHelper = enableAdbHelper,
-                    adbAotCompile = adbAotCompile,
-                    onAdbAotCompileChanged = onAdbAotCompileChanged
+                    state = aotCompileState,
+                    onClick = viewModel::compileAppToNative
                 )
 
                 Spacer(Modifier.height(12.dp))
@@ -298,19 +305,36 @@ private fun RenderAdbDimAutoStopSwitcher(
 }
 
 @Composable
-private fun RenderAdbAotCompileSwitcher(
+private fun RenderAdbAotCompileButton(
     enableAdbHelper: Boolean,
-    adbAotCompile: Boolean,
-    onAdbAotCompileChanged: (Boolean) -> Unit
+    state: AotCompileState?,
+    onClick: () -> Unit
 ) {
-    RenderSwitcher(
+    RenderListButton(
         modifier = Modifier.padding(horizontal = 20.dp),
+        enable = enableAdbHelper,
         title = "[ADB] ${stringResource(R.string.app_aot_compile_title)}",
         subtitle = stringResource(R.string.app_aot_compile_desc),
-        enable = enableAdbHelper,
-        value = adbAotCompile,
-        groupDivider = false,
-        onChange = { onAdbAotCompileChanged(it) }
+        content = { state?.let { RenderAotCompileBadge(it) } },
+        onClick = onClick
+    )
+}
+
+@Composable
+private fun RenderAotCompileBadge(state: AotCompileState) {
+    val (textRes, color) = when (state) {
+        AotCompileState.COMPILED -> R.string.app_aot_compile_status_done to AppTheme.colors.statusSuccess
+        AotCompileState.COMPILING -> R.string.app_aot_compile_status_running to AppTheme.colors.statusWarning
+        AotCompileState.NOT_COMPILED -> R.string.app_aot_compile_status_pending to AppTheme.colors.statusDisabled
+    }
+    Text(
+        text = stringResource(textRes),
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(color.copy(.18f))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        color = color,
+        style = AppTheme.typography.liteBadge
     )
 }
 

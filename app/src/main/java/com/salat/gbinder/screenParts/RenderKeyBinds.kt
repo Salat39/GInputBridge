@@ -33,6 +33,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import com.salat.gbinder.App
+import com.salat.gbinder.BuildConfig
 import com.salat.gbinder.R
 import com.salat.gbinder.entity.DisplayKeyAction
 import com.salat.gbinder.entity.DisplayKeyBind
@@ -620,6 +622,38 @@ internal fun RenderKeyBinds(
                             )
                         }
 
+                        DisplayKeyAction.CAR_FUNCTION_PANEL -> Row(
+                            modifier = actionAreaModifier,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(
+                                    R.string.car_function_panel_summary,
+                                    item.carFunctionTitle.orEmpty()
+                                ),
+                                style = AppTheme.typography.cardFormatTitle,
+                                color = AppTheme.colors.contentPrimary,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        DisplayKeyAction.APP_PANEL -> Row(
+                            modifier = actionAreaModifier,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(
+                                    R.string.app_panel_summary,
+                                    item.appCarouselSummaries.orEmpty()
+                                ),
+                                style = AppTheme.typography.cardFormatTitle,
+                                color = AppTheme.colors.contentPrimary,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
                         DisplayKeyAction.CAR_FUNCTION -> Row(
                             modifier = actionAreaModifier,
                             verticalAlignment = Alignment.CenterVertically
@@ -640,6 +674,26 @@ internal fun RenderKeyBinds(
                     }
 
                     Spacer(Modifier.width(10.dp))
+
+                    if (BuildConfig.DEBUG) {
+                        IconButton(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .padding(start = 2.dp),
+                            onClick = {
+                                (context.applicationContext as App).debugTriggerBind(item.bindName)
+                            }
+                        ) {
+                            Icon(
+                                modifier = Modifier.size(22.dp),
+                                painter = painterResource(R.drawable.ic_enter),
+                                tint = AppTheme.colors.contentPrimary.copy(.7f),
+                                contentDescription = "test"
+                            )
+                        }
+
+                        Spacer(Modifier.width(4.dp))
+                    }
 
                     IconButton(
                         modifier = Modifier

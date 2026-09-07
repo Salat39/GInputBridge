@@ -88,7 +88,8 @@ class LauncherDataRepositoryImpl(
                         GeneralPrefs.ENABLE_ADB_HELPER,
                         LauncherPrefs.LAUNCHER_SHOW_FROZEN_APPS,
                         LauncherPrefs.LAUNCHER_ALLOW_SYSTEM_APP_UNINSTALL,
-                        LauncherPrefs.LAUNCHER_CAR_FUNCTION_AMBER
+                        LauncherPrefs.LAUNCHER_CAR_FUNCTION_AMBER,
+                        LauncherPrefs.LAUNCHER_CAR_FUNCTION_ACCENT
                     ),
                     listOf(
                         if (BuildConfig.DEBUG) .85f else DEFAULT_UI_SCALE,
@@ -119,7 +120,8 @@ class LauncherDataRepositoryImpl(
                         false, // adb helper
                         true, // show frozen apps in all-apps grid
                         false, // allow system app uninstall
-                        false // amber highlight for car functions
+                        false, // amber highlight for car functions
+                        true // accent fill for active car functions
                     )
                 )
                     .flowOn(Dispatchers.IO)
@@ -156,6 +158,7 @@ class LauncherDataRepositoryImpl(
                                 showFrozenApps = prefs[26] as Boolean,
                                 allowSystemAppUninstall = prefs[27] as Boolean,
                                 carFunctionAmber = prefs[28] as Boolean,
+                                carFunctionAccent = prefs[29] as Boolean,
                             )
                         }
                     }

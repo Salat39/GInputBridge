@@ -39,6 +39,7 @@ class CarFunctionController(
     private val mutex = Mutex()
     private val session = AtomicReference<PadSession?>(null)
     private var levelExpireJob: Job? = null
+    private var silentToasts = false
 
     private val carModel: CarModel? get() = resolveCarModel()
 
@@ -62,6 +63,7 @@ class CarFunctionController(
     }
 
     suspend fun handleMediaKey(keyCode: Int): Boolean = mutex.withLock {
+        silentToasts = false
         val current = session.get() ?: return false
 
         when (current) {
@@ -119,10 +121,12 @@ class CarFunctionController(
         function: CarFunction,
         triggerKeyCode: Int = -1,
         explicit: Boolean = false,
+        silent: Boolean = false,
     ): Boolean {
         var consumePadEcho = false
         runCatching {
             mutex.withLock {
+                silentToasts = silent
                 if (!function.isAvailableFor(carModel)) {
                     return@withLock
                 }
@@ -207,16 +211,17 @@ class CarFunctionController(
         when {
             function == CarFunction.ME_HOT -> {
                 val active = car.readImHotActive(carModel) ?: false
-                trigger(if (active) CarFunction.ME_COOLED else CarFunction.ME_HOT, explicit = true)
+                trigger(if (active) CarFunction.ME_COOLED else CarFunction.ME_HOT, explicit = true, silent = true)
             }
             function == CarFunction.ME_COLD -> {
                 val active = car.readImColdActive() ?: false
-                trigger(if (active) CarFunction.ME_WARMED else CarFunction.ME_COLD, explicit = true)
+                trigger(if (active) CarFunction.ME_WARMED else CarFunction.ME_COLD, explicit = true, silent = true)
             }
-            levelSpec(function) == null -> trigger(function)
+            levelSpec(function) == null -> trigger(function, silent = true)
             else -> runCatching {
                 mutex.withLock {
                     if (!function.isAvailableFor(carModel)) return@withLock
+                    silentToasts = true
                     cycleLevel(function, forward = true, includeOff = true)
                 }
             }.onFailure { Timber.e(it) }
@@ -730,6 +735,7 @@ class CarFunctionController(
     }
 
     private suspend fun toast(@androidx.annotation.StringRes res: Int) {
+        if (silentToasts) return
         CarFunctionToast.show(context, context.getString(res))
     }
 
@@ -737,6 +743,7 @@ class CarFunctionController(
         @androidx.annotation.StringRes titleRes: Int,
         @androidx.annotation.StringRes subtitleRes: Int,
     ) {
+        if (silentToasts) return
         CarFunctionToast.show(
             context,
             context.getString(titleRes),
@@ -748,10 +755,12 @@ class CarFunctionController(
         @androidx.annotation.StringRes titleRes: Int,
         subtitle: String,
     ) {
+        if (silentToasts) return
         CarFunctionToast.show(context, context.getString(titleRes), subtitle)
     }
 
     private suspend fun toast(text: String) {
+        if (silentToasts) return
         CarFunctionToast.show(context, text)
     }
 

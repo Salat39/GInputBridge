@@ -65,7 +65,8 @@ fun RenderLauncherMyAppCell(
     onHideApp: (item: DisplayLauncherItem) -> Unit,
     onClick: (item: DisplayLauncherItem) -> Unit = {},
     onLongClick: (item: DisplayLauncherItem, offset: Offset) -> Unit,
-    iconContent: (@Composable BoxScope.(pressed: Boolean) -> Unit)? = null
+    iconContent: (@Composable BoxScope.(pressed: Boolean) -> Unit)? = null,
+    iconModifier: Modifier = Modifier
 ) {
     var clickLock by rememberTimeLockedBoolean(1000L)
     var rootOffset by remember { mutableStateOf(Offset.Zero) }
@@ -118,7 +119,7 @@ fun RenderLauncherMyAppCell(
     ) {
         val ctx = LocalContext.current
         val pxSize = with(LocalDensity.current) { cellSize.dp.roundToPx() }
-        Box(Modifier.size(cellSize.dp)) {
+        Box(Modifier.size(cellSize.dp).then(iconModifier)) {
             val ir = app.iconRef
 
             if (iconContent != null) {

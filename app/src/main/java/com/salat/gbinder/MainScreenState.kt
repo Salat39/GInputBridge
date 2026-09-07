@@ -37,7 +37,8 @@ internal data class MainScreenState(
     val altLongTime: Int = ADDITIONAL_KEYS_MIN_LONG_PRESS_TIME,
     val adbTerminalWarning: Boolean = true,
     val advancedSettingsExpanded: Boolean = false,
-    val adbAotCompile: Boolean = false
+    val appPanelStepDelay: Int = APP_PANEL_STEP_DELAY_DEFAULT_MS,
+    val fnPanelHideDelay: Int = FN_PANEL_HIDE_DELAY_DEFAULT_MS
 ) {
     fun updateFrom(row: List<Any?>): MainScreenState {
         return copy(
@@ -72,7 +73,8 @@ internal data class MainScreenState(
             altLongTime = row[28] as Int,
             adbTerminalWarning = row[29] as Boolean,
             advancedSettingsExpanded = row[30] as Boolean,
-            adbAotCompile = row[31] as Boolean
+            appPanelStepDelay = row[31] as Int,
+            fnPanelHideDelay = row[32] as Int
         )
     }
 
@@ -108,7 +110,8 @@ internal data class MainScreenState(
         altLongTime,
         adbTerminalWarning,
         advancedSettingsExpanded,
-        adbAotCompile
+        appPanelStepDelay,
+        fnPanelHideDelay
     )
 
     companion object {

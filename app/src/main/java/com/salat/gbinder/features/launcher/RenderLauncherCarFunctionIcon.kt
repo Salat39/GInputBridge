@@ -68,6 +68,7 @@ fun RenderLauncherCarFunctionIcon(
     iconRound: Int,
     available: Boolean,
     amber: Boolean,
+    accent: Boolean,
     pressed: Boolean
 ) {
     val indicator = state is CarFunctionState.Level || state is CarFunctionState.Toggle
@@ -86,9 +87,24 @@ fun RenderLauncherCarFunctionIcon(
     val active = (state is CarFunctionState.Level && state.index > 0) ||
         (state is CarFunctionState.Toggle && state.on)
     val colors = AppTheme.colors
-    val tileActive = if (amber) colors.launcherFunctionTileActiveAmber else colors.launcherFunctionTileActive
-    val contentActive = if (amber) colors.launcherFunctionContentActiveAmber else colors.launcherFunctionContentActive
-    val indicatorActive = if (amber) colors.launcherFunctionIndicatorActiveAmber else colors.launcherFunctionIndicatorActive
+    val tileActive = when {
+        amber && accent -> colors.launcherFunctionTileActiveAmber
+        amber -> colors.launcherFunctionTileActiveAmberSoft
+        accent -> colors.launcherFunctionTileActive
+        else -> colors.launcherFunctionTileActiveSoft
+    }
+    val contentActive = when {
+        amber && accent -> colors.launcherFunctionContentActiveAmber
+        amber -> colors.launcherFunctionContentActiveAmberSoft
+        accent -> colors.launcherFunctionContentActive
+        else -> colors.launcherFunctionContentActiveSoft
+    }
+    val indicatorActive = when {
+        amber && accent -> colors.launcherFunctionIndicatorActiveAmber
+        amber -> colors.launcherFunctionIndicatorActiveAmberSoft
+        accent -> colors.launcherFunctionIndicatorActive
+        else -> colors.launcherFunctionIndicatorActiveSoft
+    }
     val tileColor by animateColorAsState(
         targetValue = if (active) tileActive else colors.launcherFunctionTile,
         animationSpec = tween(COLOR_ANIMATION_MS),

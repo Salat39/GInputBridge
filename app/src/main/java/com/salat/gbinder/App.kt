@@ -57,7 +57,6 @@ import com.salat.gbinder.datastore.DataStoreRepository
 import com.salat.gbinder.datastore.GeneralPrefs
 import com.salat.gbinder.datastore.KeyBindStorageRepository
 import com.salat.gbinder.datastore.LauncherPrefs
-import com.salat.gbinder.datastore.NoBackupPrefs
 import com.salat.gbinder.entity.AppMediaAction
 import com.salat.gbinder.entity.CarFunction
 import com.salat.gbinder.entity.CarModel
@@ -74,6 +73,7 @@ import com.salat.gbinder.entity.PressState
 import com.salat.gbinder.entity.ToggleMediaControl
 import com.salat.gbinder.entity.parseAppCarouselValueSegment
 import com.salat.gbinder.features.carFunctions.CarFunctionController
+import com.salat.gbinder.features.carFunctions.CarFunctionPanelOverlayService
 import com.salat.gbinder.features.carFunctions.CarFunctionStateReader
 import com.salat.gbinder.features.carFunctions.CarFunctionToast
 import com.salat.gbinder.features.launcher.LauncherCarFunctionStates
@@ -143,6 +143,8 @@ import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
 
 const val ADDITIONAL_KEYS_MIN_LONG_PRESS_TIME = 820
+const val APP_PANEL_STEP_DELAY_DEFAULT_MS = 1800
+const val FN_PANEL_HIDE_DELAY_DEFAULT_MS = 3600
 
 @HiltAndroidApp
 class App : Application(), ImageLoaderFactory {
@@ -202,7 +204,6 @@ class App : Application(), ImageLoaderFactory {
         private const val PERMISSIONS_CHECK_DELAY_MS = 1_000
 
         private const val MINIMIZE_SYSTEM_DELAY = 360L
-        private const val AOT_COMPILE_START_DELAY_MS = 60_000L
         private const val SILENT_START = 4 // in sec
         private const val ONLINE_SWITCH_RETRY_INTERVAL_MS = 1200L
         private const val KARAOKE_RETRY_COUNT = 15
@@ -446,13 +447,7 @@ class App : Application(), ImageLoaderFactory {
             climateTempStep = { climateTempStep },
             isIgnitionDriving = { ignitionDriving() },
         )
-        launcherCarFunctionStates = LauncherCarFunctionStates(
-            scope = appScope,
-            car = carManager,
-            reader = CarFunctionStateReader(carManager) { carModel },
-            trigger = carFunctions::triggerFromTouch,
-            simulate = BuildConfig.DEBUG && carModel == null
-        )
+        launcherCarFunctionStates = createCarFunctionStates()
 
         logActor = appScope.actor(capacity = Channel.UNLIMITED) {
             for (msg in channel) {
@@ -1044,7 +1039,7 @@ class App : Application(), ImageLoaderFactory {
         }
         launch {
             dataStore.getValueFlow(GeneralPrefs.KEY_BINDS).collect { json ->
-                keyBinds = json?.let { keyBindStorage.parseBinds(it) } ?: emptyMap()
+                applyKeyBinds(json?.let { keyBindStorage.parseBinds(it) } ?: emptyMap())
             }
         }
         launch {
@@ -2187,7 +2182,6 @@ class App : Application(), ImageLoaderFactory {
 
     private fun CoroutineScope.handleAdbActions() = launch {
         var stopDimByLaunch: Job? = null
-        var aotCompile: Job? = null
 
         dataStore.getValueFlow(GeneralPrefs.ENABLE_ADB_HELPER, false).collect { enabled ->
             adbIsEnabled = enabled
@@ -2201,37 +2195,8 @@ class App : Application(), ImageLoaderFactory {
                     }
                 }
             } else null
-
-            aotCompile?.cancel()
-            aotCompile = if (enabled) launch {
-                dataStore.getValueFlow(GeneralPrefs.ADB_AOT_COMPILE, false).collectLatest { needCompile ->
-                    if (needCompile) compileAppToNativeIfNeeded()
-                }
-            } else null
         }
     }
-
-    private suspend fun compileAppToNativeIfNeeded() {
-        val installTime = packageManager.getPackageInfo(packageName, 0).lastUpdateTime
-        val compiledInstallTime =
-            dataStore.getValueFlow(NoBackupPrefs.ADB_AOT_COMPILED_UPDATE_TIME).first()
-        if (compiledInstallTime == installTime) return
-
-        adb.connectionState.first { it is AdbConnectionState.Connected }
-        if (isAppCompiledToNative()) {
-            dataStore.saveValue(NoBackupPrefs.ADB_AOT_COMPILED_UPDATE_TIME, installTime)
-            return
-        }
-
-        delay(AOT_COMPILE_START_DELAY_MS)
-        // Detached - dex2oat runs for minutes and must not hold the shared ADB command lock
-        adb.execute("(setsid nohup cmd package compile -m speed -f $packageName >/dev/null 2>&1 &)")
-        Timber.d("[ADB] AOT compile started")
-    }
-
-    private suspend fun isAppCompiledToNative() =
-        adb.execute("dumpsys package $packageName | grep -m1 status=")
-            .contains("[status=speed]")
 
     // -----------------------------------
     // Key triggers
@@ -2333,6 +2298,53 @@ class App : Application(), ImageLoaderFactory {
         sendHoldStop(keyCode)
     }
 
+    fun createCarFunctionStates() = LauncherCarFunctionStates(
+        scope = appScope,
+        car = carManager,
+        reader = CarFunctionStateReader(carManager) { carModel },
+        trigger = carFunctions::triggerFromTouch,
+        simulate = BuildConfig.DEBUG && carModel == null
+    )
+
+    val panelCarFunctionStates by lazy { createCarFunctionStates() }
+
+    private fun applyKeyBinds(binds: Map<String, KeyBindConfig>) {
+        keyBinds = binds
+        panelCarFunctionStates.track(
+            binds.values
+                .filter { it.action == KeyBindAction.CAR_FUNCTION_PANEL }
+                .flatMap { CarFunction.parsePanel(it.value, carModel) }
+                .toSet()
+        )
+    }
+
+    fun debugTriggerTestBind() {
+        if (!BuildConfig.DEBUG) return
+        appScope.launch {
+            applyKeyBinds(keyBindStorage.parseBinds(keyBindStorage.getCode()))
+            handleShortClick(DebugKeyBindHarness.STUB_KEY_CODE, 0, "debug")
+        }
+    }
+
+    fun debugTriggerBind(bindName: String) {
+        if (!BuildConfig.DEBUG) return
+        val key = keyBindStorage.parseBindName(bindName) ?: return
+        appScope.launch {
+            applyKeyBinds(keyBindStorage.parseBinds(keyBindStorage.getCode()))
+            debugLog("DEBUG_TRIGGER: bind=$bindName")
+            key.handleTrigger()
+            key.triggerCarFunctionIfNeeded()
+        }
+    }
+
+    private fun showPanelOverlay(configure: Intent.() -> Unit) = appScope.launch(Dispatchers.Main) {
+        if (currentVisibleApp in OVERLAY_RESTRICTED_PKGS) {
+            currentVisibleApp.minimizePkg()
+            delay(MINIMIZE_SYSTEM_DELAY)
+        }
+        startOverlay<CarFunctionPanelOverlayService>(this@App, allowRestart = true, configure = configure)
+    }
+
     private fun KeyBindPattern.handleTrigger() {
         val bindName = keyBindStorage.getBindName(this)
         keyBinds[bindName]?.let { bind ->
@@ -2366,6 +2378,18 @@ class App : Application(), ImageLoaderFactory {
                 KeyBindAction.CARPLAY_LAUNCH -> bind.carplayLaunch()
 
                 KeyBindAction.CAROUSEL_LAMP -> bind.carouselLampMode()
+
+                KeyBindAction.CAR_FUNCTION_PANEL -> showPanelOverlay {
+                    putExtra(CarFunctionPanelOverlayService.EXTRA_FUNCTIONS, bind.value)
+                }
+
+                KeyBindAction.APP_PANEL -> {
+                    val visible = normalizeVisiblePackage(currentVisibleApp)
+                    showPanelOverlay {
+                        putExtra(CarFunctionPanelOverlayService.EXTRA_APPS, bind.value)
+                        putExtra(CarFunctionPanelOverlayService.EXTRA_VISIBLE_APP, visible)
+                    }
+                }
 
                 KeyBindAction.CAROUSEL_AUDIO_SOURCE -> bind.carouselAudioSource()
 

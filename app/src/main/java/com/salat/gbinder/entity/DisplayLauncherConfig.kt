@@ -32,5 +32,6 @@ data class DisplayLauncherConfig(
     val enableAdbHelper: Boolean,
     val showFrozenApps: Boolean,
     val allowSystemAppUninstall: Boolean,
-    val carFunctionAmber: Boolean
+    val carFunctionAmber: Boolean,
+    val carFunctionAccent: Boolean
 )

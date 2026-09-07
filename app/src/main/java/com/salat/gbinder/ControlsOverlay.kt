@@ -14,11 +14,13 @@ import timber.log.Timber
 fun <T : Service> startOverlay(
     context: Context,
     serviceClass: Class<T>,
-    requireOverlayPermission: Boolean = true
+    requireOverlayPermission: Boolean = true,
+    allowRestart: Boolean = false,
+    configure: Intent.() -> Unit = {}
 ) {
     runCatching {
         // Ensure we don't start the same service twice
-        if (isServiceRunning(context, serviceClass)) return
+        if (!allowRestart && isServiceRunning(context, serviceClass)) return
 
         // Check overlay permission if required
         if (requireOverlayPermission &&
@@ -35,7 +37,7 @@ fun <T : Service> startOverlay(
         }
 
         // Start the service (foreground on O+)
-        val serviceIntent = Intent(context, serviceClass)
+        val serviceIntent = Intent(context, serviceClass).apply(configure)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(serviceIntent)
         } else {
@@ -47,8 +49,10 @@ fun <T : Service> startOverlay(
 /* Convenience overload using reified type parameter */
 inline fun <reified T : Service> startOverlay(
     context: Context,
-    requireOverlayPermission: Boolean = true
-) = startOverlay(context, T::class.java, requireOverlayPermission)
+    requireOverlayPermission: Boolean = true,
+    allowRestart: Boolean = false,
+    noinline configure: Intent.() -> Unit = {}
+) = startOverlay(context, T::class.java, requireOverlayPermission, allowRestart, configure)
 
 @SuppressLint("ObsoleteSdkInt")
 fun <T : Service> stopOverlay(

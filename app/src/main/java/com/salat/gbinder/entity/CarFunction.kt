@@ -81,6 +81,10 @@ enum class CarFunction(
         fun availableForLauncher(model: CarModel?): List<CarFunction> =
             availableFor(model).filter { it != CLIMATE_MENU }
 
+        fun parsePanel(value: String, model: CarModel?): List<CarFunction> =
+            value.split("|").mapNotNull(::fromValue).distinct()
+                .filter { it in availableForLauncher(model) }
+
         private fun CarFunction.isListedInMenu(): Boolean = when (this) {
             ME_COOLED, ME_WARMED -> false
             else -> true

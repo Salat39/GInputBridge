@@ -23,4 +23,6 @@ enum class KeyBindAction {
     ANDROID_HOME,
     NAVIGATE_TO_PAST_APP,
     CAR_FUNCTION,
+    CAR_FUNCTION_PANEL,
+    APP_PANEL,
 }
