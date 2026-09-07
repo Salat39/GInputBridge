@@ -622,37 +622,17 @@ internal fun RenderKeyBinds(
                             )
                         }
 
-                        DisplayKeyAction.CAR_FUNCTION_PANEL -> Row(
+                        DisplayKeyAction.CAR_FUNCTION_PANEL -> PanelSummary(
                             modifier = actionAreaModifier,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = stringResource(
-                                    R.string.car_function_panel_summary,
-                                    item.carFunctionTitle.orEmpty()
-                                ),
-                                style = AppTheme.typography.cardFormatTitle,
-                                color = AppTheme.colors.contentPrimary,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                            title = stringResource(R.string.kbd_car_function_panel_title),
+                            items = item.carFunctionTitle.orEmpty()
+                        )
 
-                        DisplayKeyAction.APP_PANEL -> Row(
+                        DisplayKeyAction.APP_PANEL -> PanelSummary(
                             modifier = actionAreaModifier,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = stringResource(
-                                    R.string.app_panel_summary,
-                                    item.appCarouselSummaries.orEmpty()
-                                ),
-                                style = AppTheme.typography.cardFormatTitle,
-                                color = AppTheme.colors.contentPrimary,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                            title = stringResource(R.string.kbd_app_panel_title),
+                            items = item.appCarouselSummaries.orEmpty()
+                        )
 
                         DisplayKeyAction.CAR_FUNCTION -> Row(
                             modifier = actionAreaModifier,
@@ -730,5 +710,25 @@ internal fun RenderKeyBinds(
 
             }
         }
+    }
+}
+
+@Composable
+private fun PanelSummary(modifier: Modifier, title: String, items: String) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.Center) {
+        Text(
+            text = title,
+            style = AppTheme.typography.dialogListTitle,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            color = AppTheme.colors.contentPrimary
+        )
+        Text(
+            text = items,
+            style = AppTheme.typography.dialogSubtitle,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            color = AppTheme.colors.contentPrimary.copy(.5f)
+        )
     }
 }

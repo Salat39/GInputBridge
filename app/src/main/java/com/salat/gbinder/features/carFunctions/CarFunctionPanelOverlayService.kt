@@ -16,6 +16,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,19 +40,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.shadow.DropShadowPainter
+import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.Lifecycle
@@ -106,18 +115,22 @@ class CarFunctionPanelOverlayService : Service() {
         private const val NOTIFICATION_ID = 2005
         private const val APPS_WAIT_MS = 3_000L
         private const val SELECTION_ANIM_MS = 220
-        private const val SELECTION_GAP_DP = 4
-        private const val SELECTION_STROKE_DP = 4
+        private const val SELECTION_STROKE_DP = 6
         private const val SELECTION_GLOW_DP = 10
         private const val SELECTION_GLOW_STEPS = 5
-        private const val SELECTION_GLOW_ALPHA = .25f
+        private const val SELECTION_GLOW_ALPHA = .12f
         private const val FADE_IN_MS = 180L
         private const val FADE_OUT_MS = 120L
         private const val SCREEN_GAP_DP = 48
         private const val BOTTOM_OFFSET_RATIO = .12f
-        private const val SHADOW_ROOM_DP = 16
+        private const val SHADOW_ROOM_DP = 40
+        private const val BOTTOM_GAP_DP = 16
         private const val TOP_MARGIN_DP = 32
         private const val MAX_PANEL_PADDING_DP = 48
+        private const val PANEL_RADIUS_DP = 24
+        private const val PANEL_SHADOW_RADIUS_DP = 20
+        private const val PANEL_SHADOW_OFFSET_DP = 8
+        private const val PANEL_SHADOW_ALPHA = .45f
     }
 
     @Inject
@@ -332,7 +345,22 @@ class CarFunctionPanelOverlayService : Service() {
                         val panelPadding = minOf(space, MAX_PANEL_PADDING_DP.dp)
                         val sidePadding = (panelPadding - space / 2).coerceAtLeast(0.dp)
                         val cellWidth = cnf.iconSize.dp + space
-                        val shape = RoundedCornerShape(16.dp)
+                        val shape = RoundedCornerShape(PANEL_RADIUS_DP.dp)
+                        val shadowPainter = remember(shape) {
+                            DropShadowPainter(
+                                shape,
+                                Shadow(
+                                    radius = PANEL_SHADOW_RADIUS_DP.dp,
+                                    offset = DpOffset(0.dp, PANEL_SHADOW_OFFSET_DP.dp),
+                                    alpha = PANEL_SHADOW_ALPHA
+                                )
+                            )
+                        }
+                        val hairline = if (AppTheme.colors.isDark) {
+                            Color.White.copy(alpha = .08f)
+                        } else {
+                            Color.Black.copy(alpha = .06f)
+                        }
                         val scrollState = rememberScrollState()
                         LaunchedEffect(scrollState.isScrollInProgress) {
                             if (scrollState.isScrollInProgress) prolongSignal.tryEmit(Unit)
@@ -347,13 +375,34 @@ class CarFunctionPanelOverlayService : Service() {
                         ) {
                             val bottomOffset = maxHeight * BOTTOM_OFFSET_RATIO
                             val panelMaxHeight =
-                                maxHeight - bottomOffset - (TOP_MARGIN_DP + SHADOW_ROOM_DP * 2).dp
+                                maxHeight - bottomOffset - (TOP_MARGIN_DP + SHADOW_ROOM_DP + BOTTOM_GAP_DP).dp
+                            val contentWidth = maxWidth - (SCREEN_GAP_DP.dp + sidePadding) * 2
+                            val maxPerRow = (contentWidth / cellWidth).toInt().coerceAtLeast(1)
+                            val total = fns.size + appItems.size
+                            val rows = (total + maxPerRow - 1) / maxPerRow
+                            val perRow = if (rows == 0) maxPerRow else (total + rows - 1) / rows
                             FlowRow(
                                 modifier = Modifier
-                                    .padding(horizontal = SCREEN_GAP_DP.dp, vertical = SHADOW_ROOM_DP.dp)
+                                    .padding(start = SCREEN_GAP_DP.dp, end = SCREEN_GAP_DP.dp, top = SHADOW_ROOM_DP.dp, bottom = BOTTOM_GAP_DP.dp)
                                     .padding(bottom = bottomOffset)
                                     .heightIn(max = panelMaxHeight)
-                                    .shadow(4.dp, shape)
+                                    .drawWithCache {
+                                        val panel = Path().apply {
+                                            addRoundRect(
+                                                RoundRect(
+                                                    Rect(Offset.Zero, size),
+                                                    CornerRadius(PANEL_RADIUS_DP.dp.toPx())
+                                                )
+                                            )
+                                        }
+                                        onDrawBehind {
+                                            // Translucent panel must not show the shadow through itself
+                                            clipPath(panel, ClipOp.Difference) {
+                                                with(shadowPainter) { draw(size) }
+                                            }
+                                        }
+                                    }
+                                    .border(1.dp, hairline, shape)
                                     .clip(shape)
                                     .background(AppTheme.colors.launcherBackground.copy(cnf.windowAlpha))
                                     .clickableNoRipple { prolongSignal.tryEmit(Unit) }
@@ -361,11 +410,12 @@ class CarFunctionPanelOverlayService : Service() {
                                     .padding(
                                         start = sidePadding,
                                         end = sidePadding,
-                                        top = panelPadding * .75f,
-                                        bottom = panelPadding / 2
+                                        top = (panelPadding - 5.dp).coerceAtLeast(0.dp),
+                                        bottom = panelPadding * .75f
                                     ),
                                 horizontalArrangement = Arrangement.Center,
-                                verticalArrangement = Arrangement.spacedBy(space / 2)
+                                verticalArrangement = Arrangement.spacedBy(space / 2),
+                                maxItemsInEachRow = perRow
                             ) {
                                 fns.forEach { function ->
                                     key(function) {
@@ -421,7 +471,7 @@ class CarFunctionPanelOverlayService : Service() {
                                                         iconRound = cnf.iconRound,
                                                         available = BuildConfig.DEBUG ||
                                                             function.isAvailableFor(carModel),
-                                                        amber = cnf.carFunctionAmber,
+                                                        palette = cnf.carFunctionPalette,
                                                         accent = cnf.carFunctionAccent,
                                                         pressed = pressed
                                                     )
@@ -443,8 +493,7 @@ class CarFunctionPanelOverlayService : Service() {
                                         LaunchedEffect(isSelected) {
                                             if (!isSelected) return@LaunchedEffect
                                             with(density) {
-                                                val outset =
-                                                    (SELECTION_GAP_DP + SELECTION_STROKE_DP + SELECTION_GLOW_DP).dp.toPx()
+                                                val outset = (SELECTION_STROKE_DP + SELECTION_GLOW_DP).dp.toPx()
                                                 val icon = cnf.iconSize.dp.toPx()
                                                 bringIntoView.bringIntoView(
                                                     Rect(-outset, -outset, icon + outset, icon + outset)
@@ -474,7 +523,7 @@ class CarFunctionPanelOverlayService : Service() {
                                                     .drawBehind {
                                                         if (progress == 0f) return@drawBehind
                                                         val stroke = SELECTION_STROKE_DP.dp.toPx()
-                                                        val inset = (SELECTION_GAP_DP.dp.toPx() + stroke / 2) * progress
+                                                        val inset = stroke / 2 * progress
                                                         val radius = if (cnf.iconRound == 0) {
                                                             CornerRadius.Zero
                                                         } else {

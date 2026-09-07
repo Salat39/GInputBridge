@@ -137,7 +137,6 @@
     <string name="kbd_desc_app_panel_pick">Select the apps to show on the panel</string>
     <string name="kbd_title_app_panel_order">Panel order</string>
     <string name="kbd_desc_app_panel_order">Drag the items to set their order on the panel</string>
-    <string name="app_panel_summary">App panel: %s</string>
     <string name="app_panel_no_apps">No available apps for the panel</string>
     <string name="kbd_title_app_panel_mode">Operating mode</string>
     <string name="kbd_desc_app_panel_mode">How the panel works and how you interact with it</string>
@@ -157,7 +156,6 @@
     <string name="kbd_car_function_panel_desc">Show a panel with the configured functions for quick control</string>
     <string name="kbd_desc_car_function_panel">Drag up the functions to show on the panel</string>
     <string name="car_function_panel_functions">Panel functions</string>
-    <string name="car_function_panel_summary">Function panel: %s</string>
     <string name="car_fn_climate_menu">Climate menu</string>
     <string name="car_fn_seat_memory">Seat memory</string>
     <string name="car_fn_wheel_heat">Steering wheel heat</string>
@@ -904,6 +902,9 @@ Send pkg when the overlay opens and always release = 1 when it closes, otherwise
     <string name="car_functions_group">Car functions</string>
     <string name="car_function_accent_mode">Accent mode</string>
     <string name="car_function_accent_mode_desc">Fill active car functions with the accent color and show a light icon and indicator</string>
-    <string name="car_function_amber_theme">Alternative color scheme</string>
-    <string name="car_function_amber_theme_desc">Highlight active car functions in orange instead of blue</string>
+    <string name="car_function_palette">Active function color</string>
+    <string name="car_function_palette_blue">Blue</string>
+    <string name="car_function_palette_teal">Teal</string>
+    <string name="car_function_palette_emerald">Emerald</string>
+    <string name="car_function_palette_violet">Violet</string>
 </resources>

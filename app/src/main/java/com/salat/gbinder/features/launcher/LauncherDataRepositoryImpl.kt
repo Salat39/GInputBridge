@@ -10,6 +10,7 @@ import com.salat.gbinder.datastore.GeneralPrefs
 import com.salat.gbinder.datastore.LauncherPrefs
 import com.salat.gbinder.datastore.LauncherStorageRepository
 import com.salat.gbinder.entity.DisplayLauncherApp
+import com.salat.gbinder.entity.CarFunctionPalette
 import com.salat.gbinder.entity.DisplayLauncherConfig
 import com.salat.gbinder.entity.DisplayLauncherItem
 import com.salat.gbinder.entity.DisplayLauncherItemType
@@ -88,7 +89,7 @@ class LauncherDataRepositoryImpl(
                         GeneralPrefs.ENABLE_ADB_HELPER,
                         LauncherPrefs.LAUNCHER_SHOW_FROZEN_APPS,
                         LauncherPrefs.LAUNCHER_ALLOW_SYSTEM_APP_UNINSTALL,
-                        LauncherPrefs.LAUNCHER_CAR_FUNCTION_AMBER,
+                        LauncherPrefs.LAUNCHER_CAR_FUNCTION_PALETTE,
                         LauncherPrefs.LAUNCHER_CAR_FUNCTION_ACCENT
                     ),
                     listOf(
@@ -120,7 +121,7 @@ class LauncherDataRepositoryImpl(
                         false, // adb helper
                         true, // show frozen apps in all-apps grid
                         false, // allow system app uninstall
-                        false, // amber highlight for car functions
+                        CarFunctionPalette.BLUE.ordinal,
                         true // accent fill for active car functions
                     )
                 )
@@ -157,7 +158,7 @@ class LauncherDataRepositoryImpl(
                                 enableAdbHelper = prefs[25] as Boolean,
                                 showFrozenApps = prefs[26] as Boolean,
                                 allowSystemAppUninstall = prefs[27] as Boolean,
-                                carFunctionAmber = prefs[28] as Boolean,
+                                carFunctionPalette = CarFunctionPalette.fromOrdinal(prefs[28] as Int),
                                 carFunctionAccent = prefs[29] as Boolean,
                             )
                         }

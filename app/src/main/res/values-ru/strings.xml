@@ -129,7 +129,6 @@
     <string name="kbd_desc_app_panel_pick">Выберите приложения, которые будут показаны на панели</string>
     <string name="kbd_title_app_panel_order">Порядок на панели</string>
     <string name="kbd_desc_app_panel_order">Перетащите элементы для настройки порядка на панели</string>
-    <string name="app_panel_summary">Панель приложений: %s</string>
     <string name="app_panel_no_apps">Нет доступных приложений для панели</string>
     <string name="kbd_title_app_panel_mode">Режим работы</string>
     <string name="kbd_desc_app_panel_mode">Режим работы и взаимодействия с панелью</string>
@@ -149,7 +148,6 @@
     <string name="kbd_car_function_panel_desc">Показать окно с настроенными функциями для быстрого управления</string>
     <string name="kbd_desc_car_function_panel">Перетащите вверх функции, которые будут показаны на панели</string>
     <string name="car_function_panel_functions">Функции на панели</string>
-    <string name="car_function_panel_summary">Панель функций: %s</string>
     <string name="car_fn_climate_menu">Меню климата</string>
     <string name="car_fn_seat_memory">Память сиденья</string>
     <string name="car_fn_wheel_heat">Подогрев руля</string>
@@ -904,6 +902,9 @@ SMART - Включает только если ранее было включе�
     <string name="car_functions_group">Функции авто</string>
     <string name="car_function_accent_mode">Акцентный режим</string>
     <string name="car_function_accent_mode_desc">Заливать активные функции авто акцентным цветом со светлой иконкой и индикатором</string>
-    <string name="car_function_amber_theme">Альтернативная цветовая схема</string>
-    <string name="car_function_amber_theme_desc">Подсвечивать активные функции авто оранжевым вместо синего</string>
+    <string name="car_function_palette">Цвет активных функций</string>
+    <string name="car_function_palette_blue">Синий</string>
+    <string name="car_function_palette_teal">Бирюза</string>
+    <string name="car_function_palette_emerald">Изумруд</string>
+    <string name="car_function_palette_violet">Фиолетовый</string>
 </resources>

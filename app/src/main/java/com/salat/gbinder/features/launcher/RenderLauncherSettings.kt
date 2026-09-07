@@ -6,14 +6,18 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -23,6 +27,9 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -30,9 +37,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -42,6 +51,7 @@ import com.salat.gbinder.R
 import com.salat.gbinder.components.toast
 import com.salat.gbinder.datastore.LauncherPrefs
 import com.salat.gbinder.datastore.LauncherStorageRepository
+import com.salat.gbinder.entity.CarFunctionPalette
 import com.salat.gbinder.entity.DisplayLauncherApp
 import com.salat.gbinder.entity.DisplayLauncherConfig
 import com.salat.gbinder.entity.DisplayLauncherItemType
@@ -959,6 +969,37 @@ fun ColumnScope.RenderLauncherSettings(
 
     Spacer(Modifier.height(24.dp))
 
+    Text(
+        modifier = Modifier.padding(horizontal = 42.dp),
+        text = stringResource(R.string.car_function_palette),
+        style = AppTheme.typography.overlayLauncherSettingsTitle,
+        color = AppTheme.colors.contentPrimary
+    )
+
+    Spacer(Modifier.height(16.dp))
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 36.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        CarFunctionPalette.entries.forEach { palette ->
+            RenderCarFunctionPaletteOption(
+                modifier = Modifier.weight(1f),
+                palette = palette,
+                selected = palette == config.carFunctionPalette,
+                onSelect = {
+                    scope.launch {
+                        storage.dataStore.saveValue(LauncherPrefs.LAUNCHER_CAR_FUNCTION_PALETTE, palette.ordinal)
+                    }
+                }
+            )
+        }
+    }
+
+    Spacer(Modifier.height(26.dp))
+
     RenderSwitcher(
         modifier = Modifier.padding(horizontal = 18.dp),
         title = stringResource(R.string.car_function_accent_mode),
@@ -977,27 +1018,54 @@ fun ColumnScope.RenderLauncherSettings(
         }
     )
 
-    Spacer(Modifier.height(26.dp))
+    Spacer(Modifier.height(64.dp))
+}
 
-    RenderSwitcher(
-        modifier = Modifier.padding(horizontal = 18.dp),
-        title = stringResource(R.string.car_function_amber_theme),
-        subtitle = stringResource(R.string.car_function_amber_theme_desc),
-        value = config.carFunctionAmber,
-        enable = true,
-        isNegative = false,
-        groupDivider = false,
-        subtitleColor = AppTheme.colors.contentPrimary.copy(.7f),
-        titleStyle = AppTheme.typography.overlayLauncherSettingsTitle,
-        subtitleStyle = AppTheme.typography.overlayLauncherSettingsSubtitle,
-        onChange = {
-            scope.launch {
-                storage.dataStore.saveValue(LauncherPrefs.LAUNCHER_CAR_FUNCTION_AMBER, it)
+@Composable
+private fun RenderCarFunctionPaletteOption(
+    modifier: Modifier,
+    palette: CarFunctionPalette,
+    selected: Boolean,
+    onSelect: () -> Unit
+) {
+    val colors = palette.colors(AppTheme.colors.isDark)
+    val background = if (selected) colors.tile else colors.softTile
+    val content = if (selected) Color.White else colors.softContent
+    Row(
+        modifier = modifier
+            .height(64.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(background)
+            .clickable(onClick = onSelect)
+            .padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_fn_climate),
+            contentDescription = null,
+            tint = content,
+            modifier = Modifier.size(28.dp)
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text = stringResource(palette.titleRes),
+            style = AppTheme.typography.overlayLauncherSettingsSubtitle,
+            color = content,
+            maxLines = 1
+        )
+        Spacer(Modifier.width(10.dp))
+        Box(Modifier.size(22.dp)) {
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
+                )
             }
         }
-    )
-
-    Spacer(Modifier.height(64.dp))
+    }
 }
 
 /**

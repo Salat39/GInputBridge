@@ -39,10 +39,10 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.salat.gbinder.R
 import com.salat.gbinder.entity.CarFunction
+import com.salat.gbinder.entity.CarFunctionPalette
 import com.salat.gbinder.features.carFunctions.CarFunctionState
 import com.salat.gbinder.features.carFunctions.isLauncherAction
 import com.salat.gbinder.ui.theme.AppTheme
-import com.salat.gbinder.ui.theme.ColorPalette
 
 // Layout ratios are relative to the cell size
 private const val GLYPH_RATIO = 44f / 86f
@@ -67,7 +67,7 @@ fun RenderLauncherCarFunctionIcon(
     cellSize: Int,
     iconRound: Int,
     available: Boolean,
-    amber: Boolean,
+    palette: CarFunctionPalette,
     accent: Boolean,
     pressed: Boolean
 ) {
@@ -87,24 +87,10 @@ fun RenderLauncherCarFunctionIcon(
     val active = (state is CarFunctionState.Level && state.index > 0) ||
         (state is CarFunctionState.Toggle && state.on)
     val colors = AppTheme.colors
-    val tileActive = when {
-        amber && accent -> colors.launcherFunctionTileActiveAmber
-        amber -> colors.launcherFunctionTileActiveAmberSoft
-        accent -> colors.launcherFunctionTileActive
-        else -> colors.launcherFunctionTileActiveSoft
-    }
-    val contentActive = when {
-        amber && accent -> colors.launcherFunctionContentActiveAmber
-        amber -> colors.launcherFunctionContentActiveAmberSoft
-        accent -> colors.launcherFunctionContentActive
-        else -> colors.launcherFunctionContentActiveSoft
-    }
-    val indicatorActive = when {
-        amber && accent -> colors.launcherFunctionIndicatorActiveAmber
-        amber -> colors.launcherFunctionIndicatorActiveAmberSoft
-        accent -> colors.launcherFunctionIndicatorActive
-        else -> colors.launcherFunctionIndicatorActiveSoft
-    }
+    val paletteColors = palette.colors(colors.isDark)
+    val tileActive = if (accent) paletteColors.tile else paletteColors.softTile
+    val contentActive = if (accent) Color.White else paletteColors.softContent
+    val indicatorActive = if (accent) Color.White.copy(alpha = .35f) else colors.launcherFunctionIndicator
     val tileColor by animateColorAsState(
         targetValue = if (active) tileActive else colors.launcherFunctionTile,
         animationSpec = tween(COLOR_ANIMATION_MS),
@@ -120,9 +106,7 @@ fun RenderLauncherCarFunctionIcon(
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "carFunctionPressScale"
     )
-    val litColor = if (customIcon != null) {
-        if (amber) ColorPalette.Yellow400 else ColorPalette.BrandBlue500
-    } else contentColor
+    val litColor = if (customIcon != null) paletteColors.customIconLit else contentColor
     val unlitColor = when {
         customIcon != null -> Color.White.copy(.3f)
         active -> indicatorActive
