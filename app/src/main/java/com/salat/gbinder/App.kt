@@ -143,7 +143,7 @@ import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
 
 const val ADDITIONAL_KEYS_MIN_LONG_PRESS_TIME = 820
-const val APP_PANEL_STEP_DELAY_DEFAULT_MS = 1800
+const val APP_PANEL_STEP_DELAY_DEFAULT_MS = 1600
 const val FN_PANEL_HIDE_DELAY_DEFAULT_MS = 3600
 
 @HiltAndroidApp

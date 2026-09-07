@@ -981,7 +981,7 @@ fun ColumnScope.RenderLauncherSettings(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 36.dp),
+            .padding(horizontal = 42.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         CarFunctionPalette.entries.forEach { palette ->
@@ -1041,12 +1041,21 @@ private fun RenderCarFunctionPaletteOption(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_fn_climate),
-            contentDescription = null,
-            tint = content,
-            modifier = Modifier.size(28.dp)
-        )
+        if (selected) {
+            Icon(
+                imageVector = Icons.Filled.Check,
+                contentDescription = null,
+                tint = content,
+                modifier = Modifier.size(28.dp)
+            )
+        } else {
+            Icon(
+                painter = painterResource(R.drawable.ic_fn_climate),
+                contentDescription = null,
+                tint = content,
+                modifier = Modifier.size(28.dp)
+            )
+        }
         Spacer(Modifier.width(10.dp))
         Text(
             text = stringResource(palette.titleRes),
@@ -1054,17 +1063,6 @@ private fun RenderCarFunctionPaletteOption(
             color = content,
             maxLines = 1
         )
-        Spacer(Modifier.width(10.dp))
-        Box(Modifier.size(22.dp)) {
-            if (selected) {
-                Icon(
-                    imageVector = Icons.Filled.Check,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-        }
     }
 }
 
