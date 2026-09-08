@@ -131,6 +131,13 @@ class CarFunctionPanelOverlayService : Service() {
         private const val PANEL_SHADOW_RADIUS_DP = 20
         private const val PANEL_SHADOW_OFFSET_DP = 8
         private const val PANEL_SHADOW_ALPHA = .45f
+
+        @Volatile
+        private var isStepModeActive = false
+        private val confirmStepSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+        // Steering wheel play/pause launches the selected app before the step timer ends
+        fun confirmStepSelection(): Boolean = isStepModeActive && confirmStepSignal.tryEmit(Unit)
     }
 
     @Inject
@@ -200,6 +207,11 @@ class CarFunctionPanelOverlayService : Service() {
                 apps.value.getOrNull(selectedIndex.value)?.let { launchAndClose(it) }
             }
         }
+        serviceScope.launch {
+            confirmStepSignal.collect {
+                apps.value.getOrNull(selectedIndex.value)?.let { launchAndClose(it) }
+            }
+        }
         composeLifecycleOwner = ComposeWindowLifecycleOwner().apply {
             performRestore(null)
             setCurrentState(Lifecycle.State.RESUMED)
@@ -236,10 +248,12 @@ class CarFunctionPanelOverlayService : Service() {
     }
 
     private fun requestClose() {
+        isStepModeActive = false
         if (isClosing.compareAndSet(false, true)) closeSignal.tryEmit(Unit)
     }
 
     private fun launchAndClose(item: DisplayLauncherItem) {
+        isStepModeActive = false
         if (!isClosing.compareAndSet(false, true)) return
         closeSignal.tryEmit(Unit)
         launchApp(item.packageName, item.launchActivity)
@@ -288,6 +302,7 @@ class CarFunctionPanelOverlayService : Service() {
             if (stepMode) {
                 val current = items.indexOfFirst { it.packageName == visibleApp }
                 selectedIndex.value = (current + 1 + pendingSteps) % items.size
+                isStepModeActive = true
                 stepSignal.tryEmit(Unit)
             }
         }
@@ -580,6 +595,7 @@ class CarFunctionPanelOverlayService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        isStepModeActive = false
         if (::composeLifecycleOwner.isInitialized) {
             composeLifecycleOwner.setCurrentState(Lifecycle.State.DESTROYED)
         }

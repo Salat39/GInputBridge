@@ -2211,6 +2211,7 @@ class App : Application(), ImageLoaderFactory {
     private fun handleShortClick(keyCode: Int, func: Int, tag: String) = appScope.launch {
         debugLog("SHORT_CLICK${if (tag.isNotEmpty()) "[$tag]" else ""}: code=$keyCode func=$func")
         if (suppressionMode) return@launch
+        if (confirmAppPanelStep(keyCode)) return@launch
 
         val key = KeyBindPattern.ShortClick(keyCode)
         if (keyBindingMode) {
@@ -2274,6 +2275,7 @@ class App : Application(), ImageLoaderFactory {
     ) = appScope.launch {
         debugLog("DOUBLE_CLICK${if (tag.isNotEmpty()) "[$tag]" else ""}: code=$keyCode func=$func")
         if (suppressionMode) return@launch
+        if (confirmAppPanelStep(keyCode)) return@launch
 
         val key = KeyBindPattern.DoubleClick(keyCode)
         if (keyBindingMode) {
@@ -2336,6 +2338,10 @@ class App : Application(), ImageLoaderFactory {
             key.triggerCarFunctionIfNeeded()
         }
     }
+
+    private fun confirmAppPanelStep(keyCode: Int) =
+        keyCode == KeyCode.KEYCODE_R_MEDIA_PLAY_PAUSE &&
+                CarFunctionPanelOverlayService.confirmStepSelection()
 
     private fun showPanelOverlay(configure: Intent.() -> Unit) = appScope.launch(Dispatchers.Main) {
         if (currentVisibleApp in OVERLAY_RESTRICTED_PKGS) {
