@@ -14,11 +14,14 @@ sealed interface CarFunctionState {
 }
 
 fun CarFunction.isLauncherAction(): Boolean = when (this) {
-    CarFunction.SEAT_MEMORY, CarFunction.ME_COOLED, CarFunction.ME_WARMED -> true
+    CarFunction.SEAT_MEMORY, CarFunction.NIGHT_MODE, CarFunction.ME_COOLED, CarFunction.ME_WARMED -> true
     else -> false
 }
 
-fun CarFunction.opensExternalScreen(): Boolean = this == CarFunction.SEAT_MEMORY
+fun CarFunction.opensExternalScreen(): Boolean = when (this) {
+    CarFunction.SEAT_MEMORY, CarFunction.NIGHT_MODE -> true
+    else -> false
+}
 
 class CarFunctionStateReader(
     private val car: CarRepository,

@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import com.salat.gbinder.NightScreen
 import com.salat.gbinder.R
 import com.salat.gbinder.car.data.CarPropertyKey
 import com.salat.gbinder.car.domain.repository.CarRepository
@@ -201,6 +202,7 @@ class CarFunctionController(
                     CarFunction.TRUNK -> toggleTrunk()
                     CarFunction.MIRRORS -> toggleMirrors()
                     CarFunction.WIPERS -> toggleWipers()
+                    CarFunction.NIGHT_MODE -> toggleNightMode()
                 }
             }
         }.onFailure { Timber.e(it) }
@@ -313,6 +315,19 @@ class CarFunctionController(
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK
                     }
                 )
+            }.onFailure { Timber.e(it) }
+        }
+    }
+
+    private fun toggleNightMode() {
+        scope.launch(Dispatchers.Main) {
+            runCatching {
+                if (!NightScreen.closeIfVisible()) {
+                    context.startActivity(
+                        Intent(context, NightScreen::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
             }.onFailure { Timber.e(it) }
         }
     }

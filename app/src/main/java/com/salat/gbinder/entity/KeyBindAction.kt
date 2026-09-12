@@ -21,6 +21,7 @@ enum class KeyBindAction {
     RECENTS,
     ANDROID_BACK,
     ANDROID_HOME,
+    NIGHT_MODE,
     NAVIGATE_TO_PAST_APP,
     CAR_FUNCTION,
     CAR_FUNCTION_PANEL,

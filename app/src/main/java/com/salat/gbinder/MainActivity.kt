@@ -2775,6 +2775,7 @@ class MainActivity : ComponentActivity() {
         KeyBindAction.RECENTS -> DisplayKeyAction.RECENTS
         KeyBindAction.ANDROID_BACK -> DisplayKeyAction.ANDROID_BACK
         KeyBindAction.ANDROID_HOME -> DisplayKeyAction.ANDROID_HOME
+        KeyBindAction.NIGHT_MODE -> DisplayKeyAction.NIGHT_MODE
         KeyBindAction.NAVIGATE_TO_PAST_APP -> DisplayKeyAction.NAVIGATE_TO_PAST_APP
         KeyBindAction.CAR_FUNCTION -> DisplayKeyAction.CAR_FUNCTION
         KeyBindAction.CAR_FUNCTION_PANEL -> DisplayKeyAction.CAR_FUNCTION_PANEL

@@ -598,6 +598,8 @@
     <string name="running_apps_desc">Opens the stock Geely recent apps screen</string>
     <string name="home">Home</string>
     <string name="home_action_simulation">Simulate system "Home" action</string>
+    <string name="night_mode">Night mode</string>
+    <string name="night_mode_desc">Turns on a black background so the display doesn\'t glare.\nExit — tap the display or calling function again or launching app from steering wheel</string>
     <string name="recents">Recent Apps / Task Switcher</string>
     <string name="recents_action_description">Combines Windows-style Alt+Tab menu with Android Recents. Multiple activations cycle through apps. You can manually close running processes by swiping up or tapping the cross.</string>
     <string name="adb_required_title">ADB must be enabled for this feature to work</string>

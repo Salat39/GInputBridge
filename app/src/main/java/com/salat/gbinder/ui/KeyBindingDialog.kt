@@ -161,6 +161,7 @@ private enum class KeyBindingDialogActions {
     RECENTS,
     ANDROID_BACK,
     ANDROID_HOME,
+    NIGHT_MODE,
     NAVIGATE_TO_PAST_APP
 }
 
@@ -247,6 +248,7 @@ fun KeyBindingDialog(
             add(KeyBindingDialogActions.NAVIGATE_TO_PAST_APP)
             add(KeyBindingDialogActions.ANDROID_BACK)
             add(KeyBindingDialogActions.ANDROID_HOME)
+            add(KeyBindingDialogActions.NIGHT_MODE)
         }
     }
     val carFunctions = remember(carModel) { CarFunction.availableFor(carModel) }
@@ -480,8 +482,12 @@ fun KeyBindingDialog(
             }
 
             KeyBindAction.CAR_FUNCTION -> {
-                paramsEntryStep = KeyBindingDialogStep.SET_CAR_FUNCTION
-                step = KeyBindingDialogStep.SET_CAR_FUNCTION
+                if (edit.config.value == CarFunction.NIGHT_MODE.name) {
+                    step = KeyBindingDialogStep.SET_ACTION
+                } else {
+                    paramsEntryStep = KeyBindingDialogStep.SET_CAR_FUNCTION
+                    step = KeyBindingDialogStep.SET_CAR_FUNCTION
+                }
             }
 
             KeyBindAction.CAR_FUNCTION_PANEL -> {
@@ -503,6 +509,7 @@ fun KeyBindingDialog(
             KeyBindAction.RECENTS,
             KeyBindAction.ANDROID_BACK,
             KeyBindAction.ANDROID_HOME,
+            KeyBindAction.NIGHT_MODE,
             KeyBindAction.NAVIGATE_TO_PAST_APP,
             KeyBindAction.FULLSCREEN_TO_SPLIT -> {
                 step = KeyBindingDialogStep.SET_ACTION
@@ -1043,6 +1050,20 @@ fun KeyBindingDialog(
                                         onDismiss()
                                     }
 
+                                    KeyBindingDialogActions.NIGHT_MODE -> scope.launch(Dispatchers.IO) {
+                                        val name = bind?.bind
+                                            ?.let { keyBindStorage.getBindName(it) }
+                                            ?: ""
+
+                                        keyBindStorage.saveBinds(
+                                            name, KeyBindConfig(
+                                                action = KeyBindAction.CAR_FUNCTION,
+                                                value = CarFunction.NIGHT_MODE.name
+                                            )
+                                        )
+                                        onDismiss()
+                                    }
+
                                     KeyBindingDialogActions.NAVIGATE_TO_PAST_APP -> scope.launch(Dispatchers.IO) {
                                         val name = bind?.bind
                                             ?.let { keyBindStorage.getBindName(it) }
@@ -1105,6 +1126,8 @@ fun KeyBindingDialog(
 
                                     KeyBindingDialogActions.ANDROID_HOME -> stringResource(R.string.home)
 
+                                    KeyBindingDialogActions.NIGHT_MODE -> stringResource(R.string.night_mode)
+
                                     KeyBindingDialogActions.NAVIGATE_TO_PAST_APP -> stringResource(R.string.return_to_previous_app)
 
                                     KeyBindingDialogActions.CAR_LAMP -> stringResource(R.string.headlight_mode)
@@ -1148,6 +1171,8 @@ fun KeyBindingDialog(
                                     KeyBindingDialogActions.ANDROID_BACK -> stringResource(R.string.back_action_simulation)
 
                                     KeyBindingDialogActions.ANDROID_HOME -> stringResource(R.string.home_action_simulation)
+
+                                    KeyBindingDialogActions.NIGHT_MODE -> stringResource(R.string.night_mode_desc)
 
                                     KeyBindingDialogActions.NAVIGATE_TO_PAST_APP -> stringResource(R.string.return_to_previous_app_desc)
 

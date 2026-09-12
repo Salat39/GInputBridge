@@ -589,6 +589,8 @@
     <string name="running_apps_desc">Показывает недавние приложения как на телефоне</string>
     <string name="home">Домой</string>
     <string name="home_action_simulation">Симуляция системного действия \"Домой\"</string>
+    <string name="night_mode">Режим \"ночь\"</string>
+    <string name="night_mode_desc">Включает черный фон, чтобы дисплей не слепил.\nВыход - касанием дисплея или повторным вызовом функции или запуском приложения с кнопок руля</string>
     <string name="recents">Переключатель задач</string>
     <string name="recents_action_description">Смесь Alt+Tab меню как в Windows + Recents в Android. При активации несколько раз переключает между приложениями + руками можно закрывать запущенные процессы смахивая вверх или нажимая закрыть.</string>
     <string name="adb_required_title">Для работы этой функции необходимо включить ADB</string>

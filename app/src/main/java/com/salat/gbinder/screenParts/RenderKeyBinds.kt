@@ -611,6 +611,17 @@ internal fun RenderKeyBinds(
                             )
                         }
 
+                        DisplayKeyAction.NIGHT_MODE -> Row(
+                            modifier = actionAreaModifier,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.night_mode),
+                                style = AppTheme.typography.cardFormatTitle,
+                                color = AppTheme.colors.contentPrimary
+                            )
+                        }
+
                         DisplayKeyAction.NAVIGATE_TO_PAST_APP -> Row(
                             modifier = actionAreaModifier,
                             verticalAlignment = Alignment.CenterVertically

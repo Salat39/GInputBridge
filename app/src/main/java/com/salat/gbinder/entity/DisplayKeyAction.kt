@@ -22,6 +22,7 @@ enum class DisplayKeyAction {
     RECENTS,
     ANDROID_BACK,
     ANDROID_HOME,
+    NIGHT_MODE,
     NAVIGATE_TO_PAST_APP,
     CAR_FUNCTION_PANEL,
     APP_PANEL,

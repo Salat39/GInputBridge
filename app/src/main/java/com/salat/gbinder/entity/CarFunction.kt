@@ -41,6 +41,7 @@ enum class CarFunction(
     SEAT_MEMORY(R.string.car_fn_seat_memory, R.drawable.ic_fn_seat_memory, R.string.car_fn_seat_memory_desc),
     TRUNK(R.string.car_fn_trunk, R.drawable.ic_fn_trunk, R.string.car_fn_trunk_desc),
     WIPERS(R.string.car_fn_wipers, R.drawable.ic_fn_wipers, R.string.car_fn_wipers_desc),
+    NIGHT_MODE(R.string.night_mode, R.drawable.ic_fn_car, R.string.night_mode_desc),
     ;
 
     fun isAvailableFor(model: CarModel?): Boolean = when (this) {
@@ -86,7 +87,7 @@ enum class CarFunction(
                 .filter { it in availableForLauncher(model) }
 
         private fun CarFunction.isListedInMenu(): Boolean = when (this) {
-            ME_COOLED, ME_WARMED -> false
+            ME_COOLED, ME_WARMED, NIGHT_MODE -> false
             else -> true
         }
     }

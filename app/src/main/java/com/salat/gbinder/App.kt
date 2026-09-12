@@ -2419,6 +2419,19 @@ class App : Application(), ImageLoaderFactory {
                     stateKeeper.sendAccessibilityServiceSignal(AccessibilityServiceSignal.GoHome)
                 }
 
+                KeyBindAction.NIGHT_MODE -> {
+                    if (!NightScreen.closeIfVisible()) {
+                        appScope.launch(Dispatchers.Main) {
+                            runCatching {
+                                startActivity(
+                                    Intent(this@App, NightScreen::class.java)
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                )
+                            }
+                        }
+                    }
+                }
+
                 KeyBindAction.NAVIGATE_TO_PAST_APP -> navigateToPastApp()
 
                 KeyBindAction.NAVI_MEDIA_SWITCH -> bind.naviMediaSwitch()
