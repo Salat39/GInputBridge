@@ -36,10 +36,11 @@ internal class TelnetShellTransport private constructor(
     }
 
     private fun readResponseUntilMarker(marker: String): Pair<String, Int> {
-        val collected = ByteArrayOutputStream()
+        val collected = ResponseBuffer()
         val buf = ByteArray(4096)
         val markerBytes = marker.toByteArray(StandardCharsets.US_ASCII)
         var markerSeen = false
+        var searchFrom = 0
 
         while (true) {
             val len = try {
@@ -68,9 +69,14 @@ internal class TelnetShellTransport private constructor(
                 }
             }
 
-            if (!markerSeen && containsSequence(collected, markerBytes)) {
-                markerSeen = true
-                socket.soTimeout = TRAILING_DRAIN_MS
+            if (!markerSeen) {
+                if (collected.containsSequence(markerBytes, searchFrom)) {
+                    markerSeen = true
+                    socket.soTimeout = TRAILING_DRAIN_MS
+                } else {
+                    // Keep the suffix that can contain the beginning of a split marker.
+                    searchFrom = (collected.size() - markerBytes.size + 1).coerceAtLeast(0)
+                }
             }
         }
 
@@ -172,20 +178,22 @@ internal class TelnetShellTransport private constructor(
             return num
         }
 
-        private fun containsSequence(haystack: ByteArrayOutputStream, needle: ByteArray): Boolean {
-            val data = haystack.toByteArray()
-            if (data.size < needle.size) return false
-            for (i in 0..data.size - needle.size) {
-                var matched = true
-                for (j in needle.indices) {
-                    if (data[i + j] != needle[j]) {
-                        matched = false
-                        break
+        private class ResponseBuffer : ByteArrayOutputStream() {
+            fun containsSequence(needle: ByteArray, fromIndex: Int): Boolean {
+                if (needle.isEmpty()) return true
+                if (count < needle.size) return false
+                for (i in fromIndex..count - needle.size) {
+                    var matched = true
+                    for (j in needle.indices) {
+                        if (buf[i + j] != needle[j]) {
+                            matched = false
+                            break
+                        }
                     }
+                    if (matched) return true
                 }
-                if (matched) return true
+                return false
             }
-            return false
         }
     }
 }

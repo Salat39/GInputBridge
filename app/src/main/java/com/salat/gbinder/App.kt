@@ -279,16 +279,25 @@ class App : Application(), ImageLoaderFactory {
         null
 
     // Prefs
+    @Volatile
     private var enableTracking = false
     private var debugMode = false
     private var fullBroadcast = false
+    @Volatile
     private var trackKeyEvents = false
+    @Volatile
     private var customLongPressEnabled = false
+    @Volatile
     private var customLongPressTime = 1000L
+    @Volatile
     private var doubleClickEnabled = false
+    @Volatile
     private var doubleClickTimeout = 300L
+    @Volatile
     private var customShortPressEnabled = false
+    @Volatile
     private var multiLongPressEnabled = false
+    @Volatile
     private var suppressionMode = false
     private var mediaControlEnabled = false
 
@@ -301,9 +310,13 @@ class App : Application(), ImageLoaderFactory {
     private var hideMediaWidget = false
     private var mediaDataTranslator = false
     private var deepLogs = false
+    @Volatile
     private var keyBinds: Map<String, KeyBindConfig> = emptyMap()
+    @Volatile
     private var altMute = false
+    @Volatile
     private var altMenu = false
+    @Volatile
     private var altLongPressTime = ADDITIONAL_KEYS_MIN_LONG_PRESS_TIME
     @Volatile
     private var adbHelperPort = 5555
@@ -352,6 +365,7 @@ class App : Application(), ImageLoaderFactory {
     private var whCurrentHomePage = 0
     private var whWidgetIsVisible = true
 
+    @Volatile
     private var keyBindingMode = false
 
     private var keyEventListenerBound = false
@@ -3687,17 +3701,9 @@ class App : Application(), ImageLoaderFactory {
             try {
                 val meta: MediaMetadata? = controller.metadata
                 val packageName = controller.packageName ?: ""
-                val appName = try {
-                    systemApps
-                        .getApps(roundIcon = false, iconQuality = 0, packageName)
-                        .first()
-                        .appName
-                } catch (e: Exception) {
-                    Timber.e(e)
-                    ""
-                }
 
                 meta?.let {
+                    val appName = systemApps.getAppName(packageName)
                     // ID: media ID or fallback to title_artist
                     val mediaId = it.getString(MediaMetadata.METADATA_KEY_MEDIA_ID) ?: ""
                     val id = mediaId.takeUnless { id -> id.isBlank() }
@@ -3805,21 +3811,18 @@ class App : Application(), ImageLoaderFactory {
     private suspend fun updateAvailableMediaApps(enabledApps: Set<String>? = null) {
         try {
             val fromParam = enabledApps?.filter { it.isNotEmpty() }.orEmpty()
-            val includedApps = fromParam.ifEmpty {
+            val configuredApps = fromParam.ifEmpty {
                 (dataStore.getValueFlow(GeneralPrefs.ENABLED_MEDIA_APPS).first() ?: "")
                     .split('|')
                     .filter { it.trim().isNotEmpty() }
-                    .ifEmpty {
-                        systemApps.getAllApps(roundIcon = false, true, iconQuality = 0)
-                            .filter { it.isMedia }
-                            .map { it.packageName }
-                            .filter { it !in IGNORED_MEDIA_APPS }
-                    }
             }
-
-            val allApps =
-                systemApps.getAllApps(roundIcon = false, true, iconQuality = 0)
+            val installedApps = systemApps.getAllApps(roundIcon = false, true, iconQuality = 0)
+            val includedApps = configuredApps.ifEmpty {
+                installedApps.filter { it.isMedia }
                     .map { it.packageName }
+                    .filter { it !in IGNORED_MEDIA_APPS }
+            }
+            val allApps = installedApps.map { it.packageName }
             val availableApps = allApps.filter { it in includedApps }
             controlMediaApps = availableApps
 

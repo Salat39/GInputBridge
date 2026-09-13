@@ -21,6 +21,8 @@ interface SystemAppsLightRepository {
         vararg packageNames: String
     ): List<InstalledAppInfoRef>
 
+    suspend fun getAppName(packageName: String): String
+
     fun isPackageInstalled(packageName: String): Boolean
 
     fun isSystemApp(packageName: String): Boolean

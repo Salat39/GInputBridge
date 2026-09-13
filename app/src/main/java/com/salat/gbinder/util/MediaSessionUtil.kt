@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 
@@ -73,9 +72,7 @@ fun Context.activeMediaSessionControllerFlow(): Flow<Pair<MediaController?, List
         }
         awaitClose {
             try {
-                launch(Dispatchers.Main) {
-                    sessionManager.removeOnActiveSessionsChangedListener(sessionsListener)
-                }
+                sessionManager.removeOnActiveSessionsChangedListener(sessionsListener)
             } catch (e: Exception) {
                 Timber.e(e)
             }
@@ -160,9 +157,7 @@ fun Context.isMediaPlayingFlow(): Flow<Boolean> = callbackFlow {
     // Clean-up on close
     awaitClose {
         try {
-            launch(Dispatchers.Main) {
-                sessionMgr.removeOnActiveSessionsChangedListener(sessionListener)
-            }
+            sessionMgr.removeOnActiveSessionsChangedListener(sessionListener)
         } catch (e: Exception) {
             Timber.e(e)
         }

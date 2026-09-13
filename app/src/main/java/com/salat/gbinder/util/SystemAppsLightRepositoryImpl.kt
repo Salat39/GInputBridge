@@ -44,7 +44,7 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
         mediaSort: Boolean,
         iconQuality: Int
     ): List<InstalledAppInfoRef> = context
-        .getInstalledAppsRefs(roundIcon, mediaSort, iconQuality)
+        .getInstalledAppsRefs(roundIcon, mediaSort, iconQuality, withActivities = false)
         .distinctBy { it.packageName }
 
     override suspend fun getLauncherApps(
@@ -67,6 +67,15 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
     } catch (e: PackageManager.NameNotFoundException) {
         Timber.e(e)
         emptyList()
+    }
+
+    override suspend fun getAppName(packageName: String): String = try {
+        val pm = context.packageManager
+        val info = pm.getApplicationInfo(packageName, 0)
+        pm.getApplicationLabel(info).toString()
+    } catch (e: Exception) {
+        Timber.e(e)
+        ""
     }
 
     override fun isPackageInstalled(packageName: String): Boolean {
@@ -144,7 +153,8 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
         roundIcon: Boolean,
         mediaSort: Boolean,
         iconQuality: Int,
-        includeDisabledUserApps: Boolean = false
+        includeDisabledUserApps: Boolean = false,
+        withActivities: Boolean = true
     ): List<InstalledAppInfoRef> {
         // Builds the list of launchable apps with stable ids and icon references for the UI.
         val pm = packageManager
@@ -237,8 +247,12 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
                     iconRef = iconRef,
                     isMedia = isMedia,
                     launcherActivity = activityName,
-                    availableActivity = actCache.getOrPut(packageName) {
-                        pm.listLaunchableActivities(packageName, actBlock, activityName)
+                    availableActivity = if (withActivities) {
+                        actCache.getOrPut(packageName) {
+                            pm.listLaunchableActivities(packageName, actBlock, activityName)
+                        }
+                    } else {
+                        emptyList()
                     },
                     isFrozen = isFrozen,
                     isSystem = isSystem
@@ -280,11 +294,11 @@ class SystemAppsLightRepositoryImpl(private val context: Context) : SystemAppsLi
                             iconRef = IconRef(packageName, finalResId, density, vc),
                             isMedia = isMedia,
                             launcherActivity = null,
-                            availableActivity = pm.listLaunchableActivities(
-                                packageName,
-                                actBlock,
-                                null
-                            ),
+                            availableActivity = if (withActivities) {
+                                pm.listLaunchableActivities(packageName, actBlock, null)
+                            } else {
+                                emptyList()
+                            },
                             isFrozen = isFrozen,
                             isSystem = isSystem
                         )
