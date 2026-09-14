@@ -22,11 +22,11 @@ enum class CarFunction(
     @StringRes val descRes: Int? = null,
 ) {
     CLIMATE_MENU(R.string.car_fn_climate_menu, R.drawable.ic_fn_climate, R.string.car_fn_climate_menu_desc),
-    WHEEL_HEAT(R.string.car_fn_wheel_heat, R.drawable.ic_fn_wheel_heat, R.string.car_fn_wheel_heat_desc),
-    DRIVER_HEAT(R.string.car_fn_driver_heat, R.drawable.ic_fn_seat_heat_driver, R.string.car_fn_driver_heat_desc),
-    PASSENGER_HEAT(R.string.car_fn_passenger_heat, R.drawable.ic_fn_seat_heat_passenger, R.string.car_fn_passenger_heat_desc),
-    DRIVER_VENT(R.string.car_fn_driver_vent, R.drawable.ic_fn_seat_vent_driver, R.string.car_fn_driver_vent_desc),
-    PASSENGER_VENT(R.string.car_fn_passenger_vent, R.drawable.ic_fn_seat_vent_passenger, R.string.car_fn_passenger_vent_desc),
+    WHEEL_HEAT(R.string.car_fn_wheel_heat, R.drawable.ic_fn_wheel_heat_0, R.string.car_fn_wheel_heat_desc),
+    DRIVER_HEAT(R.string.car_fn_driver_heat, R.drawable.ic_fn_seat_heat_driver_0, R.string.car_fn_driver_heat_desc),
+    PASSENGER_HEAT(R.string.car_fn_passenger_heat, R.drawable.ic_fn_seat_heat_passenger_0, R.string.car_fn_passenger_heat_desc),
+    DRIVER_VENT(R.string.car_fn_driver_vent, R.drawable.ic_fn_seat_vent_driver_0, R.string.car_fn_driver_vent_desc),
+    PASSENGER_VENT(R.string.car_fn_passenger_vent, R.drawable.ic_fn_seat_vent_passenger_0, R.string.car_fn_passenger_vent_desc),
     FRONT_DEFROST(R.string.car_fn_front_defrost, R.drawable.ic_fn_front_defrost, R.string.car_fn_front_defrost_desc),
     REAR_DEFROST(R.string.car_fn_rear_defrost, R.drawable.ic_fn_rear_defrost, R.string.car_fn_rear_defrost_desc),
     MAX_DEFROST(R.string.car_fn_max_defrost, R.drawable.ic_fn_max_defrost, R.string.car_fn_max_defrost_desc),
@@ -50,6 +50,49 @@ enum class CarFunction(
         SEAT_MEMORY, MAX_DEFROST, REAR_DEFROST -> model == CarModel.ATLAS || model == CarModel.CITYRAY
         DRIVER_VENT, PASSENGER_VENT -> model == CarModel.PREFACE || model == CarModel.ATLAS
         else -> true
+    }
+
+    @DrawableRes
+    fun iconResForLevel(index: Int): Int = levelIcons().getOrNull(index) ?: iconRes
+
+    private fun levelIcons(): List<Int> = when (this) {
+        LIGHT -> listOf(
+            R.drawable.ic_fn_light,
+            R.drawable.ic_fn_light_pos,
+            R.drawable.ic_fn_light_low,
+            R.drawable.ic_fn_light_auto,
+        )
+        WHEEL_HEAT -> listOf(
+            R.drawable.ic_fn_wheel_heat_0,
+            R.drawable.ic_fn_wheel_heat_1,
+            R.drawable.ic_fn_wheel_heat_2,
+            R.drawable.ic_fn_wheel_heat_3,
+        )
+        DRIVER_HEAT -> listOf(
+            R.drawable.ic_fn_seat_heat_driver_0,
+            R.drawable.ic_fn_seat_heat_driver_1,
+            R.drawable.ic_fn_seat_heat_driver_2,
+            R.drawable.ic_fn_seat_heat_driver_3,
+        )
+        PASSENGER_HEAT -> listOf(
+            R.drawable.ic_fn_seat_heat_passenger_0,
+            R.drawable.ic_fn_seat_heat_passenger_1,
+            R.drawable.ic_fn_seat_heat_passenger_2,
+            R.drawable.ic_fn_seat_heat_passenger_3,
+        )
+        DRIVER_VENT -> listOf(
+            R.drawable.ic_fn_seat_vent_driver_0,
+            R.drawable.ic_fn_seat_vent_driver_1,
+            R.drawable.ic_fn_seat_vent_driver_2,
+            R.drawable.ic_fn_seat_vent_driver_3,
+        )
+        PASSENGER_VENT -> listOf(
+            R.drawable.ic_fn_seat_vent_passenger_0,
+            R.drawable.ic_fn_seat_vent_passenger_1,
+            R.drawable.ic_fn_seat_vent_passenger_2,
+            R.drawable.ic_fn_seat_vent_passenger_3,
+        )
+        else -> emptyList()
     }
 
     fun hasConfigurableDefaultLevel(): Boolean = when (this) {

@@ -1,11 +1,23 @@
 package com.salat.gbinder.features.launcher
 
 import android.net.Uri
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.EaseOutCubic
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,8 +31,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -41,8 +56,12 @@ import com.salat.gbinder.R
 import com.salat.gbinder.entity.CarFunction
 import com.salat.gbinder.entity.CarFunctionPalette
 import com.salat.gbinder.features.carFunctions.CarFunctionState
+import com.salat.gbinder.features.carFunctions.ToggleSprite
 import com.salat.gbinder.features.carFunctions.isLauncherAction
+import com.salat.gbinder.features.carFunctions.toggleSprite
 import com.salat.gbinder.ui.theme.AppTheme
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 // Layout ratios are relative to the cell size
 private const val GLYPH_RATIO = 44f / 86f
@@ -58,6 +77,11 @@ private const val GLYPH_SHRINK = .10f
 private const val BAR_SHRINK = .30f
 private const val PRESSED_SCALE = .93f
 private const val COLOR_ANIMATION_MS = 150
+private const val GLYPH_SWAP_MS = 180
+private const val GLYPH_SWAP_SCALE = .6f
+private const val FAN_SPIN_MS = 150
+private const val FAN_STOP_MS = 650
+private const val SNOWFLAKE_SCALE = 1.1f
 
 @Composable
 fun RenderLauncherCarFunctionIcon(
@@ -121,12 +145,9 @@ fun RenderLauncherCarFunctionIcon(
     }
     val glyphRes = when {
         function == null -> R.drawable.ic_empty
-        function == CarFunction.LIGHT && state is CarFunctionState.Level -> when (state.index) {
-            1 -> R.drawable.ic_fn_light_pos
-            2 -> R.drawable.ic_fn_light_low
-            3 -> R.drawable.ic_fn_light_auto
-            else -> R.drawable.ic_fn_light
-        }
+        state is CarFunctionState.Level -> function.iconResForLevel(state.index)
+        state is CarFunctionState.Toggle -> function.toggleSprite()?.let { spriteFrame(it, state.on) }
+            ?: function.iconRes
         else -> function.iconRes
     }
     Box(
@@ -173,12 +194,34 @@ fun RenderLauncherCarFunctionIcon(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (customIcon == null) {
-                Icon(
-                    painter = painterResource(glyphRes),
-                    contentDescription = title,
-                    tint = contentColor,
-                    modifier = Modifier.size(glyphSize)
+                val glyphModifier = Modifier.size(glyphSize).then(
+                    when (function) {
+                        CarFunction.ME_HOT, CarFunction.ME_COLD -> activationAnimation(function, state)
+                        else -> Modifier
+                    }
                 )
+                val glyphSwap = glyphSwap(function)
+                if (glyphSwap != null) {
+                    AnimatedContent(
+                        targetState = glyphRes,
+                        transitionSpec = { glyphSwap },
+                        label = "carFunctionGlyphSwap"
+                    ) { res ->
+                        Icon(
+                            painter = painterResource(res),
+                            contentDescription = title,
+                            tint = contentColor,
+                            modifier = glyphModifier
+                        )
+                    }
+                } else {
+                    Icon(
+                        painter = painterResource(glyphRes),
+                        contentDescription = title,
+                        tint = contentColor,
+                        modifier = glyphModifier
+                    )
+                }
             } else {
                 Spacer(Modifier.size(glyphSize))
             }
@@ -206,5 +249,76 @@ fun RenderLauncherCarFunctionIcon(
                 }
             }
         }
+    }
+}
+
+private const val SPRITE_ANIMATION_MS = 500L
+
+// Frames play only on a state change, the first composition shows the static frame
+@Composable
+private fun spriteFrame(sprite: ToggleSprite, on: Boolean): Int {
+    var shownOn by remember { mutableStateOf(on) }
+    var playing by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(on) {
+        if (on == shownOn) return@LaunchedEffect
+        shownOn = on
+        val frameMs = SPRITE_ANIMATION_MS / sprite.turnOn.size
+        for (frame in if (on) sprite.turnOn else sprite.turnOff) {
+            playing = frame
+            delay(frameMs)
+        }
+        playing = null
+    }
+    return playing ?: (if (shownOn) sprite.turnOn else sprite.turnOff).last()
+}
+
+private fun glyphSwap(function: CarFunction?): ContentTransform? = when (function) {
+    CarFunction.LIGHT ->
+        (scaleIn(tween(GLYPH_SWAP_MS), GLYPH_SWAP_SCALE) + fadeIn(tween(GLYPH_SWAP_MS)))
+            .togetherWith(scaleOut(tween(GLYPH_SWAP_MS), GLYPH_SWAP_SCALE) + fadeOut(tween(GLYPH_SWAP_MS)))
+    else -> null
+}
+
+// Plays once when a toggle turns on, the first composition never animates
+@Composable
+private fun activationAnimation(function: CarFunction, state: CarFunctionState?): Modifier {
+    val on = state is CarFunctionState.Toggle && state.on
+    val rotation = remember { Animatable(0f) }
+    val scale = remember { Animatable(1f) }
+    var shownOn by remember { mutableStateOf(on) }
+    LaunchedEffect(on) {
+        if (on == shownOn) return@LaunchedEffect
+        shownOn = on
+        if (!on) return@LaunchedEffect
+        when (function) {
+            CarFunction.ME_HOT -> {
+                rotation.snapTo(0f)
+                rotation.animateTo(360f, tween(FAN_SPIN_MS, easing = LinearEasing))
+                rotation.animateTo(720f, tween(FAN_STOP_MS, easing = EaseOutCubic))
+                rotation.snapTo(0f)
+            }
+            CarFunction.ME_COLD -> {
+                launch {
+                    scale.animateTo(1f, keyframes {
+                        durationMillis = 450
+                        SNOWFLAKE_SCALE at 120 using FastOutSlowInEasing
+                        SNOWFLAKE_SCALE at 320
+                    })
+                }
+                rotation.animateTo(0f, keyframes {
+                    durationMillis = 360
+                    -7f at 60
+                    7f at 140
+                    -5f at 220
+                    3f at 290
+                })
+            }
+            else -> Unit
+        }
+    }
+    return Modifier.graphicsLayer {
+        rotationZ = rotation.value
+        scaleX = scale.value
+        scaleY = scale.value
     }
 }

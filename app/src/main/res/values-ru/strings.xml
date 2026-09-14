@@ -149,7 +149,7 @@
     <string name="kbd_desc_car_function_panel">Перетащите вверх функции, которые будут показаны на панели</string>
     <string name="car_function_panel_functions">Функции на панели</string>
     <string name="car_fn_climate_menu">Меню климата</string>
-    <string name="car_fn_seat_memory">Память сиденья</string>
+    <string name="car_fn_seat_memory">Память сидений</string>
     <string name="car_fn_wheel_heat">Подогрев руля</string>
     <string name="car_fn_driver_heat">Подогрев водителя</string>
     <string name="car_fn_passenger_heat">Подогрев пассажира</string>
