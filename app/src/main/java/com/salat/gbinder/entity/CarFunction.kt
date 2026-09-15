@@ -47,8 +47,8 @@ enum class CarFunction(
     fun isAvailableFor(model: CarModel?): Boolean = when (this) {
         LIGHT -> model == CarModel.PREFACE
         FRONT_DEFROST -> model != null
-        SEAT_MEMORY, MAX_DEFROST, REAR_DEFROST -> model == CarModel.ATLAS || model == CarModel.CITYRAY
-        DRIVER_VENT, PASSENGER_VENT -> model == CarModel.PREFACE || model == CarModel.ATLAS
+        SEAT_MEMORY -> model != CarModel.PREFACE
+        DRIVER_VENT, PASSENGER_VENT -> model != CarModel.CITYRAY
         else -> true
     }
 
