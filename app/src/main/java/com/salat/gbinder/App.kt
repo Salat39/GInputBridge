@@ -40,6 +40,7 @@ import com.geely.lib.oneosapi.phone.PhoneManager
 import com.geely.lib.oneosapi.phone.inter.IBluetoothServicesListener
 import com.geely.lib.oneosapi.phone.telecom.GlyCallItem
 import com.google.firebase.FirebaseApp
+import com.salat.gbinder.adb.data.entity.AdbCommandResult
 import com.salat.gbinder.adb.data.entity.AdbConnectionState
 import com.salat.gbinder.adb.domain.repository.AdbRepository
 import com.salat.gbinder.car.data.CarPropertyKey
@@ -2195,6 +2196,20 @@ class App : Application(), ImageLoaderFactory {
     }
 
     private fun CoroutineScope.handleAdbActions() = launch {
+        launch {
+            stateKeeper.adbCommandFlow.collect { command ->
+                val result = if (adbIsEnabled && adb.connectionState.value is AdbConnectionState.Connected) {
+                    adb.executeRaw(command)
+                } else {
+                    val message = getString(R.string.adb_not_connected)
+                    inMainToast(message)
+                    AdbCommandResult(AdbCommandResult.EXIT_TRANSPORT_ERROR, message)
+                }
+                sendAdbCommandResult(command, result)
+                debugDeepLog("[ADB_COMMAND] $command exit=${result.exitCode}")
+            }
+        }
+
         var stopDimByLaunch: Job? = null
 
         dataStore.getValueFlow(GeneralPrefs.ENABLE_ADB_HELPER, false).collect { enabled ->
@@ -3510,6 +3525,19 @@ class App : Application(), ImageLoaderFactory {
             putExtra("code", keyCode)
             putExtra("event", event)
             putExtra("func", func)
+        }
+        appScope.launch(Dispatchers.IO) { sendBroadcast(intent) }
+    }
+
+    private fun sendAdbCommandResult(command: String, result: AdbCommandResult) {
+        val intent = Intent().apply {
+            action = "$BASE_PATH.ADB_COMMAND_RESULT"
+            if (!fullBroadcast) {
+                `package` = MACRO_DROID_PACKAGE
+            }
+            putExtra("command", command)
+            putExtra("exitCode", result.exitCode)
+            putExtra("output", result.output)
         }
         appScope.launch(Dispatchers.IO) { sendBroadcast(intent) }
     }

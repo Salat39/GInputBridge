@@ -588,6 +588,7 @@
     <string name="app_aot_compile_already_done">Already done, no action needed</string>
     <string name="app_aot_compile_in_progress">Preparation is already in progress</string>
     <string name="app_aot_compile_no_adb">ADB is not connected</string>
+    <string name="adb_not_connected">ADB is not connected</string>
     <string name="rear_wiper_auto_title">Rear wiper auto mode</string>
     <string name="rear_wiper_auto_desc">Disabling this feature prevents the rear wiper from automatically activating when reverse gear (R) is engaged.</string>
     <string name="open">Open</string>
@@ -835,6 +836,25 @@ In MacroDroid: Actions -> Send Intent
 <strong>Additional3:</strong> history=[1|0] -> 1 also adds the package to recents (optional)<br>
 <strong>Additional4:</strong> timeout -> auto release in seconds, default 45, 0 = hold until release (optional)<br><br>
 Send pkg when the overlay opens and always release = 1 when it closes, otherwise package detection stays frozen until the timeout
+]]></string>
+
+    <string name="api_text12"><![CDATA[<strong>Executing ADB Commands</strong>
+<br>
+<br>
+Run a shell command through the connected ADB helper:
+<br>
+In MacroDroid: Actions -> Send Intent
+<br>
+<strong>Target</strong>: Broadcast<br>
+<strong>Action:</strong> com.salat.gbinder.ADB_COMMAND<br>
+<strong>Package</strong>: com.salat.gbinder<br><br>
+<strong>Additional1:</strong> command -> shell command to execute, for example input keyevent 3<br><br>
+If ADB is not connected, the command is ignored and a toast error is shown
+<br><br>
+In response, the action com.salat.gbinder.ADB_COMMAND_RESULT is received<br>
+<strong>Additional1</strong>: command = the executed command<br>
+<strong>Additional2</strong>: exitCode = command exit code, 0 = success, -1 = ADB not connected or transport error, -2 = timeout<br>
+<strong>Additional3</strong>: output = command output
 ]]></string>
     <string name="apply">Apply</string>
     <string name="geely_launcher_empty_grid">Press + to add</string>

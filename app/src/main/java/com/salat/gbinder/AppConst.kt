@@ -8,4 +8,3 @@ const val TELNET_HELPER_PORT = -667
 
 const val APP_ICON_ROUND = true
 const val APP_ICON_QUALITY = DisplayMetrics.DENSITY_TV
-const val NATIVE_LAUNCHER_BATCH_SIZE = 5

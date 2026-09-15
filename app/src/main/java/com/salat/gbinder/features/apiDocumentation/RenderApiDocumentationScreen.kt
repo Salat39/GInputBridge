@@ -57,7 +57,8 @@ private val documentationSections = listOf(
     R.string.api_text8,
     R.string.api_text9,
     R.string.api_text10,
-    R.string.api_text11
+    R.string.api_text11,
+    R.string.api_text12
 )
 
 private val sectionTitlePattern = Regex("^\\s*<strong>(.*?)</strong>")

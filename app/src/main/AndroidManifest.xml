@@ -224,6 +224,7 @@
                 <action android:name="com.salat.gbinder.GET_STRING_INFO" />
                 <action android:name="com.salat.gbinder.TOGGLE_LAUNCHER" />
                 <action android:name="com.salat.gbinder.CAR_FUNCTION" />
+                <action android:name="com.salat.gbinder.ADB_COMMAND" />
             </intent-filter>
         </receiver>
 

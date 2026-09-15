@@ -355,6 +355,20 @@ class StateKeeperRepositoryImpl : StateKeeperRepository {
     }
 
     /**
+     * External ADB command
+     */
+    private val _adbCommandFlow = MutableSharedFlow<String>(
+        replay = 0,
+        extraBufferCapacity = 12,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    override val adbCommandFlow = _adbCommandFlow.asSharedFlow()
+
+    override fun sendAdbCommand(command: String) {
+        _adbCommandFlow.tryEmit(command)
+    }
+
+    /**
      * Close launcher activity time
      */
     private val _launcherActivityCloseTime = MutableStateFlow(0L)

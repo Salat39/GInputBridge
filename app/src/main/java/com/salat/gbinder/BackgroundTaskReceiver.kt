@@ -271,6 +271,13 @@ class BackgroundTaskReceiver() : BroadcastReceiver() {
                 }
             }
 
+            "$BASE_PATH.ADB_COMMAND" -> {
+                val command = intent.getStringExtra("command").orEmpty()
+                if (command.isNotEmpty()) {
+                    stataKeeper.sendAdbCommand(command)
+                }
+            }
+
             else -> Unit
         }
     }

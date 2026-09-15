@@ -579,6 +579,7 @@
     <string name="app_aot_compile_already_done">Уже выполнено, повторять не нужно</string>
     <string name="app_aot_compile_in_progress">Подготовка уже выполняется</string>
     <string name="app_aot_compile_no_adb">ADB не подключён</string>
+    <string name="adb_not_connected">ADB не подключён</string>
     <string name="rear_wiper_auto_title">Задний дворник в авторежиме</string>
     <string name="rear_wiper_auto_desc">Позволяет выключить работу авторежима для заднего дворника при включении \"R\".</string>
     <string name="open">Открыть</string>
@@ -835,6 +836,25 @@ SMART - Включает только если ранее было включе�
 <strong>Дополнение3:</strong> history=[1|0] -> 1 дополнительно добавляет пакет в недавние (необязательно)<br>
 <strong>Дополнение4:</strong> timeout -> автоснятие в секундах, по умолчанию 45, 0 = держать до release (необязательно)<br><br>
 Отправляйте pkg при открытии оверлея и обязательно release = 1 при закрытии, иначе определение пакетов застынет до автоснятия по timeout
+]]></string>
+
+    <string name="api_text12"><![CDATA[<strong>Выполнение ADB команд</strong>
+<br>
+<br>
+Выполнить shell команду через подключённый ADB helper:
+<br>
+В MacroDroid: Действия -> Отправить интент
+<br>
+<strong>Цель</strong>: Broadcast<br>
+<strong>Действие:</strong> com.salat.gbinder.ADB_COMMAND<br>
+<strong>Пакет</strong>: com.salat.gbinder<br><br>
+<strong>Дополнение1:</strong> command -> shell команда для выполнения, например input keyevent 3<br><br>
+Если ADB не подключён, команда игнорируется и показывается toast с ошибкой
+<br><br>
+В ответ приходит действие com.salat.gbinder.ADB_COMMAND_RESULT<br>
+<strong>Дополнение1</strong>: command = выполненная команда<br>
+<strong>Дополнение2</strong>: exitCode = код завершения, 0 = успех, -1 = ADB не подключён или ошибка транспорта, -2 = таймаут<br>
+<strong>Дополнение3</strong>: output = вывод команды
 ]]></string>
     <string name="apply">Применить</string>
     <string name="geely_launcher_empty_grid">Нажмите + чтобы добавить</string>

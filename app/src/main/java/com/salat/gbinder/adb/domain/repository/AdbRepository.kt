@@ -35,25 +35,6 @@ interface AdbRepository {
 
     suspend fun disableUserPackage(packageName: String): String
 
-    suspend fun addAppToCarLauncher(packageName: String, appName: String): String
-
-    suspend fun removeAppFromCarLauncher(packageName: String): String
-
-    suspend fun clearCarLauncherApps(): String
-
-    suspend fun removeAppsFromCarLauncher(
-        packageNames: List<String>,
-        onProgressTick: (suspend () -> Unit)?
-    ): String
-
-    suspend fun addAppsToCarLauncher(
-        apps: List<Pair<String, String>>,
-        delay: Long = 0L,
-        onProgressTick: (suspend () -> Unit)? = null
-    ): String
-
-    suspend fun getNativeLauncherApps(): List<String>
-
     suspend fun restartLauncher3(): String
 
     suspend fun minimize(taskId: Int)

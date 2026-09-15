@@ -2,7 +2,6 @@ package com.salat.gbinder.adb.data.repository
 
 import android.util.Base64
 import com.salat.gbinder.BuildConfig
-import com.salat.gbinder.NATIVE_LAUNCHER_BATCH_SIZE
 import com.salat.gbinder.TELNET_HELPER_PORT
 import com.salat.gbinder.adb.data.entity.AdbCommandResult
 import com.salat.gbinder.adb.data.entity.AdbConnectionState
@@ -33,7 +32,6 @@ import timber.log.Timber
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Socket
-import java.text.Normalizer
 
 class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbRepository {
 
@@ -48,9 +46,6 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         private const val MAX_RECONNECT_RETRIES = 5
 
         private const val DONE_PREFIX = "__ADB_DONE__:"
-        private const val NATIVE_LAUNCHER_APP_INFO_URI =
-            "content://com.geely.appstore.AppstoreProvider/appInfo"
-        private const val NATIVE_LAUNCHER_PACKAGE_COLUMN = "package_name"
     }
 
     private val host
@@ -108,8 +103,6 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
         Regex("""\bA=\d+:([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\b""")
     private val packageNameLineRegex =
         Regex("""\bpackageName=([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\b""")
-    private val nativeLauncherPackageRegex =
-        Regex("""\bpackage_name=([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\b""")
     private val activityStateRegex = Regex("""\bstate=([A-Z_]+)\b""")
     private val nowVisibleRegex = Regex("""\bnowVisible=(true|false)\b""")
     private val lastVisibleTimeRegex = Regex("""\blastVisibleTime=([^\s]+)\b""")
@@ -550,104 +543,6 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
             return "no valid package names"
         }
         return execute("pm disable-user --user 0 $pkg")
-    }
-
-    override suspend fun addAppToCarLauncher(packageName: String, appName: String): String {
-        val pkg = packageName.trim()
-        if (pkg.isEmpty() || pkg.equals("unknown", ignoreCase = true) || !isValidPackageName(pkg)) {
-            return "no valid package names"
-        }
-
-        val removeOutput = removeAppFromCarLauncher(pkg)
-        val insertOutput = execute(buildNativeLauncherInsertCommand(pkg, appName))
-
-        return buildString {
-            if (removeOutput.isNotBlank()) append(removeOutput.trim())
-            if (isNotEmpty()) append('\n')
-            append(insertOutput.trim())
-        }
-    }
-
-    override suspend fun removeAppFromCarLauncher(packageName: String): String {
-        val pkg = packageName.trim()
-        if (pkg.isEmpty() || pkg.equals("unknown", ignoreCase = true) || !isValidPackageName(pkg)) {
-            return "no valid package names"
-        }
-
-        return execute(buildNativeLauncherDeleteCommand(pkg))
-    }
-
-    override suspend fun removeAppsFromCarLauncher(
-        packageNames: List<String>,
-        onProgressTick: (suspend () -> Unit)?
-    ): String {
-        val validPackages = packageNames.mapNotNull { packageName ->
-            val pkg = packageName.trim()
-            if (pkg.isEmpty() || pkg.equals("unknown", ignoreCase = true) || !isValidPackageName(pkg)) {
-                null
-            } else {
-                pkg
-            }
-        }.distinct()
-
-        if (validPackages.isEmpty()) {
-            return if (packageNames.isEmpty()) "" else "no valid package names"
-        }
-
-        val output = StringBuilder()
-        validPackages.chunked(NATIVE_LAUNCHER_BATCH_SIZE).forEach { chunk ->
-            val command = chunk.joinToString("; ") { buildNativeLauncherDeleteCommand(it) }
-            appendCommandOutput(output, execute(command).trim())
-            onProgressTick?.invoke()
-        }
-        return output.toString()
-    }
-
-    override suspend fun clearCarLauncherApps(): String {
-        return execute("content delete --uri $NATIVE_LAUNCHER_APP_INFO_URI")
-    }
-
-    override suspend fun addAppsToCarLauncher(
-        apps: List<Pair<String, String>>,
-        delay: Long,
-        onProgressTick: (suspend () -> Unit)?
-    ): String {
-        val validApps = apps.mapNotNull { (packageName, appName) ->
-            val pkg = packageName.trim()
-            if (pkg.isEmpty() || pkg.equals(
-                    "unknown",
-                    ignoreCase = true
-                ) || !isValidPackageName(pkg)
-            ) {
-                null
-            } else {
-                pkg to appName
-            }
-        }.distinctBy { it.first }
-
-        if (validApps.isEmpty()) {
-            return if (apps.isEmpty()) "" else "no valid package names"
-        }
-
-        val output = StringBuilder()
-        validApps.chunked(NATIVE_LAUNCHER_BATCH_SIZE).forEach { chunk ->
-            val command = chunk.joinToString("; ") { (pkg, appName) ->
-                buildNativeLauncherInsertCommand(pkg, appName)
-            }
-            appendCommandOutput(output, execute(command).trim())
-            if (delay != 0L) delay(delay)
-            onProgressTick?.invoke()
-        }
-        return output.toString()
-    }
-
-    override suspend fun getNativeLauncherApps(): List<String> {
-        val output = execute("content query --uri $NATIVE_LAUNCHER_APP_INFO_URI")
-        return nativeLauncherPackageRegex.findAll(output)
-            .map { it.groupValues[1] }
-            .filter { isValidPackageName(it) }
-            .distinct()
-            .toList()
     }
 
     override suspend fun restartLauncher3(): String {
@@ -1216,131 +1111,6 @@ class AdbRepositoryImpl(private val dataStore: DataStoreRepository) : AdbReposit
     }
 
     private fun isTelnetMode(port: Int) = port == TELNET_HELPER_PORT
-
-    private fun buildNativeLauncherDeleteCommand(packageName: String): String {
-        return "content delete " +
-                "--uri $NATIVE_LAUNCHER_APP_INFO_URI " +
-                "--where \"$NATIVE_LAUNCHER_PACKAGE_COLUMN='$packageName'\""
-    }
-
-    private fun buildNativeLauncherInsertCommand(packageName: String, appName: String): String {
-        val name = normalizeNativeLauncherBindValue(
-            value = appName,
-            fallbackValue = packageName
-        )
-
-        return "content insert " +
-                "--uri $NATIVE_LAUNCHER_APP_INFO_URI " +
-                "--bind package_name:s:$packageName " +
-                "--bind apk_name:s:$name " +
-                "--bind apk_icon:s:none " +
-                "--bind apk_size:s:0 " +
-                "--bind apk_version_name:s:1.0 " +
-                "--bind apk_version_code:s:1 " +
-                "--bind apk_type:s:third " +
-                "--bind apk_type_name:s:third " +
-                "--bind display_screen:s:0"
-    }
-
-    private fun appendCommandOutput(output: StringBuilder, commandOutput: String) {
-        if (commandOutput.isBlank()) return
-        if (output.isNotEmpty()) output.append('\n')
-        output.append(commandOutput)
-    }
-
-    private fun normalizeNativeLauncherBindValue(
-        value: String,
-        fallbackValue: String
-    ): String {
-        val asciiValue = Normalizer.normalize(transliterateCyrillic(value.trim()), Normalizer.Form.NFD)
-            .replace(Regex("\\p{Mn}+"), "")
-            .replace(Regex("[\\r\\n\\t ]+"), "_")
-            .replace(Regex("[^A-Za-z0-9_.-]+"), "_")
-            .trim('_', '.', '-')
-            .takeUnless { it.isEmpty() }
-
-        return asciiValue ?: fallbackValue
-    }
-
-    private fun transliterateCyrillic(value: String): String {
-        val out = StringBuilder(value.length)
-
-        for (ch in value) {
-            out.append(
-                when (ch) {
-                    'А' -> "A"
-                    'Б' -> "B"
-                    'В' -> "V"
-                    'Г' -> "G"
-                    'Д' -> "D"
-                    'Е' -> "E"
-                    'Ё' -> "E"
-                    'Ж' -> "Zh"
-                    'З' -> "Z"
-                    'И' -> "I"
-                    'Й' -> "Y"
-                    'К' -> "K"
-                    'Л' -> "L"
-                    'М' -> "M"
-                    'Н' -> "N"
-                    'О' -> "O"
-                    'П' -> "P"
-                    'Р' -> "R"
-                    'С' -> "S"
-                    'Т' -> "T"
-                    'У' -> "U"
-                    'Ф' -> "F"
-                    'Х' -> "Kh"
-                    'Ц' -> "Ts"
-                    'Ч' -> "Ch"
-                    'Ш' -> "Sh"
-                    'Щ' -> "Sch"
-                    'Ъ' -> ""
-                    'Ы' -> "Y"
-                    'Ь' -> ""
-                    'Э' -> "E"
-                    'Ю' -> "Yu"
-                    'Я' -> "Ya"
-                    'а' -> "a"
-                    'б' -> "b"
-                    'в' -> "v"
-                    'г' -> "g"
-                    'д' -> "d"
-                    'е' -> "e"
-                    'ё' -> "e"
-                    'ж' -> "zh"
-                    'з' -> "z"
-                    'и' -> "i"
-                    'й' -> "y"
-                    'к' -> "k"
-                    'л' -> "l"
-                    'м' -> "m"
-                    'н' -> "n"
-                    'о' -> "o"
-                    'п' -> "p"
-                    'р' -> "r"
-                    'с' -> "s"
-                    'т' -> "t"
-                    'у' -> "u"
-                    'ф' -> "f"
-                    'х' -> "kh"
-                    'ц' -> "ts"
-                    'ч' -> "ch"
-                    'ш' -> "sh"
-                    'щ' -> "sch"
-                    'ъ' -> ""
-                    'ы' -> "y"
-                    'ь' -> ""
-                    'э' -> "e"
-                    'ю' -> "yu"
-                    'я' -> "ya"
-                    else -> ch.toString()
-                }
-            )
-        }
-
-        return out.toString()
-    }
 
     private fun isValidPackageName(value: String): Boolean {
         if (!value.contains('.')) return false

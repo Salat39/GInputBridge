@@ -90,6 +90,9 @@ interface StateKeeperRepository {
     val taskManagerFlow: SharedFlow<Unit>
     fun callTaskManager()
 
+    val adbCommandFlow: SharedFlow<String>
+    fun sendAdbCommand(command: String)
+
     val launcherActivityCloseTime: StateFlow<Long>
     fun setLauncherActivityCloseTime(timestamp: Long)
 

@@ -1,16 +1,17 @@
 package com.salat.gbinder.features.geelyLauncher
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.salat.gbinder.APP_ICON_QUALITY
 import com.salat.gbinder.APP_ICON_ROUND
-import com.salat.gbinder.NATIVE_LAUNCHER_BATCH_SIZE
 import com.salat.gbinder.R
 import com.salat.gbinder.adb.domain.repository.AdbRepository
 import com.salat.gbinder.features.geelyLauncher.entity.GLScreenState
 import com.salat.gbinder.mappers.toDisplayIcon
 import com.salat.gbinder.util.SystemAppsLightRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -24,6 +25,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class GeelyLauncherViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val adbRepository: AdbRepository,
     private val systemApps: SystemAppsLightRepository
 ) : ViewModel() {
@@ -56,9 +58,7 @@ class GeelyLauncherViewModel @Inject constructor(
     private var loadingStarted = false
 
     fun initialCheck() = viewModelScope.launch(Dispatchers.IO) {
-        val withAppStorage = systemApps.isPackageInstalled("com.salat.gappstorage")
-                || systemApps.isPackageInstalled("com.geely.appstore")
-        setProviderState(withAppStorage)
+        setProviderState(isGeelyAppStoreProviderRegistered(context))
     }
 
     fun setProviderState(withAppStorage: Boolean) {
@@ -74,7 +74,7 @@ class GeelyLauncherViewModel @Inject constructor(
         _screenType.value = GLScreenState.LOADING
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
-                val currentPackages = adbRepository.getNativeLauncherApps()
+                val currentPackages = context.contentResolver.queryNativeLauncherPackages()
                 val installedApps = systemApps
                     .getAllApps(APP_ICON_ROUND, true, APP_ICON_QUALITY)
                     .filter { !it.isSystem }
@@ -89,9 +89,7 @@ class GeelyLauncherViewModel @Inject constructor(
                 //.sortedBy { it.appName.lowercase() }
 
                 val installedByPackage = installedApps.associateBy { it.packageName }
-                val currentApps = currentPackages
-                    .distinct()
-                    .mapNotNull { installedByPackage[it] }
+                val currentApps = currentPackages.mapNotNull { installedByPackage[it] }
 
                 // TODO init loading system apps
                 withContext(Dispatchers.Main) {
@@ -146,53 +144,31 @@ class GeelyLauncherViewModel @Inject constructor(
 
     fun applyChanges() {
         if (_isApplying.value || !_hasChanges.value) return
-        val snapshot = _launcherApps.value
+        val snapshot = _launcherApps.value.distinctBy { it.packageName }
+        val previousPackages = initialLauncherPackages
         _isApplying.value = true
         _applyProgress.value = 0f
         _applyProgressAnimationDurationMs.value = APPLY_PROGRESS_ANIMATION_MS
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
-                val finalApps = snapshot
-                    .distinctBy { it.packageName }
-                    .map { it.packageName to it.appName }
-                val finalPackages = finalApps.map { it.first }.toSet()
-                val currentPackages = adbRepository.getNativeLauncherApps()
-                val currentPackagesSet = currentPackages.toSet()
-                val appsToAdd = finalApps.filter { it.first !in currentPackagesSet }
-                val packagesToRemove = currentPackages.filter { it !in finalPackages }
-                val changeTicks = if (finalApps.isEmpty()) {
-                    1
-                } else {
-                    getBatchTicks(packagesToRemove.size) + getBatchTicks(appsToAdd.size)
-                }
-                val totalTicks = GET_APPS_TICKS + changeTicks + RESTART_LAUNCHER_TICKS
-                var completedTicks = GET_APPS_TICKS
-                _applyProgress.value = completedTicks.toFloat() / totalTicks
-                val updateApplyProgress: suspend () -> Unit = {
-                    completedTicks += 1
-                    _applyProgress.value = completedTicks.toFloat() / totalTicks
-                }
+                val resolver = context.contentResolver
+                val finalPackages = snapshot.map { it.packageName }.toSet()
+                val storedPackages = resolver.queryNativeLauncherPackages().toSet()
+                _applyProgress.value = 1f / APPLY_STEPS
 
-                if (finalApps.isEmpty()) {
-                    adbRepository.clearCarLauncherApps()
-                    updateApplyProgress()
-                } else {
-                    if (packagesToRemove.isNotEmpty()) {
-                        adbRepository.removeAppsFromCarLauncher(
-                            packagesToRemove,
-                            updateApplyProgress
-                        )
-                    }
-                    if (appsToAdd.isNotEmpty()) {
-                        adbRepository.addAppsToCarLauncher(
-                            appsToAdd,
-                            onProgressTick = updateApplyProgress
-                        )
-                    }
-                }
+                resolver.removeNativeLauncherApps(previousPackages.filter { it !in finalPackages })
+                _applyProgress.value = 2f / APPLY_STEPS
+
+                resolver.addNativeLauncherApps(
+                    snapshot
+                        .filter { it.packageName !in storedPackages }
+                        .map { it.packageName to it.appName }
+                )
+                _applyProgress.value = 3f / APPLY_STEPS
+
                 adbRepository.restartLauncher3()
                 _applyProgressAnimationDurationMs.value = APPLY_FINISH_DELAY_MS.toInt()
-                updateApplyProgress()
+                _applyProgress.value = 1f
                 delay(APPLY_FINISH_DELAY_MS)
                 withContext(Dispatchers.Main) {
                     initialLauncherPackages = snapshot.map { it.packageName }
@@ -223,13 +199,8 @@ class GeelyLauncherViewModel @Inject constructor(
             _launcherApps.value.map { it.packageName }.toSet() != initialLauncherPackages.toSet()
     }
 
-    private fun getBatchTicks(size: Int): Int {
-        return if (size == 0) 0 else (size + NATIVE_LAUNCHER_BATCH_SIZE - 1) / NATIVE_LAUNCHER_BATCH_SIZE
-    }
-
     private companion object {
-        const val GET_APPS_TICKS = 1
-        const val RESTART_LAUNCHER_TICKS = 1
+        const val APPLY_STEPS = 4
         const val APPLY_FINISH_DELAY_MS = 3500L
         const val APPLY_PROGRESS_ANIMATION_MS = 180
     }
