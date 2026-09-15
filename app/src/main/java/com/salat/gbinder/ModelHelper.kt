@@ -19,7 +19,7 @@ object ModelHelper {
         return when {
             model.startsWith("FS11", ignoreCase = true) -> CarModel.PREFACE
             model.startsWith("G636", ignoreCase = true) -> CarModel.ATLAS
-            model.startsWith("G426", ignoreCase = true) -> CarModel.CITYRAY
+            model.startsWith("G426_J1", ignoreCase = true) -> CarModel.CITYRAY
             else -> null
         }
     }

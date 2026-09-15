@@ -28,8 +28,8 @@ enum class CarFunction(
     DRIVER_VENT(R.string.car_fn_driver_vent, R.drawable.ic_fn_seat_vent_driver_0, R.string.car_fn_driver_vent_desc),
     PASSENGER_VENT(R.string.car_fn_passenger_vent, R.drawable.ic_fn_seat_vent_passenger_0, R.string.car_fn_passenger_vent_desc),
     FRONT_DEFROST(R.string.car_fn_front_defrost, R.drawable.ic_fn_front_defrost, R.string.car_fn_front_defrost_desc),
-    REAR_DEFROST(R.string.car_fn_rear_defrost, R.drawable.ic_fn_rear_defrost, R.string.car_fn_rear_defrost_desc),
     MAX_DEFROST(R.string.car_fn_max_defrost, R.drawable.ic_fn_max_defrost, R.string.car_fn_max_defrost_desc),
+    REAR_DEFROST(R.string.car_fn_rear_defrost, R.drawable.ic_fn_rear_defrost, R.string.car_fn_rear_defrost_desc),
     RECIRCULATION(R.string.car_fn_recirculation, R.drawable.ic_fn_recirculation, R.string.car_fn_recirculation_desc),
     ME_HOT(R.string.car_fn_me_hot, R.drawable.ic_fn_me_hot, R.string.car_fn_me_hot_desc),
     ME_COOLED(R.string.car_fn_me_cooled, R.drawable.ic_fn_me_hot),
@@ -189,7 +189,7 @@ object CarFunctionIds {
 
     const val FRONT_DEFROST_PREFACE = 269753088
     const val FRONT_DEFROST_ATLAS = 269027328
-    const val FRONT_DEFROST_CITYRAY = 269619968
+    const val FRONT_DEFROST_CITYRAY = 269755136
 
     const val LIGHT_POS = 537136641
     const val LIGHT_LOW = 537136642
