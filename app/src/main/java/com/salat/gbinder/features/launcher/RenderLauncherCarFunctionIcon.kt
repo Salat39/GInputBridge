@@ -143,13 +143,6 @@ fun RenderLauncherCarFunctionIcon(
         is CarFunctionState.Level -> "${state.index}/${state.count}"
         CarFunctionState.Unknown, CarFunctionState.Action, null -> null
     }
-    val glyphRes = when {
-        function == null -> R.drawable.ic_empty
-        state is CarFunctionState.Level -> function.iconResForLevel(state.index)
-        state is CarFunctionState.Toggle -> function.toggleSprite()?.let { spriteFrame(it, state.on) }
-            ?: function.iconRes
-        else -> function.iconRes
-    }
     Box(
         modifier = Modifier.size(cellSize.dp)
             .graphicsLayer {
@@ -194,6 +187,13 @@ fun RenderLauncherCarFunctionIcon(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (customIcon == null) {
+                val glyphRes = when {
+                    function == null -> R.drawable.ic_empty
+                    state is CarFunctionState.Level -> function.iconResForLevel(state.index)
+                    state is CarFunctionState.Toggle -> function.toggleSprite()?.let { spriteFrame(it, state.on) }
+                        ?: function.iconRes
+                    else -> function.iconRes
+                }
                 val glyphModifier = Modifier.size(glyphSize).then(
                     when (function) {
                         CarFunction.ME_HOT, CarFunction.ME_COLD -> activationAnimation(function, state)

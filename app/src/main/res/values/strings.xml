@@ -156,6 +156,13 @@
     <string name="kbd_car_function_panel_desc">Show a panel with the configured functions for quick control</string>
     <string name="kbd_desc_car_function_panel">Drag up the functions to show on the panel</string>
     <string name="car_function_panel_functions">Panel functions</string>
+    <string name="kbd_title_panel_settings">Panel settings</string>
+    <string name="kbd_desc_panel_settings">Behavior and position of this panel on the screen</string>
+    <string name="kbd_panel_adjust_position">Adjust position</string>
+    <string name="kbd_panel_adjust_position_desc">Drag the panel to the height you want on the screen</string>
+    <string name="kbd_panel_position_offset">Vertical shift: %1$d px</string>
+    <string name="panel_calibrate_hint">Drag to adjust the position</string>
+    <string name="panel_calibrate_center">center</string>
     <string name="car_fn_climate_menu">Climate menu</string>
     <string name="car_fn_seat_memory">Seat memory</string>
     <string name="car_fn_wheel_heat">Steering wheel heat</string>
@@ -924,6 +931,8 @@ In response, the action com.salat.gbinder.ADB_COMMAND_RESULT is received<br>
     <string name="car_functions_group">Car functions</string>
     <string name="car_function_accent_mode">Accent mode</string>
     <string name="car_function_accent_mode_desc">Fill active car functions with the accent color and show a light icon and indicator</string>
+    <string name="car_function_max_first">Strong to weak</string>
+    <string name="car_function_max_first_desc">Step order for heating and ventilation. Off - weak to strong</string>
     <string name="car_function_palette">Active function color</string>
     <string name="car_function_palette_blue">Blue</string>
     <string name="car_function_palette_teal">Teal</string>

@@ -5,6 +5,8 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -59,6 +61,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -105,7 +109,11 @@ import com.salat.gbinder.entity.KeyBindAction
 import com.salat.gbinder.entity.KeyBindConfig
 import com.salat.gbinder.entity.KeyBindPattern
 import com.salat.gbinder.entity.parseAppCarouselValueSegment
+import com.salat.gbinder.entity.PanelBindSettings
+import com.salat.gbinder.features.carFunctions.CarFunctionPanelOverlayService
 import com.salat.gbinder.features.launcher.NAVI_PKGS
+import com.salat.gbinder.startOverlay
+import com.salat.gbinder.stopOverlay
 import com.salat.gbinder.mappers.resolveKeyCodeLabel
 import com.salat.gbinder.mappers.toAllDisplay
 import com.salat.gbinder.ui.reordable.ReorderableItem
@@ -115,6 +123,8 @@ import com.salat.gbinder.util.SystemAppsLightRepository
 import com.salat.gbinder.util.rememberIsLandscape
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -125,6 +135,7 @@ private enum class KeyBindingDialogStep {
     SET_ACTION,
     SET_CAR_FUNCTION,
     SET_CAR_FUNCTION_PANEL,
+    SET_PANEL_SETTINGS,
     SET_APP,
     SET_LINK,
     SET_CALL_PHONE_NUMBER,
@@ -274,6 +285,9 @@ fun KeyBindingDialog(
     var carouselAutoplayByPackage by remember { mutableStateOf(mapOf<String, Boolean>()) }
     var appPanelMode by remember { mutableStateOf(false) }
     var appPanelStepMode by remember { mutableStateOf(false) }
+    var panelMaxFirst by remember { mutableStateOf(true) }
+    var panelOffsetPx by remember { mutableIntStateOf(0) }
+    var panelCalibrating by remember { mutableStateOf(false) }
     var carplayScreenSelected by remember { mutableIntStateOf(0) }
 
     val pickShortcut = rememberLauncherForActivityResult(
@@ -471,11 +485,14 @@ fun KeyBindingDialog(
             KeyBindAction.APP_PANEL -> {
                 if (context.requireDisplayOverlay()) {
                     val cfg = AppPanelConfig.parse(edit.config.value)
+                    val settings = PanelBindSettings.parse(edit.config.value)
                     carouselOrderedPackages = cfg.packages
                     carouselPickSelected = cfg.packages.toSet()
                     carouselAutoplayByPackage = emptyMap()
                     appPanelMode = true
                     appPanelStepMode = cfg.stepMode
+                    panelMaxFirst = settings.maxFirst
+                    panelOffsetPx = settings.offsetPx
                     paramsEntryStep = KeyBindingDialogStep.SET_APP_PANEL_MODE
                     step = KeyBindingDialogStep.SET_APP_PANEL_MODE
                 }
@@ -493,6 +510,10 @@ fun KeyBindingDialog(
             KeyBindAction.CAR_FUNCTION_PANEL -> {
                 if (context.requireDisplayOverlay()) {
                     val selected = CarFunction.parsePanel(edit.config.value, carModel)
+                    val settings = PanelBindSettings.parse(edit.config.value)
+                    appPanelMode = false
+                    panelMaxFirst = settings.maxFirst
+                    panelOffsetPx = settings.offsetPx
                     panelFunctions = selected.map { DraggableCarFunctionItem.Function(it) } +
                         DraggableCarFunctionItem.Divider +
                         panelCandidates.filter { it !in selected }
@@ -589,6 +610,98 @@ fun KeyBindingDialog(
         handleNaviMediaSwitch(list)
     }
 
+    // System back and the Back button both step to the previous screen of the flow
+    val goBack = {
+        // Params edit - return to the edit chooser instead of the add-flow chain
+        if (editBind != null && step == paramsEntryStep) {
+            paramsEntryStep = null
+            step = KeyBindingDialogStep.EDIT_CHOOSE
+        } else {
+            when (step) {
+                KeyBindingDialogStep.EDIT_CHOOSE -> onDismiss()
+                KeyBindingDialogStep.SET_KEY_BIND -> if (editBind != null) {
+                    step = KeyBindingDialogStep.EDIT_CHOOSE
+                } else onDismiss()
+
+                KeyBindingDialogStep.SET_ACTION -> step = if (editBind != null) {
+                    KeyBindingDialogStep.EDIT_CHOOSE
+                } else KeyBindingDialogStep.SET_KEY_BIND
+
+                KeyBindingDialogStep.SET_CAR_FUNCTION -> step =
+                    KeyBindingDialogStep.SET_ACTION
+
+                KeyBindingDialogStep.SET_CAR_FUNCTION_PANEL -> step =
+                    KeyBindingDialogStep.SET_CAR_FUNCTION
+
+                KeyBindingDialogStep.SET_PANEL_SETTINGS -> step =
+                    if (appPanelMode) KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER
+                    else KeyBindingDialogStep.SET_CAR_FUNCTION_PANEL
+
+                KeyBindingDialogStep.SET_APP -> step = KeyBindingDialogStep.SET_ACTION
+                KeyBindingDialogStep.SET_NAVI_MEDIA_PICK -> step =
+                    KeyBindingDialogStep.SET_ACTION
+                KeyBindingDialogStep.SET_CARPLAY_SCREEN -> step =
+                    KeyBindingDialogStep.SET_ACTION
+                KeyBindingDialogStep.SET_APP_PANEL_MODE -> step =
+                    KeyBindingDialogStep.SET_ACTION
+
+                KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> step =
+                    if (appPanelMode) KeyBindingDialogStep.SET_APP_PANEL_MODE
+                    else KeyBindingDialogStep.SET_ACTION
+
+                KeyBindingDialogStep.SET_APP_CAROUSEL_AUTOPLAY -> step =
+                    KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER
+
+                KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> step =
+                    KeyBindingDialogStep.SET_APP_CAROUSEL_PICK
+
+                KeyBindingDialogStep.SET_LINK -> step = KeyBindingDialogStep.SET_ACTION
+                KeyBindingDialogStep.DRIVE_MODE_WARNING -> step =
+                    KeyBindingDialogStep.SET_ACTION
+
+                KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD -> step =
+                    KeyBindingDialogStep.SET_ACTION
+
+                KeyBindingDialogStep.SET_TOGGLE_DRIVE_MODE -> step =
+                    KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD
+
+                KeyBindingDialogStep.SET_CAROUSEL_DRIVE_MODE -> step =
+                    KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD
+
+                KeyBindingDialogStep.SET_CAROUSEL_AUDIO_SOURCE -> step =
+                    KeyBindingDialogStep.SET_ACTION
+
+                KeyBindingDialogStep.SET_CALL_PHONE_NUMBER -> step =
+                    KeyBindingDialogStep.SET_ACTION
+
+                KeyBindingDialogStep.SET_CAROUSEL_CAR_LAMP -> step =
+                    KeyBindingDialogStep.SET_ACTION
+            }
+        }
+    }
+
+    if (panelCalibrating) {
+        val payload = if (appPanelMode) {
+            AppPanelConfig(appPanelStepMode, carouselOrderedPackages).encode()
+        } else {
+            panelFunctions
+                .takeWhile { it !is DraggableCarFunctionItem.Divider }
+                .filterIsInstance<DraggableCarFunctionItem.Function>()
+                .joinToString("|") { it.item.name }
+        }
+        RenderPanelCalibration(
+            value = PanelBindSettings(panelMaxFirst, panelOffsetPx, payload).encode(),
+            appPanel = appPanelMode,
+            onResult = { offsetPx ->
+                offsetPx?.let { panelOffsetPx = it }
+                panelCalibrating = false
+            }
+        )
+        return@BaseDialog
+    }
+
+    BackHandler(onBack = goBack)
+
     Column(modifier = Modifier.padding(top = 22.dp)) {
         Text(
             text = when (step) {
@@ -597,6 +710,7 @@ fun KeyBindingDialog(
                 KeyBindingDialogStep.SET_ACTION -> stringResource(R.string.kbd_title_action)
                 KeyBindingDialogStep.SET_CAR_FUNCTION -> stringResource(R.string.kbd_title_car_function)
                 KeyBindingDialogStep.SET_CAR_FUNCTION_PANEL -> stringResource(R.string.kbd_car_function_panel_title)
+                KeyBindingDialogStep.SET_PANEL_SETTINGS -> stringResource(R.string.kbd_title_panel_settings)
                 KeyBindingDialogStep.SET_APP -> stringResource(R.string.kbd_title_app)
                 KeyBindingDialogStep.SET_LINK -> stringResource(R.string.selected_shortcut)
                 KeyBindingDialogStep.DRIVE_MODE_WARNING -> stringResource(R.string.attention)
@@ -638,6 +752,7 @@ fun KeyBindingDialog(
                     KeyBindingDialogStep.SET_ACTION -> stringResource(R.string.kbd_desc_select_action)
                     KeyBindingDialogStep.SET_CAR_FUNCTION -> stringResource(R.string.kbd_desc_select_car_function)
                     KeyBindingDialogStep.SET_CAR_FUNCTION_PANEL -> stringResource(R.string.kbd_desc_car_function_panel)
+                    KeyBindingDialogStep.SET_PANEL_SETTINGS -> stringResource(R.string.kbd_desc_panel_settings)
                     KeyBindingDialogStep.SET_APP -> stringResource(R.string.kbd_desc_select_app)
                     KeyBindingDialogStep.SET_LINK -> stringResource(R.string.selected_shortcut_desc)
                     KeyBindingDialogStep.DRIVE_MODE_WARNING -> ""
@@ -889,6 +1004,9 @@ fun KeyBindingDialog(
                             .clickable {
                                 when (action) {
                                     KeyBindingDialogActions.CAR_FUNCTIONS -> {
+                                        appPanelMode = false
+                                        panelMaxFirst = true
+                                        panelOffsetPx = 0
                                         step = KeyBindingDialogStep.SET_CAR_FUNCTION
                                     }
 
@@ -911,6 +1029,8 @@ fun KeyBindingDialog(
                                             carouselAutoplayByPackage = emptyMap()
                                             appPanelMode = true
                                             appPanelStepMode = false
+                                            panelMaxFirst = true
+                                            panelOffsetPx = 0
                                             step = KeyBindingDialogStep.SET_APP_PANEL_MODE
                                         }
                                     }
@@ -1653,6 +1773,51 @@ fun KeyBindingDialog(
                         }
                     }
                 }
+            }
+
+            KeyBindingDialogStep.SET_PANEL_SETTINGS -> Column(
+                modifier = Modifier
+                    .weight(1f, false)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Spacer(Modifier.height(10.dp))
+                if (!appPanelMode) {
+                    RenderSwitcher(
+                        modifier = Modifier.padding(horizontal = 20.dp),
+                        title = stringResource(R.string.car_function_max_first),
+                        subtitle = stringResource(R.string.car_function_max_first_desc),
+                        value = panelMaxFirst,
+                        groupDivider = false,
+                        onChange = { panelMaxFirst = it }
+                    )
+                }
+                Column(
+                    modifier = Modifier
+                        .padding(horizontal = 20.dp)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { panelCalibrating = true }
+                        .padding(vertical = 12.dp)
+                ) {
+                    Text(
+                        modifier = Modifier.padding(horizontal = 23.dp),
+                        text = stringResource(R.string.kbd_panel_adjust_position),
+                        style = AppTheme.typography.screenTitle,
+                        color = AppTheme.colors.contentPrimary
+                    )
+                    Spacer(Modifier.height(5.dp))
+                    Text(
+                        modifier = Modifier.padding(horizontal = 23.dp),
+                        text = if (panelOffsetPx == 0) {
+                            stringResource(R.string.kbd_panel_adjust_position_desc)
+                        } else {
+                            stringResource(R.string.kbd_panel_position_offset, panelOffsetPx)
+                        },
+                        color = AppTheme.colors.contentPrimary.copy(.4f),
+                        style = AppTheme.typography.dialogSubtitle
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
             }
 
             KeyBindingDialogStep.SET_APP_PANEL_MODE -> Column(
@@ -2871,72 +3036,7 @@ fun KeyBindingDialog(
             Text(
                 modifier = Modifier
                     .clip(RoundedCornerShape(4.dp))
-                    .clickable(onClick = {
-                        // Params edit - return to the edit chooser instead of the add-flow chain
-                        if (editBind != null && step == paramsEntryStep) {
-                            paramsEntryStep = null
-                            step = KeyBindingDialogStep.EDIT_CHOOSE
-                            return@clickable
-                        }
-
-                        when (step) {
-                            KeyBindingDialogStep.EDIT_CHOOSE -> onDismiss()
-                            KeyBindingDialogStep.SET_KEY_BIND -> if (editBind != null) {
-                                step = KeyBindingDialogStep.EDIT_CHOOSE
-                            } else onDismiss()
-
-                            KeyBindingDialogStep.SET_ACTION -> step = if (editBind != null) {
-                                KeyBindingDialogStep.EDIT_CHOOSE
-                            } else KeyBindingDialogStep.SET_KEY_BIND
-
-                            KeyBindingDialogStep.SET_CAR_FUNCTION -> step =
-                                KeyBindingDialogStep.SET_ACTION
-
-                            KeyBindingDialogStep.SET_CAR_FUNCTION_PANEL -> step =
-                                KeyBindingDialogStep.SET_CAR_FUNCTION
-
-                            KeyBindingDialogStep.SET_APP -> step = KeyBindingDialogStep.SET_ACTION
-                            KeyBindingDialogStep.SET_NAVI_MEDIA_PICK -> step =
-                                KeyBindingDialogStep.SET_ACTION
-                            KeyBindingDialogStep.SET_CARPLAY_SCREEN -> step =
-                                KeyBindingDialogStep.SET_ACTION
-                            KeyBindingDialogStep.SET_APP_PANEL_MODE -> step =
-                                KeyBindingDialogStep.SET_ACTION
-
-                            KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> step =
-                                if (appPanelMode) KeyBindingDialogStep.SET_APP_PANEL_MODE
-                                else KeyBindingDialogStep.SET_ACTION
-
-                            KeyBindingDialogStep.SET_APP_CAROUSEL_AUTOPLAY -> step =
-                                KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER
-
-                            KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> step =
-                                KeyBindingDialogStep.SET_APP_CAROUSEL_PICK
-
-                            KeyBindingDialogStep.SET_LINK -> step = KeyBindingDialogStep.SET_ACTION
-                            KeyBindingDialogStep.DRIVE_MODE_WARNING -> step =
-                                KeyBindingDialogStep.SET_ACTION
-
-                            KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD -> step =
-                                KeyBindingDialogStep.SET_ACTION
-
-                            KeyBindingDialogStep.SET_TOGGLE_DRIVE_MODE -> step =
-                                KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD
-
-                            KeyBindingDialogStep.SET_CAROUSEL_DRIVE_MODE -> step =
-                                KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD
-
-                            KeyBindingDialogStep.SET_CAROUSEL_AUDIO_SOURCE -> step =
-                                KeyBindingDialogStep.SET_ACTION
-
-                            KeyBindingDialogStep.SET_CALL_PHONE_NUMBER -> step =
-                                KeyBindingDialogStep.SET_ACTION
-
-                            KeyBindingDialogStep.SET_CAROUSEL_CAR_LAMP -> step =
-                                KeyBindingDialogStep.SET_ACTION
-                        }
-                    }
-                    )
+                    .clickable(onClick = goBack)
                     .padding(horizontal = 14.dp, vertical = 8.dp),
                 text = stringResource(
                     when (step) {
@@ -2948,6 +3048,7 @@ fun KeyBindingDialog(
                         KeyBindingDialogStep.SET_ACTION -> R.string.back
                         KeyBindingDialogStep.SET_CAR_FUNCTION -> R.string.back
                         KeyBindingDialogStep.SET_CAR_FUNCTION_PANEL -> R.string.back
+                        KeyBindingDialogStep.SET_PANEL_SETTINGS -> R.string.back
                         KeyBindingDialogStep.SET_APP -> R.string.back
                         KeyBindingDialogStep.SET_NAVI_MEDIA_PICK -> R.string.back
                         KeyBindingDialogStep.SET_CARPLAY_SCREEN -> R.string.back
@@ -2977,6 +3078,7 @@ fun KeyBindingDialog(
                         KeyBindingDialogStep.SET_CAR_FUNCTION -> false
                         KeyBindingDialogStep.SET_CAR_FUNCTION_PANEL ->
                             panelFunctions.indexOfFirst { it is DraggableCarFunctionItem.Divider } > 0
+                        KeyBindingDialogStep.SET_PANEL_SETTINGS -> true
                         KeyBindingDialogStep.SET_APP -> apps?.any { it.isSelected } == true
                         KeyBindingDialogStep.SET_NAVI_MEDIA_PICK ->
                             apps?.any { it.packageName in NAVI_PKGS && it.isSelected } == true
@@ -3042,20 +3144,32 @@ fun KeyBindingDialog(
                                 KeyBindingDialogStep.SET_CAR_FUNCTION -> Unit
 
                                 KeyBindingDialogStep.SET_CAR_FUNCTION_PANEL -> {
+                                    step = KeyBindingDialogStep.SET_PANEL_SETTINGS
+                                }
+
+                                KeyBindingDialogStep.SET_PANEL_SETTINGS -> {
                                     scope.launch(Dispatchers.IO) {
                                         try {
                                             val name = bind?.bind
                                                 ?.let { keyBindStorage.getBindName(it) } ?: ""
-                                            val functions = panelFunctions
-                                                .takeWhile { it !is DraggableCarFunctionItem.Divider }
-                                                .filterIsInstance<DraggableCarFunctionItem.Function>()
-                                                .map { it.item.name }
-                                            if (functions.isNotEmpty()) {
+                                            val action: KeyBindAction
+                                            val payload: String
+                                            if (appPanelMode) {
+                                                action = KeyBindAction.APP_PANEL
+                                                payload = AppPanelConfig(appPanelStepMode, carouselOrderedPackages).encode()
+                                            } else {
+                                                action = KeyBindAction.CAR_FUNCTION_PANEL
+                                                payload = panelFunctions
+                                                    .takeWhile { it !is DraggableCarFunctionItem.Divider }
+                                                    .filterIsInstance<DraggableCarFunctionItem.Function>()
+                                                    .joinToString("|") { it.item.name }
+                                            }
+                                            if (payload.isNotEmpty()) {
                                                 keyBindStorage.saveBinds(
                                                     name,
                                                     KeyBindConfig(
-                                                        KeyBindAction.CAR_FUNCTION_PANEL,
-                                                        functions.joinToString("|")
+                                                        action,
+                                                        PanelBindSettings(panelMaxFirst, panelOffsetPx, payload).encode()
                                                     )
                                                 )
                                             }
@@ -3145,25 +3259,7 @@ fun KeyBindingDialog(
 
                                 KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> {
                                     if (appPanelMode) {
-                                        scope.launch(Dispatchers.IO) {
-                                            try {
-                                                val name = bind?.bind
-                                                    ?.let { keyBindStorage.getBindName(it) }
-                                                    ?: ""
-                                                val pkgs = carouselOrderedPackages
-                                                if (pkgs.isNotEmpty()) {
-                                                    keyBindStorage.saveBinds(
-                                                        name,
-                                                        KeyBindConfig(
-                                                            KeyBindAction.APP_PANEL,
-                                                            AppPanelConfig(appPanelStepMode, pkgs).encode()
-                                                        )
-                                                    )
-                                                }
-                                                onDismiss()
-                                            } catch (_: Exception) {
-                                            }
-                                        }
+                                        step = KeyBindingDialogStep.SET_PANEL_SETTINGS
                                     } else {
                                         carouselAutoplayByPackage =
                                             carouselOrderedPackages.associateWith {
@@ -3376,13 +3472,14 @@ fun KeyBindingDialog(
 
                             KeyBindingDialogStep.SET_ACTION -> R.string.next
                             KeyBindingDialogStep.SET_CAR_FUNCTION -> R.string.next
-                            KeyBindingDialogStep.SET_CAR_FUNCTION_PANEL -> android.R.string.ok
+                            KeyBindingDialogStep.SET_CAR_FUNCTION_PANEL -> R.string.next
+                            KeyBindingDialogStep.SET_PANEL_SETTINGS -> android.R.string.ok
                             KeyBindingDialogStep.SET_APP -> android.R.string.ok
                             KeyBindingDialogStep.SET_NAVI_MEDIA_PICK -> android.R.string.ok
                             KeyBindingDialogStep.SET_CARPLAY_SCREEN -> android.R.string.ok
                             KeyBindingDialogStep.SET_APP_PANEL_MODE -> R.string.next
                             KeyBindingDialogStep.SET_APP_CAROUSEL_PICK -> R.string.next
-                            KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> if (appPanelMode) android.R.string.ok else R.string.next
+                            KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> R.string.next
                             KeyBindingDialogStep.SET_APP_CAROUSEL_AUTOPLAY -> android.R.string.ok
                             KeyBindingDialogStep.SET_LINK -> android.R.string.ok
                             KeyBindingDialogStep.DRIVE_MODE_WARNING -> android.R.string.ok
@@ -3664,4 +3761,51 @@ private fun KeyBindPattern.toPickedKeyBind(context: Context): PickedKeyBind {
         bind = this,
         keyTitles = codes.associateWith { context.resolveKeyCodeLabel(it) }
     )
+}
+
+// The dialog window turns invisible while the panel overlay is dragged into place
+@Composable
+private fun RenderPanelCalibration(
+    value: String,
+    appPanel: Boolean,
+    onResult: (Int?) -> Unit
+) {
+    val context = LocalContext.current
+    val window = (LocalView.current.parent as? DialogWindowProvider)?.window
+    BackHandler { }
+    DisposableEffect(Unit) {
+        val attributes = window?.attributes
+        val alpha = attributes?.alpha ?: 1f
+        val dim = attributes?.dimAmount ?: 0f
+        window?.attributes = attributes?.apply {
+            this.alpha = 0f
+            dimAmount = 0f
+        }
+        onDispose {
+            window?.attributes = window.attributes?.apply {
+                this.alpha = alpha
+                dimAmount = dim
+            }
+            stopOverlay<CarFunctionPanelOverlayService>(context)
+        }
+    }
+    LaunchedEffect(Unit) {
+        if (!Settings.canDrawOverlays(context)) {
+            onResult(null)
+            return@LaunchedEffect
+        }
+        // Subscribe before the service starts so the result cannot be missed
+        val result = async(start = CoroutineStart.UNDISPATCHED) {
+            CarFunctionPanelOverlayService.awaitCalibration()
+        }
+        startOverlay<CarFunctionPanelOverlayService>(context, allowRestart = true) {
+            putExtra(CarFunctionPanelOverlayService.EXTRA_CALIBRATE, true)
+            putExtra(
+                if (appPanel) CarFunctionPanelOverlayService.EXTRA_APPS
+                else CarFunctionPanelOverlayService.EXTRA_FUNCTIONS,
+                value
+            )
+        }
+        onResult(result.await())
+    }
 }

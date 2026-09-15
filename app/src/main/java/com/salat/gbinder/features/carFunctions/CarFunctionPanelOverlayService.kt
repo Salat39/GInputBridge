@@ -19,10 +19,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -31,8 +38,12 @@ import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
@@ -57,8 +68,15 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.shadow.DropShadowPainter
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -82,6 +100,7 @@ import com.salat.gbinder.entity.AppPanelConfig
 import com.salat.gbinder.entity.CarFunction
 import com.salat.gbinder.entity.DisplayLauncherItem
 import com.salat.gbinder.entity.DisplayLauncherItemType
+import com.salat.gbinder.entity.PanelBindSettings
 import com.salat.gbinder.features.launcher.LauncherCarFunctionStates
 import com.salat.gbinder.features.launcher.LauncherDataRepository
 import com.salat.gbinder.features.launcher.RenderLauncherCarFunctionIcon
@@ -103,7 +122,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.roundToInt
 import javax.inject.Inject
+
+private const val CALIBRATION_CONTENT_ALPHA = .15f
+private const val RULER_BACKDROP_ALPHA = .9f
+private const val RULER_STEPS = 20
+private const val RULER_LABEL_STEP_PERCENT = 10
+private const val RULER_CENTER_PERCENT = 50
 
 @AndroidEntryPoint
 class CarFunctionPanelOverlayService : Service() {
@@ -111,6 +137,7 @@ class CarFunctionPanelOverlayService : Service() {
         const val EXTRA_FUNCTIONS = "functions"
         const val EXTRA_APPS = "apps"
         const val EXTRA_VISIBLE_APP = "visible_app"
+        const val EXTRA_CALIBRATE = "calibrate"
         private const val CHANNEL_ID = "fn_panel_overlay_service_channel"
         private const val NOTIFICATION_ID = 2005
         private const val APPS_WAIT_MS = 3_000L
@@ -136,8 +163,13 @@ class CarFunctionPanelOverlayService : Service() {
         private var isStepModeActive = false
         private val confirmStepSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
+        private val calibrationResult = MutableSharedFlow<Int?>(extraBufferCapacity = 1)
+
         // Steering wheel play/pause launches the selected app before the step timer ends
         fun confirmStepSelection(): Boolean = isStepModeActive && confirmStepSignal.tryEmit(Unit)
+
+        // Resolves with the applied vertical offset, or null when position setup ends without apply
+        suspend fun awaitCalibration(): Int? = calibrationResult.first()
     }
 
     @Inject
@@ -148,6 +180,7 @@ class CarFunctionPanelOverlayService : Service() {
 
     private lateinit var windowManager: WindowManager
     private var container: ComposeView? = null
+    private var windowParams: WindowManager.LayoutParams? = null
     private lateinit var composeLifecycleOwner: ComposeWindowLifecycleOwner
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val prolongSignal = MutableSharedFlow<Unit>(replay = 1, extraBufferCapacity = 64)
@@ -162,6 +195,12 @@ class CarFunctionPanelOverlayService : Service() {
     private var visibleApp = ""
     private var pendingSteps = 0
     private var carFunctionStates: LauncherCarFunctionStates? = null
+    private var maxFirst = false
+    private val panelOffsetPx = MutableStateFlow(0)
+    private val calibrate = MutableStateFlow(false)
+    private var calibrationDone = false
+    private val screenHeightPx by lazy { resources.displayMetrics.heightPixels }
+    private val bottomOffsetPx get() = (screenHeightPx * BOTTOM_OFFSET_RATIO).roundToInt()
     private val carModel by lazy { ModelHelper.detectCarModel() }
 
     @OptIn(FlowPreview::class)
@@ -195,7 +234,7 @@ class CarFunctionPanelOverlayService : Service() {
                 .first()
                 .toLong()
             prolongSignal.debounce(hideDelay).collect {
-                requestClose()
+                if (!calibrate.value) requestClose()
             }
         }
         serviceScope.launch {
@@ -220,12 +259,29 @@ class CarFunctionPanelOverlayService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (isClosing.get()) return START_NOT_STICKY
-        val appsValue = intent?.getStringExtra(EXTRA_APPS)
-        if (functions.value.isNotEmpty() || request != null) {
-            if (stepMode && appsValue == request) advanceSelection() else requestClose()
+        val calibrateRequest = intent?.getBooleanExtra(EXTRA_CALIBRATE, false) == true
+        if (isClosing.get()) {
+            if (calibrateRequest) calibrationResult.tryEmit(null)
             return START_NOT_STICKY
         }
+        val appsValue = intent?.getStringExtra(EXTRA_APPS)
+        val functionsValue = intent?.getStringExtra(EXTRA_FUNCTIONS).orEmpty()
+        if (functions.value.isNotEmpty() || request != null) {
+            if (calibrateRequest) {
+                calibrationResult.tryEmit(null)
+                requestClose()
+            } else if (stepMode && appsValue == request) {
+                advanceSelection()
+            } else {
+                requestClose()
+            }
+            return START_NOT_STICKY
+        }
+        val settings = PanelBindSettings.parse(appsValue ?: functionsValue)
+        maxFirst = settings.maxFirst
+        panelOffsetPx.value = settings.offsetPx
+        calibrate.value = calibrateRequest
+        applyWindowPosition()
         if (appsValue != null) {
             val config = AppPanelConfig.parse(appsValue)
             request = appsValue
@@ -234,10 +290,7 @@ class CarFunctionPanelOverlayService : Service() {
             serviceScope.launch { showApps(config.packages) }
             return START_NOT_STICKY
         }
-        val list = CarFunction.parsePanel(
-            intent?.getStringExtra(EXTRA_FUNCTIONS).orEmpty(),
-            carModel
-        )
+        val list = CarFunction.parsePanel(functionsValue, carModel)
         if (list.isEmpty()) {
             stopSelf()
         } else {
@@ -245,6 +298,27 @@ class CarFunctionPanelOverlayService : Service() {
             prolongSignal.tryEmit(Unit)
         }
         return START_NOT_STICKY
+    }
+
+    // The window covers only the panel so touches above and below reach the app behind it
+    // Position setup moves the panel by translation, so then the window covers the whole screen
+    private fun applyWindowPosition() {
+        val view = container ?: return
+        val params = windowParams ?: return
+        if (calibrate.value) {
+            params.height = WindowManager.LayoutParams.MATCH_PARENT
+            params.y = 0
+        } else {
+            params.height = WindowManager.LayoutParams.WRAP_CONTENT
+            params.y = (bottomOffsetPx + panelOffsetPx.value).coerceAtLeast(0)
+        }
+        runCatching { windowManager.updateViewLayout(view, params) }.onFailure { Timber.e(it) }
+    }
+
+    private fun finishCalibration(offsetPx: Int?) {
+        if (!calibrate.value || calibrationDone) return
+        calibrationDone = true
+        calibrationResult.tryEmit(offsetPx)
     }
 
     private fun requestClose() {
@@ -299,7 +373,7 @@ class CarFunctionPanelOverlayService : Service() {
         } else {
             apps.value = items
             prolongSignal.tryEmit(Unit)
-            if (stepMode) {
+            if (stepMode && !calibrate.value) {
                 val current = items.indexOfFirst { it.packageName == visibleApp }
                 selectedIndex.value = (current + 1 + pendingSteps) % items.size
                 isStepModeActive = true
@@ -317,7 +391,7 @@ class CarFunctionPanelOverlayService : Service() {
             setViewTreeLifecycleOwner(composeLifecycleOwner)
             setViewTreeSavedStateRegistryOwner(composeLifecycleOwner)
             setOnTouchListener { _, event ->
-                if (event.actionMasked == MotionEvent.ACTION_OUTSIDE) requestClose()
+                if (event.actionMasked == MotionEvent.ACTION_OUTSIDE && !calibrate.value) requestClose()
                 false
             }
             setContent {
@@ -337,6 +411,11 @@ class CarFunctionPanelOverlayService : Service() {
                         val selected by selectedIndex.collectAsStateWithLifecycle()
                         val states by carFunctionStates.states.collectAsStateWithLifecycle()
                         val items by data.myAppsItems.collectAsStateWithLifecycle()
+                        val offsetPx by panelOffsetPx.collectAsStateWithLifecycle()
+                        val isCalibrating by calibrate.collectAsStateWithLifecycle()
+                        val rulerTextMeasurer = rememberTextMeasurer()
+                        val rulerTextStyle = AppTheme.typography.dialogButton
+                        val rulerCenterLabel = stringResource(R.string.panel_calibrate_center)
                         LaunchedEffect(states) {
                             if (fns.isNotEmpty()) prolongSignal.tryEmit(Unit)
                         }
@@ -384,189 +463,239 @@ class CarFunctionPanelOverlayService : Service() {
                         BoxWithConstraints(
                             Modifier
                                 .fillMaxWidth()
+                                .then(
+                                    if (isCalibrating) {
+                                        Modifier
+                                            .fillMaxHeight()
+                                            .calibrationRuler(
+                                                dark = isDark,
+                                                textMeasurer = rulerTextMeasurer,
+                                                textStyle = rulerTextStyle,
+                                                centerLabel = rulerCenterLabel
+                                            )
+                                    } else {
+                                        Modifier
+                                    }
+                                )
                                 .graphicsLayer(alpha = alpha.value)
-                                .clickableNoRipple { requestClose() },
+                                .clickableNoRipple {
+                                    // Tap outside the panel cancels position setup
+                                    finishCalibration(null)
+                                    requestClose()
+                                },
                             contentAlignment = Alignment.BottomCenter
                         ) {
-                            val bottomOffset = maxHeight * BOTTOM_OFFSET_RATIO
-                            val panelMaxHeight =
-                                maxHeight - bottomOffset - (TOP_MARGIN_DP + SHADOW_ROOM_DP + BOTTOM_GAP_DP).dp
+                            val density = LocalDensity.current
+                            val bottomOffset = with(density) { bottomOffsetPx.toDp() }
+                            val panelMaxHeight = with(density) { screenHeightPx.toDp() } -
+                                bottomOffset - (TOP_MARGIN_DP + SHADOW_ROOM_DP + BOTTOM_GAP_DP).dp
+                            val liftedBottom = if (isCalibrating) bottomOffset else 0.dp
+                            var panelHeightPx by remember { mutableIntStateOf(0) }
                             val contentWidth = maxWidth - (SCREEN_GAP_DP.dp + sidePadding) * 2
                             val maxPerRow = (contentWidth / cellWidth).toInt().coerceAtLeast(1)
                             val total = fns.size + appItems.size
                             val rows = (total + maxPerRow - 1) / maxPerRow
                             val perRow = if (rows == 0) maxPerRow else (total + rows - 1) / rows
-                            FlowRow(
-                                modifier = Modifier
+                            Box(
+                                Modifier
                                     .padding(start = SCREEN_GAP_DP.dp, end = SCREEN_GAP_DP.dp, top = SHADOW_ROOM_DP.dp, bottom = BOTTOM_GAP_DP.dp)
-                                    .padding(bottom = bottomOffset)
+                                    .padding(bottom = liftedBottom)
                                     .heightIn(max = panelMaxHeight)
-                                    .drawWithCache {
-                                        val panel = Path().apply {
-                                            addRoundRect(
-                                                RoundRect(
-                                                    Rect(Offset.Zero, size),
-                                                    CornerRadius(PANEL_RADIUS_DP.dp.toPx())
+                                    .graphicsLayer {
+                                        translationY = if (isCalibrating) -offsetPx.toFloat() else 0f
+                                    }
+                            ) {
+                                FlowRow(
+                                    modifier = Modifier
+                                        .onSizeChanged { panelHeightPx = it.height }
+                                        .drawWithCache {
+                                            val panel = Path().apply {
+                                                addRoundRect(
+                                                    RoundRect(
+                                                        Rect(Offset.Zero, size),
+                                                        CornerRadius(PANEL_RADIUS_DP.dp.toPx())
+                                                    )
                                                 )
-                                            )
+                                            }
+                                            onDrawBehind {
+                                                // Translucent panel must not show the shadow through itself
+                                                clipPath(panel, ClipOp.Difference) {
+                                                    with(shadowPainter) { draw(size) }
+                                                }
+                                            }
                                         }
-                                        onDrawBehind {
-                                            // Translucent panel must not show the shadow through itself
-                                            clipPath(panel, ClipOp.Difference) {
-                                                with(shadowPainter) { draw(size) }
+                                        .border(1.dp, hairline, shape)
+                                        .clip(shape)
+                                        .background(
+                                            AppTheme.colors.launcherBackground.copy(
+                                                if (isCalibrating) 1f else cnf.windowAlpha
+                                            )
+                                        )
+                                        .graphicsLayer {
+                                            this.alpha = if (isCalibrating) CALIBRATION_CONTENT_ALPHA else 1f
+                                        }
+                                        .clickableNoRipple { prolongSignal.tryEmit(Unit) }
+                                        .verticalScroll(scrollState)
+                                        .padding(
+                                            start = sidePadding,
+                                            end = sidePadding,
+                                            top = (panelPadding - 5.dp).coerceAtLeast(0.dp),
+                                            bottom = panelPadding * .75f
+                                        ),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalArrangement = Arrangement.spacedBy(space / 2),
+                                    maxItemsInEachRow = perRow
+                                ) {
+                                    fns.forEach { function ->
+                                        key(function) {
+                                            val item = items?.firstOrNull {
+                                                it.type == DisplayLauncherItemType.CAR_FUNCTION &&
+                                                    it.data == function.name
+                                            } ?: DisplayLauncherItem(
+                                                type = DisplayLauncherItemType.CAR_FUNCTION,
+                                                id = function.ordinal.toLong(),
+                                                order = 0,
+                                                title = stringResource(function.titleRes),
+                                                iconRef = null,
+                                                customIcon = null,
+                                                packageName = "",
+                                                launchActivity = "",
+                                                data = function.name,
+                                                isCall = false,
+                                                isSplit = false,
+                                                isFrozen = false
+                                            )
+                                            Box(Modifier.width(cellWidth).padding(horizontal = space / 4)) {
+                                                RenderLauncherMyAppCell(
+                                                    app = item,
+                                                    cellSize = cnf.iconSize,
+                                                    enableText = cnf.iconTextEnable,
+                                                    iconRound = cnf.iconRound,
+                                                    textSize = cnf.iconTextSize,
+                                                    textPadding = cnf.iconTextPadding,
+                                                    enableShortcuts = false,
+                                                    shortcutSize = cnf.shortcutSize,
+                                                    enableMultiline = cnf.iconTextMultiline,
+                                                    frozenIconColorFilter = frozenIconColorFilter,
+                                                    lockMode = true,
+                                                    enableClick = true,
+                                                    onHideApp = {},
+                                                    onClick = {
+                                                        carFunctionStates.tap(function, maxFirst)
+                                                        prolongSignal.tryEmit(Unit)
+                                                        if (function.opensExternalScreen()) {
+                                                            requestClose()
+                                                        }
+                                                    },
+                                                    onLongClick = { _, _ -> },
+                                                    iconContent = { pressed ->
+                                                        LaunchedEffect(pressed) {
+                                                            if (pressed) prolongSignal.tryEmit(Unit)
+                                                        }
+                                                        RenderLauncherCarFunctionIcon(
+                                                            function = function,
+                                                            state = states[function],
+                                                            customIcon = item.customIcon,
+                                                            cellSize = cnf.iconSize,
+                                                            iconRound = cnf.iconRound,
+                                                            available = BuildConfig.DEBUG ||
+                                                                function.isAvailableFor(carModel),
+                                                            palette = cnf.carFunctionPalette,
+                                                            accent = cnf.carFunctionAccent,
+                                                            pressed = pressed
+                                                        )
+                                                    }
+                                                )
                                             }
                                         }
                                     }
-                                    .border(1.dp, hairline, shape)
-                                    .clip(shape)
-                                    .background(AppTheme.colors.launcherBackground.copy(cnf.windowAlpha))
-                                    .clickableNoRipple { prolongSignal.tryEmit(Unit) }
-                                    .verticalScroll(scrollState)
-                                    .padding(
-                                        start = sidePadding,
-                                        end = sidePadding,
-                                        top = (panelPadding - 5.dp).coerceAtLeast(0.dp),
-                                        bottom = panelPadding * .75f
-                                    ),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalArrangement = Arrangement.spacedBy(space / 2),
-                                maxItemsInEachRow = perRow
-                            ) {
-                                fns.forEach { function ->
-                                    key(function) {
-                                        val item = items?.firstOrNull {
-                                            it.type == DisplayLauncherItemType.CAR_FUNCTION &&
-                                                it.data == function.name
-                                        } ?: DisplayLauncherItem(
-                                            type = DisplayLauncherItemType.CAR_FUNCTION,
-                                            id = function.ordinal.toLong(),
-                                            order = 0,
-                                            title = stringResource(function.titleRes),
-                                            iconRef = null,
-                                            customIcon = null,
-                                            packageName = "",
-                                            launchActivity = "",
-                                            data = function.name,
-                                            isCall = false,
-                                            isSplit = false,
-                                            isFrozen = false
-                                        )
-                                        Box(Modifier.width(cellWidth).padding(horizontal = space / 4)) {
-                                            RenderLauncherMyAppCell(
-                                                app = item,
-                                                cellSize = cnf.iconSize,
-                                                enableText = cnf.iconTextEnable,
-                                                iconRound = cnf.iconRound,
-                                                textSize = cnf.iconTextSize,
-                                                textPadding = cnf.iconTextPadding,
-                                                enableShortcuts = false,
-                                                shortcutSize = cnf.shortcutSize,
-                                                enableMultiline = cnf.iconTextMultiline,
-                                                frozenIconColorFilter = frozenIconColorFilter,
-                                                lockMode = true,
-                                                enableClick = true,
-                                                onHideApp = {},
-                                                onClick = {
-                                                    carFunctionStates.tap(function)
-                                                    prolongSignal.tryEmit(Unit)
-                                                    if (function.opensExternalScreen()) {
-                                                        requestClose()
-                                                    }
-                                                },
-                                                onLongClick = { _, _ -> },
-                                                iconContent = { pressed ->
-                                                    LaunchedEffect(pressed) {
-                                                        if (pressed) prolongSignal.tryEmit(Unit)
-                                                    }
-                                                    RenderLauncherCarFunctionIcon(
-                                                        function = function,
-                                                        state = states[function],
-                                                        customIcon = item.customIcon,
-                                                        cellSize = cnf.iconSize,
-                                                        iconRound = cnf.iconRound,
-                                                        available = BuildConfig.DEBUG ||
-                                                            function.isAvailableFor(carModel),
-                                                        palette = cnf.carFunctionPalette,
-                                                        accent = cnf.carFunctionAccent,
-                                                        pressed = pressed
+                                    appItems.forEachIndexed { index, item ->
+                                        key(item.packageName) {
+                                            val isSelected = stepMode && index == selected
+                                            val progress by animateFloatAsState(
+                                                if (isSelected) 1f else 0f,
+                                                tween(SELECTION_ANIM_MS),
+                                                label = "selection"
+                                            )
+                                            val bringIntoView = remember { BringIntoViewRequester() }
+                                            val density = LocalDensity.current
+                                            LaunchedEffect(isSelected) {
+                                                if (!isSelected) return@LaunchedEffect
+                                                with(density) {
+                                                    val outset = (SELECTION_STROKE_DP + SELECTION_GLOW_DP).dp.toPx()
+                                                    val icon = cnf.iconSize.dp.toPx()
+                                                    bringIntoView.bringIntoView(
+                                                        Rect(-outset, -outset, icon + outset, icon + outset)
                                                     )
                                                 }
-                                            )
+                                            }
+                                            val accent = AppTheme.colors.contentAccent
+                                            Box(Modifier.width(cellWidth).padding(horizontal = space / 4)) {
+                                                RenderLauncherMyAppCell(
+                                                    app = item,
+                                                    cellSize = cnf.iconSize,
+                                                    enableText = cnf.iconTextEnable,
+                                                    iconRound = cnf.iconRound,
+                                                    textSize = cnf.iconTextSize,
+                                                    textPadding = cnf.iconTextPadding,
+                                                    enableShortcuts = false,
+                                                    shortcutSize = cnf.shortcutSize,
+                                                    enableMultiline = cnf.iconTextMultiline,
+                                                    frozenIconColorFilter = frozenIconColorFilter,
+                                                    lockMode = true,
+                                                    enableClick = true,
+                                                    onHideApp = {},
+                                                    onClick = { launchAndClose(item) },
+                                                    onLongClick = { _, _ -> },
+                                                    iconModifier = Modifier
+                                                        .bringIntoViewRequester(bringIntoView)
+                                                        .drawBehind {
+                                                            if (progress == 0f) return@drawBehind
+                                                            val stroke = SELECTION_STROKE_DP.dp.toPx()
+                                                            val inset = stroke / 2 * progress
+                                                            val radius = if (cnf.iconRound == 0) {
+                                                                CornerRadius.Zero
+                                                            } else {
+                                                                CornerRadius(cnf.iconRound.dp.toPx() + inset)
+                                                            }
+                                                            val glowStep = SELECTION_GLOW_DP.dp.toPx() / SELECTION_GLOW_STEPS
+                                                            for (i in SELECTION_GLOW_STEPS downTo 1) {
+                                                                val glow = glowStep * i
+                                                                val fade = 1f - (i - 1f) / SELECTION_GLOW_STEPS
+                                                                drawRoundRect(
+                                                                    color = accent.copy(alpha = SELECTION_GLOW_ALPHA * fade * progress),
+                                                                    topLeft = Offset(-inset - glow / 2, -inset - glow / 2),
+                                                                    size = Size(size.width + inset * 2 + glow, size.height + inset * 2 + glow),
+                                                                    cornerRadius = CornerRadius(radius.x + glow / 2),
+                                                                    style = Stroke(stroke + glow)
+                                                                )
+                                                            }
+                                                            drawRoundRect(
+                                                                color = accent.copy(alpha = progress),
+                                                                topLeft = Offset(-inset, -inset),
+                                                                size = Size(size.width + inset * 2, size.height + inset * 2),
+                                                                cornerRadius = radius,
+                                                                style = Stroke(stroke)
+                                                            )
+                                                        }
+                                                )
+                                            }
                                         }
                                     }
                                 }
-                                appItems.forEachIndexed { index, item ->
-                                    key(item.packageName) {
-                                        val isSelected = stepMode && index == selected
-                                        val progress by animateFloatAsState(
-                                            if (isSelected) 1f else 0f,
-                                            tween(SELECTION_ANIM_MS),
-                                            label = "selection"
-                                        )
-                                        val bringIntoView = remember { BringIntoViewRequester() }
-                                        val density = LocalDensity.current
-                                        LaunchedEffect(isSelected) {
-                                            if (!isSelected) return@LaunchedEffect
-                                            with(density) {
-                                                val outset = (SELECTION_STROKE_DP + SELECTION_GLOW_DP).dp.toPx()
-                                                val icon = cnf.iconSize.dp.toPx()
-                                                bringIntoView.bringIntoView(
-                                                    Rect(-outset, -outset, icon + outset, icon + outset)
-                                                )
-                                            }
+                                if (isCalibrating) {
+                                    val minOffset = with(density) { -bottomOffset.roundToPx() }
+                                    val maxOffset = with(density) { panelMaxHeight.roundToPx() } - panelHeightPx
+                                    RenderCalibrationControls(
+                                        onDrag = { dy ->
+                                            panelOffsetPx.value = (panelOffsetPx.value - dy.roundToInt())
+                                                .coerceIn(minOffset, maxOf(minOffset, maxOffset))
+                                        },
+                                        onApply = {
+                                            finishCalibration(panelOffsetPx.value)
+                                            requestClose()
                                         }
-                                        val accent = AppTheme.colors.contentAccent
-                                        Box(Modifier.width(cellWidth).padding(horizontal = space / 4)) {
-                                            RenderLauncherMyAppCell(
-                                                app = item,
-                                                cellSize = cnf.iconSize,
-                                                enableText = cnf.iconTextEnable,
-                                                iconRound = cnf.iconRound,
-                                                textSize = cnf.iconTextSize,
-                                                textPadding = cnf.iconTextPadding,
-                                                enableShortcuts = false,
-                                                shortcutSize = cnf.shortcutSize,
-                                                enableMultiline = cnf.iconTextMultiline,
-                                                frozenIconColorFilter = frozenIconColorFilter,
-                                                lockMode = true,
-                                                enableClick = true,
-                                                onHideApp = {},
-                                                onClick = { launchAndClose(item) },
-                                                onLongClick = { _, _ -> },
-                                                iconModifier = Modifier
-                                                    .bringIntoViewRequester(bringIntoView)
-                                                    .drawBehind {
-                                                        if (progress == 0f) return@drawBehind
-                                                        val stroke = SELECTION_STROKE_DP.dp.toPx()
-                                                        val inset = stroke / 2 * progress
-                                                        val radius = if (cnf.iconRound == 0) {
-                                                            CornerRadius.Zero
-                                                        } else {
-                                                            CornerRadius(cnf.iconRound.dp.toPx() + inset)
-                                                        }
-                                                        val glowStep = SELECTION_GLOW_DP.dp.toPx() / SELECTION_GLOW_STEPS
-                                                        for (i in SELECTION_GLOW_STEPS downTo 1) {
-                                                            val glow = glowStep * i
-                                                            val fade = 1f - (i - 1f) / SELECTION_GLOW_STEPS
-                                                            drawRoundRect(
-                                                                color = accent.copy(alpha = SELECTION_GLOW_ALPHA * fade * progress),
-                                                                topLeft = Offset(-inset - glow / 2, -inset - glow / 2),
-                                                                size = Size(size.width + inset * 2 + glow, size.height + inset * 2 + glow),
-                                                                cornerRadius = CornerRadius(radius.x + glow / 2),
-                                                                style = Stroke(stroke + glow)
-                                                            )
-                                                        }
-                                                        drawRoundRect(
-                                                            color = accent.copy(alpha = progress),
-                                                            topLeft = Offset(-inset, -inset),
-                                                            size = Size(size.width + inset * 2, size.height + inset * 2),
-                                                            cornerRadius = radius,
-                                                            style = Stroke(stroke)
-                                                        )
-                                                    }
-                                            )
-                                        }
-                                    }
+                                    )
                                 }
                             }
                         }
@@ -585,7 +714,9 @@ class CarFunctionPanelOverlayService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            y = bottomOffsetPx
         }
+        windowParams = params
         runCatching { windowManager.addView(container, params) }
             .onFailure {
                 Timber.e(it)
@@ -596,6 +727,7 @@ class CarFunctionPanelOverlayService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         isStepModeActive = false
+        finishCalibration(null)
         if (::composeLifecycleOwner.isInitialized) {
             composeLifecycleOwner.setCurrentState(Lifecycle.State.DESTROYED)
         }
@@ -615,5 +747,82 @@ class CarFunctionPanelOverlayService : Service() {
         container = null
         serviceScope.cancel()
         stopSelf()
+    }
+}
+
+@Composable
+private fun BoxScope.RenderCalibrationControls(
+    onDrag: (Float) -> Unit,
+    onApply: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .matchParentSize()
+            .pointerInput(Unit) {
+                detectDragGestures { change, drag ->
+                    change.consume()
+                    onDrag(drag.y)
+                }
+            }
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = stringResource(R.string.panel_calibrate_hint),
+            color = AppTheme.colors.contentPrimary,
+            style = AppTheme.typography.confirmDialogTitle,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(24.dp))
+        Text(
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(AppTheme.colors.contentAccent)
+                .clickable(onClick = onApply)
+                .padding(horizontal = 32.dp, vertical = 14.dp),
+            text = stringResource(R.string.apply),
+            color = Color.White,
+            style = AppTheme.typography.dialogButton
+        )
+    }
+}
+
+// Percent marks count from the screen bottom, the same direction as the panel offset
+private fun Modifier.calibrationRuler(
+    dark: Boolean,
+    textMeasurer: TextMeasurer,
+    textStyle: TextStyle,
+    centerLabel: String
+): Modifier = drawBehind {
+    val backdrop = if (dark) Color.White else Color.Black
+    val ink = if (dark) Color.Black else Color.White
+    drawRect(backdrop.copy(alpha = RULER_BACKDROP_ALPHA))
+    val labelPad = 6.dp.toPx()
+    val minorTick = 24.dp.toPx()
+    for (i in 0..RULER_STEPS) {
+        val percent = i * 100 / RULER_STEPS
+        val y = size.height - size.height * i / RULER_STEPS
+        val isCenter = percent == RULER_CENTER_PERCENT
+        val isMajor = percent % RULER_LABEL_STEP_PERCENT == 0
+        val lineColor = when {
+            isCenter -> ink.copy(alpha = .8f)
+            isMajor -> ink.copy(alpha = .35f)
+            else -> ink.copy(alpha = .2f)
+        }
+        val stroke = if (isCenter) 3.dp.toPx() else 1.dp.toPx()
+        if (isMajor) {
+            drawLine(lineColor, Offset(0f, y), Offset(size.width, y), stroke)
+        } else {
+            drawLine(lineColor, Offset(0f, y), Offset(minorTick, y), stroke)
+            drawLine(lineColor, Offset(size.width - minorTick, y), Offset(size.width, y), stroke)
+        }
+        if (!isMajor) continue
+        val label = if (isCenter) "$percent% $centerLabel" else "$percent%"
+        val layout = textMeasurer.measure(label, textStyle)
+        val labelColor = ink.copy(alpha = if (isCenter) .9f else .6f)
+        val top = (y - layout.size.height - labelPad).coerceAtLeast(labelPad)
+        drawText(layout, labelColor, Offset(16.dp.toPx(), top))
+        drawText(layout, labelColor, Offset(size.width - layout.size.width - 16.dp.toPx(), top))
     }
 }

@@ -33,5 +33,6 @@ data class DisplayLauncherConfig(
     val showFrozenApps: Boolean,
     val allowSystemAppUninstall: Boolean,
     val carFunctionPalette: CarFunctionPalette,
-    val carFunctionAccent: Boolean
+    val carFunctionAccent: Boolean,
+    val carFunctionMaxFirst: Boolean
 )

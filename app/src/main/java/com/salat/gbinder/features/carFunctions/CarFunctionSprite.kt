@@ -10,6 +10,9 @@ class ToggleSprite(
     @DrawableRes val turnOff: List<Int>,
 )
 
+@DrawableRes
+fun CarFunction.activeIconRes(): Int = toggleSprite()?.turnOn?.last() ?: iconResForMaxLevel()
+
 fun CarFunction.toggleSprite(): ToggleSprite? = when (this) {
     CarFunction.RECIRCULATION -> ToggleSprite(
         turnOn = listOf(

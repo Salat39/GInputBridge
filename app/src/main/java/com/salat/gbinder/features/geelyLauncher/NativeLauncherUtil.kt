@@ -27,7 +27,9 @@ fun ContentResolver.queryNativeLauncherPackages(): List<String> =
 
 fun ContentResolver.addNativeLauncherApps(apps: List<Pair<String, String>>) {
     apps.forEach { (packageName, appName) ->
-        insert(APP_INFO_URI, nativeLauncherValues(packageName, appName))
+        val row = insert(APP_INFO_URI, nativeLauncherValues(packageName, appName))
+        checkNotNull(row) { "Appstore provider rejected $packageName" }
+        Timber.d("Native launcher row added: %s", row)
     }
 }
 

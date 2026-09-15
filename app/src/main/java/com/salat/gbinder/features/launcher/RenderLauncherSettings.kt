@@ -1018,6 +1018,26 @@ fun ColumnScope.RenderLauncherSettings(
         }
     )
 
+    Spacer(Modifier.height(26.dp))
+
+    RenderSwitcher(
+        modifier = Modifier.padding(horizontal = 18.dp),
+        title = stringResource(R.string.car_function_max_first),
+        subtitle = stringResource(R.string.car_function_max_first_desc),
+        value = config.carFunctionMaxFirst,
+        enable = true,
+        isNegative = false,
+        groupDivider = false,
+        subtitleColor = AppTheme.colors.contentPrimary.copy(.7f),
+        titleStyle = AppTheme.typography.overlayLauncherSettingsTitle,
+        subtitleStyle = AppTheme.typography.overlayLauncherSettingsSubtitle,
+        onChange = {
+            scope.launch {
+                storage.dataStore.saveValue(LauncherPrefs.LAUNCHER_CAR_FUNCTION_MAX_FIRST, it)
+            }
+        }
+    )
+
     Spacer(Modifier.height(64.dp))
 }
 

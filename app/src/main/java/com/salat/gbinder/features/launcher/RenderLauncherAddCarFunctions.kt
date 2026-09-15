@@ -38,6 +38,7 @@ import com.salat.gbinder.entity.CarModel
 import com.salat.gbinder.entity.DisplayLauncherConfig
 import com.salat.gbinder.entity.DisplayLauncherItem
 import com.salat.gbinder.entity.DisplayLauncherItemType
+import com.salat.gbinder.features.carFunctions.activeIconRes
 import com.salat.gbinder.ui.BaseButton
 import com.salat.gbinder.ui.ProfileSwitch
 import com.salat.gbinder.ui.theme.AppTheme
@@ -111,7 +112,7 @@ fun ColumnScope.RenderLauncherAddCarFunctions(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        painter = painterResource(function.iconRes),
+                        painter = painterResource(function.activeIconRes()),
                         contentDescription = null,
                         modifier = Modifier.size(26.dp),
                         tint = AppTheme.colors.launcherFunctionContent

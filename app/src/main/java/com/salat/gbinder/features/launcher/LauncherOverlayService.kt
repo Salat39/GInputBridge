@@ -510,7 +510,7 @@ class LauncherOverlayService : Service() {
         fun launchMyApp(app: DisplayLauncherItem) {
             if (app.type == DisplayLauncherItemType.CAR_FUNCTION) {
                 val function = CarFunction.fromValue(app.data) ?: return
-                carFunctionStates.tap(function)
+                carFunctionStates.tap(function, config.carFunctionMaxFirst)
                 if (function.opensExternalScreen()) hideLauncherOverlay()
                 return
             }

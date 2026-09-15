@@ -37,6 +37,7 @@ object LauncherPrefs {
         booleanPreferencesKey("LAUNCHER_ALLOW_SYSTEM_APP_UNINSTALL")
     val LAUNCHER_CAR_FUNCTION_PALETTE = intPreferencesKey("LAUNCHER_CAR_FUNCTION_PALETTE")
     val LAUNCHER_CAR_FUNCTION_ACCENT = booleanPreferencesKey("LAUNCHER_CAR_FUNCTION_ACCENT")
+    val LAUNCHER_CAR_FUNCTION_MAX_FIRST = booleanPreferencesKey("LAUNCHER_CAR_FUNCTION_MAX_FIRST")
 
     val ALL_KEYS
         get() = listOf(
@@ -69,6 +70,7 @@ object LauncherPrefs {
             LAUNCHER_SHOW_FROZEN_APPS,
             LAUNCHER_ALLOW_SYSTEM_APP_UNINSTALL,
             LAUNCHER_CAR_FUNCTION_PALETTE,
-            LAUNCHER_CAR_FUNCTION_ACCENT
+            LAUNCHER_CAR_FUNCTION_ACCENT,
+            LAUNCHER_CAR_FUNCTION_MAX_FIRST
         )
 }

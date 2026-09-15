@@ -55,6 +55,9 @@ enum class CarFunction(
     @DrawableRes
     fun iconResForLevel(index: Int): Int = levelIcons().getOrNull(index) ?: iconRes
 
+    @DrawableRes
+    fun iconResForMaxLevel(): Int = levelIcons().lastOrNull() ?: iconRes
+
     private fun levelIcons(): List<Int> = when (this) {
         LIGHT -> listOf(
             R.drawable.ic_fn_light,
@@ -126,7 +129,7 @@ enum class CarFunction(
             availableFor(model).filter { it != CLIMATE_MENU }
 
         fun parsePanel(value: String, model: CarModel?): List<CarFunction> =
-            value.split("|").mapNotNull(::fromValue).distinct()
+            PanelBindSettings.payloadOf(value).split("|").mapNotNull(::fromValue).distinct()
                 .filter { it in availableForLauncher(model) }
 
         private fun CarFunction.isListedInMenu(): Boolean = when (this) {

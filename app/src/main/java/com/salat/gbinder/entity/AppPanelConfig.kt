@@ -8,7 +8,7 @@ data class AppPanelConfig(val stepMode: Boolean, val packages: List<String>) {
         private const val FREE = "free"
 
         fun parse(value: String): AppPanelConfig {
-            val parts = value.split('|').filter { it.isNotBlank() }
+            val parts = PanelBindSettings.payloadOf(value).split('|').filter { it.isNotBlank() }
             return when (parts.firstOrNull()) {
                 STEP -> AppPanelConfig(true, parts.drop(1))
                 FREE -> AppPanelConfig(false, parts.drop(1))

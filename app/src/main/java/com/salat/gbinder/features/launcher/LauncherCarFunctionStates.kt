@@ -29,7 +29,7 @@ class LauncherCarFunctionStates(
     private val scope: CoroutineScope,
     private val car: CarRepository,
     private val reader: CarFunctionStateReader,
-    private val trigger: suspend (CarFunction) -> Unit,
+    private val trigger: suspend (CarFunction, Boolean) -> Unit,
     private val simulate: Boolean
 ) {
     private val mutableStates = MutableStateFlow<Map<CarFunction, CarFunctionState>>(emptyMap())
@@ -100,16 +100,18 @@ class LauncherCarFunctionStates(
         functions.forEach { enqueue(it) }
     }
 
-    fun tap(function: CarFunction) {
+    fun tap(function: CarFunction, maxFirst: Boolean) {
         if (function !in tracked) return
+        // Headlight levels are beam modes, not intensity - always cycle forward
+        val maxFirst = maxFirst && function != CarFunction.LIGHT
         scope.launch(Dispatchers.IO) {
-            runCatching { trigger(function) }.onFailure {
+            runCatching { trigger(function, maxFirst) }.onFailure {
                 if (it is CancellationException) throw it
                 Timber.e(it)
             }
             if (simulate) {
                 mutableStates.update { current ->
-                    current + (function to advance(current[function] ?: reader.placeholder(function)))
+                    current + (function to advance(current[function] ?: reader.placeholder(function), maxFirst))
                 }
                 return@launch
             }
@@ -119,8 +121,11 @@ class LauncherCarFunctionStates(
         }
     }
 
-    private fun advance(state: CarFunctionState): CarFunctionState = when (state) {
-        is CarFunctionState.Level -> state.copy(index = (state.index + 1) % (state.count + 1))
+    private fun advance(state: CarFunctionState, maxFirst: Boolean): CarFunctionState = when (state) {
+        is CarFunctionState.Level -> {
+            val step = if (maxFirst) state.count else 1
+            state.copy(index = (state.index + step) % (state.count + 1))
+        }
         is CarFunctionState.Toggle -> state.copy(on = !state.on)
         CarFunctionState.Action, CarFunctionState.Unknown -> state
     }

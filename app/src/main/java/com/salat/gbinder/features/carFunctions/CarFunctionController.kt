@@ -209,7 +209,7 @@ class CarFunctionController(
         return consumePadEcho
     }
 
-    suspend fun triggerFromTouch(function: CarFunction) {
+    suspend fun triggerFromTouch(function: CarFunction, maxFirst: Boolean) {
         when {
             function == CarFunction.ME_HOT -> {
                 val active = car.readImHotActive(carModel) ?: false
@@ -224,7 +224,7 @@ class CarFunctionController(
                 mutex.withLock {
                     if (!function.isAvailableFor(carModel)) return@withLock
                     silentToasts = true
-                    cycleLevel(function, forward = true, includeOff = true)
+                    cycleLevel(function, forward = !maxFirst, includeOff = true)
                 }
             }.onFailure { Timber.e(it) }
         }
