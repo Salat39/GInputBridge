@@ -587,7 +587,13 @@ class CarFunctionPanelOverlayService : Service() {
                                                             requestClose()
                                                         }
                                                     },
-                                                    onLongClick = { _, _ -> },
+                                                    onLongClick = { _, _ ->
+                                                        carFunctionStates.longPress(function, maxFirst)
+                                                        prolongSignal.tryEmit(Unit)
+                                                        if (function.opensExternalScreen()) {
+                                                            requestClose()
+                                                        }
+                                                    },
                                                     iconContent = { pressed ->
                                                         LaunchedEffect(pressed) {
                                                             if (pressed) prolongSignal.tryEmit(Unit)

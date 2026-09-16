@@ -6,6 +6,7 @@ import com.salat.gbinder.statekeeper.domain.entity.HandleMediaSessionState
 import com.salat.gbinder.statekeeper.domain.entity.LauncherActivitySignal
 import com.salat.gbinder.statekeeper.domain.entity.LauncherManagerState
 import com.salat.gbinder.statekeeper.domain.entity.LauncherOverlaySignal
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -92,6 +93,9 @@ interface StateKeeperRepository {
 
     val adbCommandFlow: SharedFlow<String>
     fun sendAdbCommand(command: String)
+
+    val toggleDataSyncFlow: Flow<Unit>
+    fun toggleDataSync()
 
     val launcherActivityCloseTime: StateFlow<Long>
     fun setLauncherActivityCloseTime(timestamp: Long)

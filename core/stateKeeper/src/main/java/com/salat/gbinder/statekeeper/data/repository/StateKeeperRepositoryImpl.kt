@@ -8,11 +8,13 @@ import com.salat.gbinder.statekeeper.domain.entity.LauncherManagerState
 import com.salat.gbinder.statekeeper.domain.entity.LauncherOverlaySignal
 import com.salat.gbinder.statekeeper.domain.repository.StateKeeperRepository
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 
 class StateKeeperRepositoryImpl : StateKeeperRepository {
@@ -366,6 +368,16 @@ class StateKeeperRepositoryImpl : StateKeeperRepository {
 
     override fun sendAdbCommand(command: String) {
         _adbCommandFlow.tryEmit(command)
+    }
+
+    /**
+     * Toggle data sync event - queued until App starts to collect
+     */
+    private val toggleDataSyncRequests = Channel<Unit>(Channel.UNLIMITED)
+    override val toggleDataSyncFlow = toggleDataSyncRequests.receiveAsFlow()
+
+    override fun toggleDataSync() {
+        toggleDataSyncRequests.trySend(Unit)
     }
 
     /**

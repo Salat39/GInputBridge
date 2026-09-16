@@ -91,7 +91,8 @@ class LauncherDataRepositoryImpl(
                         LauncherPrefs.LAUNCHER_ALLOW_SYSTEM_APP_UNINSTALL,
                         LauncherPrefs.LAUNCHER_CAR_FUNCTION_PALETTE,
                         LauncherPrefs.LAUNCHER_CAR_FUNCTION_ACCENT,
-                        LauncherPrefs.LAUNCHER_CAR_FUNCTION_MAX_FIRST
+                        LauncherPrefs.LAUNCHER_CAR_FUNCTION_MAX_FIRST,
+                        LauncherPrefs.LAUNCHER_CAR_FUNCTION_LONG_PRESS_OFF
                     ),
                     listOf(
                         if (BuildConfig.DEBUG) .85f else DEFAULT_UI_SCALE,
@@ -124,7 +125,8 @@ class LauncherDataRepositoryImpl(
                         false, // allow system app uninstall
                         CarFunctionPalette.BLUE.ordinal,
                         true, // accent fill for active car functions
-                        true // first tap turns heat or vent on at max level
+                        true, // first tap turns heat or vent on at max level
+                        true // long press turns an active car function off
                     )
                 )
                     .flowOn(Dispatchers.IO)
@@ -163,6 +165,7 @@ class LauncherDataRepositoryImpl(
                                 carFunctionPalette = CarFunctionPalette.fromOrdinal(prefs[28] as Int),
                                 carFunctionAccent = prefs[29] as Boolean,
                                 carFunctionMaxFirst = prefs[30] as Boolean,
+                                carFunctionLongPressOff = prefs[31] as Boolean,
                             )
                         }
                     }

@@ -487,6 +487,7 @@ class App : Application(), ImageLoaderFactory {
             initAppScalesCollector()
             initVisibleAppCollector() // Accessibility event bridge
             handleToggleLauncher()
+            handleToggleDataSync()
             handleAdbActions()
             initAccessibilityRestartWatchdog()
             // initPermissionsWatchdog()
@@ -2195,6 +2196,13 @@ class App : Application(), ImageLoaderFactory {
         }
     }
 
+    private fun CoroutineScope.handleToggleDataSync() = launch {
+        stateKeeper.toggleDataSyncFlow.collect {
+            val enabled = dataStore.getValueFlow(GeneralPrefs.DATA_SYNC_ENABLED).first() ?: false
+            dataStore.saveValue(GeneralPrefs.DATA_SYNC_ENABLED, !enabled)
+        }
+    }
+
     private fun CoroutineScope.handleAdbActions() = launch {
         launch {
             stateKeeper.adbCommandFlow.collect { command ->
@@ -2339,6 +2347,7 @@ class App : Application(), ImageLoaderFactory {
             isMeColdActive = { carFunctions.meColdActive },
         ),
         trigger = carFunctions::triggerFromTouch,
+        turnOff = carFunctions::turnOffFromTouch,
         simulate = BuildConfig.DEBUG && carModel == null
     )
 

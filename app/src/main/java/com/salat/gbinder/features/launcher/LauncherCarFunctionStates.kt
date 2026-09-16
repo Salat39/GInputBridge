@@ -30,6 +30,7 @@ class LauncherCarFunctionStates(
     private val car: CarRepository,
     private val reader: CarFunctionStateReader,
     private val trigger: suspend (CarFunction, Boolean) -> Unit,
+    private val turnOff: suspend (CarFunction, Boolean) -> Unit,
     private val simulate: Boolean
 ) {
     private val mutableStates = MutableStateFlow<Map<CarFunction, CarFunctionState>>(emptyMap())
@@ -100,18 +101,22 @@ class LauncherCarFunctionStates(
         functions.forEach { enqueue(it) }
     }
 
-    fun tap(function: CarFunction, maxFirst: Boolean) {
+    fun tap(function: CarFunction, maxFirst: Boolean) = perform(function, maxFirst, off = false)
+
+    fun longPress(function: CarFunction, maxFirst: Boolean) = perform(function, maxFirst, off = true)
+
+    private fun perform(function: CarFunction, maxFirst: Boolean, off: Boolean) {
         if (function !in tracked) return
         // Headlight levels are beam modes, not intensity - always cycle forward
         val maxFirst = maxFirst && function != CarFunction.LIGHT
         scope.launch(Dispatchers.IO) {
-            runCatching { trigger(function, maxFirst) }.onFailure {
+            runCatching { if (off) turnOff(function, maxFirst) else trigger(function, maxFirst) }.onFailure {
                 if (it is CancellationException) throw it
                 Timber.e(it)
             }
             if (simulate) {
                 mutableStates.update { current ->
-                    current + (function to advance(current[function] ?: reader.placeholder(function), maxFirst))
+                    current + (function to advance(current[function] ?: reader.placeholder(function), maxFirst, off))
                 }
                 return@launch
             }
@@ -121,13 +126,14 @@ class LauncherCarFunctionStates(
         }
     }
 
-    private fun advance(state: CarFunctionState, maxFirst: Boolean): CarFunctionState = when (state) {
-        is CarFunctionState.Level -> {
+    private fun advance(state: CarFunctionState, maxFirst: Boolean, off: Boolean): CarFunctionState = when {
+        state is CarFunctionState.Level && off && state.index > 0 -> state.copy(index = 0)
+        state is CarFunctionState.Level -> {
             val step = if (maxFirst) state.count else 1
             state.copy(index = (state.index + step) % (state.count + 1))
         }
-        is CarFunctionState.Toggle -> state.copy(on = !state.on)
-        CarFunctionState.Action, CarFunctionState.Unknown -> state
+        state is CarFunctionState.Toggle -> state.copy(on = !state.on)
+        else -> state
     }
 
     private fun enqueue(function: CarFunction, attempt: Int = 1) {

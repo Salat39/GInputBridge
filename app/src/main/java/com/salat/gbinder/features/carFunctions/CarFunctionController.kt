@@ -209,6 +209,17 @@ class CarFunctionController(
         }
     }
 
+    suspend fun turnOffFromTouch(function: CarFunction, maxFirst: Boolean) {
+        if (levelSpec(function) == null) return triggerFromTouch(function, maxFirst)
+        runCatching {
+            mutex.withLock {
+                if (!function.isAvailableFor(carModel)) return@withLock
+                silentToasts = true
+                if (!turnOffLevel(function)) cycleLevel(function, forward = !maxFirst, includeOff = true)
+            }
+        }.onFailure { Timber.e(it) }
+    }
+
     private fun CarFunction.requiresIgnition(): Boolean = when (this) {
         CarFunction.WHEEL_HEAT,
         CarFunction.DRIVER_HEAT,
@@ -339,16 +350,7 @@ class CarFunctionController(
             allLevels
         }
         if (levels.isEmpty()) return
-        val raw = if (function == CarFunction.LIGHT) {
-            car.getIntProperty(propertyId)
-        } else {
-            car.readLevelValue(propertyId, areaId)
-        }
-        val current = if (function == CarFunction.LIGHT) {
-            raw
-        } else {
-            normalizeLevelValue(function, raw)
-        }
+        val current = readLevel(function, propertyId, areaId)
         val index = levels.indexOf(current).takeIf { it >= 0 } ?: 0
         val nextIndex = if (forward) {
             if (index >= levels.lastIndex) 0 else index + 1
@@ -363,6 +365,23 @@ class CarFunctionController(
             toastLevel(function, allLevels.indexOf(next).coerceAtLeast(0))
         }
     }
+
+    private suspend fun turnOffLevel(function: CarFunction): Boolean {
+        if (function.requiresIgnition() && !isIgnitionDriving()) return false
+        val (propertyId, areaId, levels) = levelSpec(function) ?: return false
+        val off = levels.first()
+        if (readLevel(function, propertyId, areaId) == off) return false
+        car.setPropertyIntValue(propertyId, areaId, off)
+        if (function == CarFunction.LIGHT) toastLight(off) else toastLevel(function, 0)
+        return true
+    }
+
+    private suspend fun readLevel(function: CarFunction, propertyId: Int, areaId: Int): Int =
+        if (function == CarFunction.LIGHT) {
+            car.getIntProperty(propertyId)
+        } else {
+            normalizeLevelValue(function, car.readLevelValue(propertyId, areaId))
+        }
 
     private fun renewLevelSession(
         function: CarFunction,

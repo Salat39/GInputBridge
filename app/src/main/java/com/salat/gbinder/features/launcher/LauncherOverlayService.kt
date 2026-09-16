@@ -784,8 +784,15 @@ class LauncherOverlayService : Service() {
                                                         gridState = myAppsGridState,
                                                         onClick = { app -> launchMyApp(app) },
                                                         onLongClick = { item, offset ->
-                                                            when (item.type) {
-                                                                DisplayLauncherItemType.GROUP -> {
+                                                            val function = CarFunction.fromValue(item.data)
+                                                                ?.takeIf { config.carFunctionLongPressOff }
+                                                            when {
+                                                                item.type == DisplayLauncherItemType.CAR_FUNCTION && function != null -> {
+                                                                    carFunctionStates.longPress(function, config.carFunctionMaxFirst)
+                                                                    if (function.opensExternalScreen()) hideLauncherOverlay()
+                                                                }
+
+                                                                item.type == DisplayLauncherItemType.GROUP -> {
                                                                     minimizeOverlayForSystemDialog()
                                                                     stateKeeper.sendLauncherOverlaySignal(
                                                                         LauncherOverlaySignal.ChangeGroupName(
