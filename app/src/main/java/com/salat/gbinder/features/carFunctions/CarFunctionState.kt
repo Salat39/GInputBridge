@@ -25,7 +25,9 @@ fun CarFunction.opensExternalScreen(): Boolean = when (this) {
 
 class CarFunctionStateReader(
     private val car: CarRepository,
-    private val resolveCarModel: () -> CarModel?
+    private val resolveCarModel: () -> CarModel?,
+    private val isMeHotActive: () -> Boolean = { false },
+    private val isMeColdActive: () -> Boolean = { false },
 ) {
     private val carModel by lazy { resolveCarModel() }
 
@@ -57,8 +59,8 @@ class CarFunctionStateReader(
             )
         }
         when (function) {
-            CarFunction.ME_HOT -> return car.readImHotActive(carModel).toToggle()
-            CarFunction.ME_COLD -> return car.readImColdActive().toToggle()
+            CarFunction.ME_HOT -> return CarFunctionState.Toggle(isMeHotActive())
+            CarFunction.ME_COLD -> return CarFunctionState.Toggle(isMeColdActive())
             else -> Unit
         }
         if (function.isLauncherAction()) return CarFunctionState.Action
@@ -73,17 +75,10 @@ class CarFunctionStateReader(
         return CarFunctionState.Toggle(raw == onValue)
     }
 
-    fun watchKeys(function: CarFunction): List<Pair<Int, Int>> = when (function) {
-        CarFunction.ME_HOT -> imHotWatchKeys(carModel)
-        CarFunction.ME_COLD -> IM_COLD_WATCH_KEYS
-        else -> listOfNotNull(
-            levelSpec(function)?.let { (propertyId, areaId, _) -> propertyId to areaId }
-                ?: toggleKey(function)
-        )
-    }
-
-    private fun Boolean?.toToggle(): CarFunctionState =
-        this?.let { CarFunctionState.Toggle(it) } ?: CarFunctionState.Unknown
+    fun watchKeys(function: CarFunction): List<Pair<Int, Int>> = listOfNotNull(
+        levelSpec(function)?.let { (propertyId, areaId, _) -> propertyId to areaId }
+            ?: toggleKey(function)
+    )
 
     private fun toggleKey(function: CarFunction): Pair<Int, Int>? = when (function) {
         CarFunction.RECIRCULATION -> CarPropertyKey.HVAC_FUNC_CIRCULATION to Integer.MIN_VALUE

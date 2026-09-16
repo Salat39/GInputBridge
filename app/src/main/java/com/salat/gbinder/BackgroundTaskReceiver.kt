@@ -4,6 +4,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.salat.gbinder.coroutines.IoCoroutineScope
+import com.salat.gbinder.datastore.DataStoreRepository
+import com.salat.gbinder.datastore.GeneralPrefs
 import com.salat.gbinder.entity.ToggleMediaControl
 import com.salat.gbinder.statekeeper.domain.entity.ActionPropertyTask
 import com.salat.gbinder.statekeeper.domain.repository.StateKeeperRepository
@@ -14,6 +16,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -28,6 +31,9 @@ class BackgroundTaskReceiver() : BroadcastReceiver() {
     @Inject
     lateinit var stataKeeper: StateKeeperRepository
 
+    @Inject
+    lateinit var dataStore: DataStoreRepository
+
     companion object {
         private const val BASE_PATH = "com.salat.gbinder"
         private const val DEFAULT_VISIBLE_PKG_TIMEOUT_SEC = 45
@@ -38,6 +44,11 @@ class BackgroundTaskReceiver() : BroadcastReceiver() {
         Timber.d("[BackgroundTaskReceiver] ${intent.action} received")
 
         when (intent.action) {
+            "$BASE_PATH.ACTIVE" -> scope.launch {
+                val enabled = dataStore.getValueFlow(GeneralPrefs.DATA_SYNC_ENABLED).first() ?: false
+                dataStore.saveValue(GeneralPrefs.DATA_SYNC_ENABLED, !enabled)
+            }
+
             "$BASE_PATH.SET_AUDIO_SOURCE" -> {
                 val target = intent.getStringExtra("target")?.uppercase().orEmpty()
                 val source = intent.getStringExtra("source")?.uppercase().orEmpty()

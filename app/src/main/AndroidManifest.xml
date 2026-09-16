@@ -199,6 +199,7 @@
             android:exported="true"
             tools:ignore="ExportedReceiver">
             <intent-filter>
+                <action android:name="com.salat.gbinder.ACTIVE" />
                 <action android:name="com.salat.gbinder.SET_AUDIO_SOURCE" />
                 <action android:name="com.salat.gbinder.ENABLE_MEDIA_CONTROL" />
                 <action android:name="com.salat.gbinder.SMART_ENABLE_MEDIA_CONTROL" />

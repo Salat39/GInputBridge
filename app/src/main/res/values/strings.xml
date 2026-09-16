@@ -184,7 +184,7 @@
     <string name="car_fn_mirrors">Mirrors</string>
     <string name="car_fn_wipers">Wipers</string>
     <string name="car_fn_climate_menu_desc">Show the standard climate menu.\nSecond press will hide climate</string>
-    <string name="car_fn_seat_memory_desc">Open the seat memory settings</string>
+    <string name="car_fn_seat_memory_desc">Open seat memory</string>
     <string name="car_fn_wheel_heat_desc">Cycles the heating level</string>
     <string name="car_fn_driver_heat_desc">Cycles the heating level</string>
     <string name="car_fn_passenger_heat_desc">Cycles the heating level</string>
@@ -193,10 +193,10 @@
     <string name="car_fn_recirculation_desc">Toggles on and off</string>
     <string name="car_fn_antibuks_desc">Toggles on and off</string>
     <string name="car_fn_light_desc">Switches the headlight mode</string>
-    <string name="car_fn_front_defrost_desc">Toggles the windshield defrost</string>
+    <string name="car_fn_front_defrost_desc">Toggles on and off</string>
     <string name="car_fn_max_defrost_desc">Toggles on and off</string>
-    <string name="car_fn_rear_defrost_desc">Toggles the rear window defrost</string>
-    <string name="car_fn_me_hot_desc">Turns on A/C, recirculation, minimum temperature, strong airflow and seat ventilation. Press again for a moderate mode</string>
+    <string name="car_fn_rear_defrost_desc">Toggles on and off</string>
+    <string name="car_fn_me_hot_desc">Turns on A/C, recirculation, minimum temperature, strong airflow and seat ventilation.\nPress again restores previous temperature and fan, and turns off recirculation and ventilation</string>
     <string name="car_fn_me_cold_desc">Turns on maximum seat and steering wheel heating. Press again to turn off</string>
     <string name="car_fn_trunk_desc">Open the trunk</string>
     <string name="car_fn_mirrors_desc">Fold / unfold</string>
@@ -932,7 +932,7 @@ In response, the action com.salat.gbinder.ADB_COMMAND_RESULT is received<br>
     <string name="car_function_accent_mode">Accent mode</string>
     <string name="car_function_accent_mode_desc">Fill active car functions with the accent color and show a light icon and indicator</string>
     <string name="car_function_max_first">Strong to weak</string>
-    <string name="car_function_max_first_desc">Step order for heating and ventilation. Off - weak to strong</string>
+    <string name="car_function_max_first_desc">Step order for heating and ventilation 3 -> 2 -> 1.\nIf turn off then 1 -> 2 -> 3</string>
     <string name="car_function_palette">Active function color</string>
     <string name="car_function_palette_blue">Blue</string>
     <string name="car_function_palette_teal">Teal</string>

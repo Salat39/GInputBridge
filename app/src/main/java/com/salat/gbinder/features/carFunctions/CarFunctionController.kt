@@ -46,8 +46,13 @@ class CarFunctionController(
 
     private var tempLo = DEFAULT_TEMP_LO
     private var tempHi = DEFAULT_TEMP_HI
-    private var imHotCooledNextIsHot = true
-    private var imColdWarmedNextIsCold = true
+    var meHotActive = false
+        private set
+    var meColdActive = false
+        private set
+    private var meHotSavedTemp: Float? = null
+    private var meHotSavedFanMode: Int? = null
+    private var meHotSavedFanValue: Int? = null
 
     private sealed class PadSession {
         data class Climate(var fanMode: Boolean) : PadSession()
@@ -168,36 +173,12 @@ class CarFunctionController(
                     CarFunction.MAX_DEFROST -> toggleMaxFan()
                     CarFunction.REAR_DEFROST -> toggleRearDefrost()
                     CarFunction.ME_HOT, CarFunction.ME_COOLED -> {
-                        if (explicit) {
-                            when (function) {
-                                CarFunction.ME_HOT -> {
-                                    applyImHot()
-                                    imHotCooledNextIsHot = false
-                                }
-                                else -> {
-                                    applyImCooled()
-                                    imHotCooledNextIsHot = true
-                                }
-                            }
-                        } else {
-                            toggleImHotCooled()
-                        }
+                        val turnOn = if (explicit) function == CarFunction.ME_HOT else !meHotActive
+                        if (turnOn) applyMeHot() else applyMeCooled()
                     }
                     CarFunction.ME_COLD, CarFunction.ME_WARMED -> {
-                        if (explicit) {
-                            when (function) {
-                                CarFunction.ME_COLD -> {
-                                    applyImCold()
-                                    imColdWarmedNextIsCold = false
-                                }
-                                else -> {
-                                    applyImWarmed()
-                                    imColdWarmedNextIsCold = true
-                                }
-                            }
-                        } else {
-                            toggleImColdWarmed()
-                        }
+                        val turnOn = if (explicit) function == CarFunction.ME_COLD else !meColdActive
+                        if (turnOn) applyMeCold() else applyMeWarmed()
                     }
                     CarFunction.TRUNK -> toggleTrunk()
                     CarFunction.MIRRORS -> toggleMirrors()
@@ -212,12 +193,10 @@ class CarFunctionController(
     suspend fun triggerFromTouch(function: CarFunction, maxFirst: Boolean) {
         when {
             function == CarFunction.ME_HOT -> {
-                val active = car.readImHotActive(carModel) ?: false
-                trigger(if (active) CarFunction.ME_COOLED else CarFunction.ME_HOT, explicit = true, silent = true)
+                trigger(if (meHotActive) CarFunction.ME_COOLED else CarFunction.ME_HOT, explicit = true, silent = true)
             }
             function == CarFunction.ME_COLD -> {
-                val active = car.readImColdActive() ?: false
-                trigger(if (active) CarFunction.ME_WARMED else CarFunction.ME_COLD, explicit = true, silent = true)
+                trigger(if (meColdActive) CarFunction.ME_WARMED else CarFunction.ME_COLD, explicit = true, silent = true)
             }
             levelSpec(function) == null -> trigger(function, silent = true)
             else -> runCatching {
@@ -553,18 +532,27 @@ class CarFunctionController(
         )
     }
 
-    private suspend fun toggleImHotCooled() {
-        if (imHotCooledNextIsHot) applyImHot() else applyImCooled()
-        imHotCooledNextIsHot = !imHotCooledNextIsHot
-    }
-
-    private suspend fun toggleImColdWarmed() {
-        if (imColdWarmedNextIsCold) applyImCold() else applyImWarmed()
-        imColdWarmedNextIsCold = !imColdWarmedNextIsCold
-    }
-
-    private suspend fun applyImHot() {
+    private suspend fun applyMeHot() {
         refreshTempLimits()
+        val currentTemp = car.getFloatProperty(
+            CarPropertyKey.HVAC_FUNC_TEMP,
+            CarFunctionIds.ZONE_DRIVER
+        )
+        if (currentTemp >= 0f) meHotSavedTemp = currentTemp
+        val fanZone = CarFunctionIds.ZONE_ROW_1_ALL
+        if (isFanAutoMode(fanZone)) {
+            val currentFan = car.getIntProperty(CarPropertyKey.HVAC_FUNC_AUTO_FAN_SETTING, fanZone)
+            if (currentFan != -1) {
+                meHotSavedFanMode = CarPropertyKey.HVAC_FUNC_AUTO_FAN_SETTING
+                meHotSavedFanValue = currentFan
+            }
+        } else {
+            val currentFan = car.getIntProperty(CarPropertyKey.HVAC_FUNC_FAN_SPEED, fanZone)
+            if (currentFan != -1) {
+                meHotSavedFanMode = CarPropertyKey.HVAC_FUNC_FAN_SPEED
+                meHotSavedFanValue = currentFan
+            }
+        }
         car.setPropertyIntValue(
             CarPropertyKey.HVAC_FUNC_AC,
             Integer.MIN_VALUE,
@@ -592,25 +580,32 @@ class CarFunctionController(
                 CarFunctionIds.SEAT_VENT_L3
             )
         }
+        meHotActive = true
         toast(R.string.car_fn_toast_me_hot)
     }
 
-    private suspend fun applyImCooled() {
+    private suspend fun applyMeCooled() {
         car.setPropertyIntValue(
             CarPropertyKey.HVAC_FUNC_CIRCULATION,
             Integer.MIN_VALUE,
             CarFunctionIds.CIRCULATION_OFF
         )
-        car.setPropertyFloatValue(
-            CarPropertyKey.HVAC_FUNC_TEMP,
-            CarFunctionIds.ZONE_DRIVER,
-            19f
-        )
-        car.setPropertyIntValue(
-            CarPropertyKey.HVAC_FUNC_AUTO_FAN_SETTING,
-            CarFunctionIds.ZONE_ROW_1_ALL,
-            CarFunctionIds.AUTO_FAN_LOW
-        )
+        meHotSavedTemp?.let { temp ->
+            car.setPropertyFloatValue(
+                CarPropertyKey.HVAC_FUNC_TEMP,
+                CarFunctionIds.ZONE_DRIVER,
+                temp
+            )
+        }
+        val fanProperty = meHotSavedFanMode
+        val fanValue = meHotSavedFanValue
+        if (fanProperty != null && fanValue != null) {
+            car.setPropertyIntValue(
+                fanProperty,
+                CarFunctionIds.ZONE_ROW_1_ALL,
+                fanValue
+            )
+        }
         if (carModel != CarModel.CITYRAY) {
             car.setPropertyIntValue(
                 CarPropertyKey.HVAC_FUNC_SEAT_VENTILATION,
@@ -618,10 +613,11 @@ class CarFunctionController(
                 0
             )
         }
+        meHotActive = false
         toast(R.string.car_fn_toast_me_cooled)
     }
 
-    private suspend fun applyImCold() {
+    private suspend fun applyMeCold() {
         car.setPropertyIntValue(
             CarPropertyKey.HVAC_FUNC_SEAT_HEATING,
             CarFunctionIds.ZONE_DRIVER,
@@ -632,10 +628,11 @@ class CarFunctionController(
             Integer.MIN_VALUE,
             CarFunctionIds.STEERING_HEAT_L3
         )
+        meColdActive = true
         toast(R.string.car_fn_toast_me_cold)
     }
 
-    private suspend fun applyImWarmed() {
+    private suspend fun applyMeWarmed() {
         car.setPropertyIntValue(
             CarPropertyKey.HVAC_FUNC_SEAT_HEATING,
             CarFunctionIds.ZONE_DRIVER,
@@ -646,6 +643,7 @@ class CarFunctionController(
             Integer.MIN_VALUE,
             0
         )
+        meColdActive = false
         toast(R.string.car_fn_toast_me_warmed)
     }
 

@@ -2332,7 +2332,12 @@ class App : Application(), ImageLoaderFactory {
     fun createCarFunctionStates() = LauncherCarFunctionStates(
         scope = appScope,
         car = carManager,
-        reader = CarFunctionStateReader(carManager) { carModel },
+        reader = CarFunctionStateReader(
+            carManager,
+            { carModel },
+            isMeHotActive = { carFunctions.meHotActive },
+            isMeColdActive = { carFunctions.meColdActive },
+        ),
         trigger = carFunctions::triggerFromTouch,
         simulate = BuildConfig.DEBUG && carModel == null
     )

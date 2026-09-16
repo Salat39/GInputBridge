@@ -176,7 +176,7 @@
     <string name="car_fn_trunk">Багажник</string>
     <string name="car_fn_wipers">Дворники</string>
     <string name="car_fn_climate_menu_desc">Покажет штатное меню климата.\nПовторное нажатие скроет климат</string>
-    <string name="car_fn_seat_memory_desc">Открыть настройки памяти сидений</string>
+    <string name="car_fn_seat_memory_desc">Открыть память сидений</string>
     <string name="car_fn_wheel_heat_desc">Поочерёдно переключает уровень подогрева</string>
     <string name="car_fn_driver_heat_desc">Поочерёдно переключает уровень подогрева</string>
     <string name="car_fn_passenger_heat_desc">Поочерёдно переключает уровень подогрева</string>
@@ -185,10 +185,10 @@
     <string name="car_fn_recirculation_desc">Переключение функции</string>
     <string name="car_fn_antibuks_desc">Переключение функции</string>
     <string name="car_fn_light_desc">Переключение режима фар</string>
-    <string name="car_fn_front_defrost_desc">Переключение обогрева стекла</string>
+    <string name="car_fn_front_defrost_desc">Переключение функции</string>
     <string name="car_fn_max_defrost_desc">Переключение функции</string>
-    <string name="car_fn_rear_defrost_desc">Переключение обогрева стекла</string>
-    <string name="car_fn_me_hot_desc">Включает кондиционер, рециркуляцию, минимальную температуру, сильный обдув и вентиляцию сиденья. Повторное нажатие - умеренный режим</string>
+    <string name="car_fn_rear_defrost_desc">Переключение функции</string>
+    <string name="car_fn_me_hot_desc">Включает кондиционер, рециркуляцию, минимальную температуру, сильный обдув и вентиляцию сиденья.\nПовторное нажатие возвращает предыдущую температуру и обдув, и выключает рециркуляцию и вентиляцию</string>
     <string name="car_fn_me_cold_desc">Включает максимальный подогрев сиденья и руля. Повторное нажатие выключает</string>
     <string name="car_fn_trunk_desc">Открыть багажник</string>
     <string name="car_fn_mirrors_desc">Сложить / разложить</string>
@@ -932,7 +932,7 @@ SMART - Включает только если ранее было включе�
     <string name="car_function_accent_mode">Акцентный режим</string>
     <string name="car_function_accent_mode_desc">Заливать активные функции авто акцентным цветом со светлой иконкой и индикатором</string>
     <string name="car_function_max_first">От сильного к слабому</string>
-    <string name="car_function_max_first_desc">Порядок ступеней подогрева и вентиляции. Выкл - от слабого к сильному</string>
+    <string name="car_function_max_first_desc">Порядок ступеней подогрева и вентиляции 3 -> 2 -> 1.\nЕсли выключить, то 1 -> 2 -> 3</string>
     <string name="car_function_palette">Цвет активных функций</string>
     <string name="car_function_palette_blue">Синий</string>
     <string name="car_function_palette_teal">Бирюза</string>

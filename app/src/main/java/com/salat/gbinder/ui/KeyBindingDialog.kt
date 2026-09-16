@@ -234,7 +234,7 @@ fun KeyBindingDialog(
     // Carousel id of the edited APP_CAROUSEL bind, preserved on save
     var editAppCarouselId by remember { mutableStateOf<Int?>(null) }
     var naviMediaPickAction by remember { mutableStateOf(KeyBindAction.NAVI_MEDIA_SWITCH) }
-    val actions = remember {
+    val actions = remember(carModel) {
         buildList {
             add(KeyBindingDialogActions.CAR_FUNCTIONS)
             add(KeyBindingDialogActions.APP_LAUNCH)
@@ -249,11 +249,13 @@ fun KeyBindingDialog(
             if (systemApps.isPackageInstalled("com.geely.recents")) {
                 add(KeyBindingDialogActions.RECENTS)
             }
+            add(KeyBindingDialogActions.CAMERAS_360)
             add(KeyBindingDialogActions.DRIVE_MODE_CHOOSE)
             add(KeyBindingDialogActions.AUDIO_SOURCE_CHOOSE)
-            add(KeyBindingDialogActions.CAR_LAMP)
+            if (BuildConfig.DEBUG || CarFunction.LIGHT.isAvailableFor(carModel)) {
+                add(KeyBindingDialogActions.CAR_LAMP)
+            }
             add(KeyBindingDialogActions.PHONE_CALL)
-            add(KeyBindingDialogActions.CAMERAS_360)
             add(KeyBindingDialogActions.CARPLAY_LAUNCH)
             // KeyBindingDialogActions.TASK_MANAGER,
             add(KeyBindingDialogActions.NAVIGATE_TO_PAST_APP)
