@@ -932,7 +932,7 @@ In response, the action com.salat.gbinder.ADB_COMMAND_RESULT is received<br>
     <string name="car_function_accent_mode">Accent mode</string>
     <string name="car_function_accent_mode_desc">Fill active car functions with the accent color and show a light icon and indicator</string>
     <string name="car_function_max_first">Strong to weak</string>
-    <string name="car_function_max_first_desc">Step order for heating and ventilation 3 -> 2 -> 1.\nIf turn off then 1 -> 2 -> 3</string>
+    <string name="car_function_max_first_desc">Step order for heating and ventilation 3 - 2 - 1\nIf turn off then 1 - 2 - 3</string>
     <string name="car_function_long_press_off">Long press to turn off</string>
     <string name="car_function_long_press_off_desc">Long press on a function turns off an active car function at any heating or ventilation step. If off - long press opens the menu</string>
     <string name="car_function_palette">Active function color</string>
