@@ -37,12 +37,21 @@ enum class CarFunction(
     ME_WARMED(R.string.car_fn_me_warmed, R.drawable.ic_fn_me_cold),
     ANTIBUKS(R.string.car_fn_antibuks, R.drawable.ic_fn_antibuks, R.string.car_fn_antibuks_desc),
     MIRRORS(R.string.car_fn_mirrors, R.drawable.ic_fn_mirrors, R.string.car_fn_mirrors_desc),
+    MIRROR_SETTINGS(
+        R.string.car_fn_mirror_settings,
+        R.drawable.ic_fn_mirror_settings,
+        R.string.car_fn_mirror_settings_desc,
+    ),
     LIGHT(R.string.car_fn_light, R.drawable.ic_fn_light, R.string.car_fn_light_desc),
     SEAT_MEMORY(R.string.car_fn_seat_memory, R.drawable.ic_fn_seat_memory, R.string.car_fn_seat_memory_desc),
     TRUNK(R.string.car_fn_trunk, R.drawable.ic_fn_trunk, R.string.car_fn_trunk_desc),
     WIPERS(R.string.car_fn_wipers, R.drawable.ic_fn_wipers, R.string.car_fn_wipers_desc),
     NIGHT_MODE(R.string.night_mode, R.drawable.ic_fn_car, R.string.night_mode_desc),
-    ;
+    VOLUME_SETTINGS(
+        R.string.car_fn_volume_settings,
+        R.drawable.ic_fn_volume,
+        R.string.car_fn_volume_settings_desc,
+    );
 
     fun isAvailableFor(model: CarModel?): Boolean = when (this) {
         LIGHT -> model == CarModel.PREFACE

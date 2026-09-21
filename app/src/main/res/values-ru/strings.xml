@@ -157,6 +157,10 @@
     <string name="panel_calibrate_center">центр</string>
     <string name="car_fn_climate_menu">Меню климата</string>
     <string name="car_fn_seat_memory">Память сидений</string>
+    <string name="car_fn_volume_settings">Настройки громкости</string>
+    <string name="car_fn_mirror_settings">Настройка зеркал</string>
+    <string name="car_fn_volume_settings_desc">Открыть штатную панель громкости</string>
+    <string name="car_fn_mirror_settings_desc">Открыть штатную панель регулировки зеркал</string>
     <string name="car_fn_wheel_heat">Подогрев руля</string>
     <string name="car_fn_driver_heat">Подогрев водителя</string>
     <string name="car_fn_passenger_heat">Подогрев пассажира</string>
@@ -172,7 +176,7 @@
     <string name="car_fn_me_cooled">Я остыл</string>
     <string name="car_fn_me_cold">Я замёрз</string>
     <string name="car_fn_me_warmed">Я согрелся</string>
-    <string name="car_fn_mirrors">Зеркала</string>
+    <string name="car_fn_mirrors">Сложить зеркала</string>
     <string name="car_fn_trunk">Багажник</string>
     <string name="car_fn_wipers">Дворники</string>
     <string name="car_fn_climate_menu_desc">Покажет штатное меню климата.\nПовторное нажатие скроет климат</string>
@@ -940,4 +944,5 @@ SMART - Включает только если ранее было включе�
     <string name="car_function_palette_teal">Бирюза</string>
     <string name="car_function_palette_emerald">Изумруд</string>
     <string name="car_function_palette_violet">Фиолетовый</string>
+    <string name="grant_permission_hint">Найдите GInputBridge в списке и включите для него разрешение</string>
 </resources>

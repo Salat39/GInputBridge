@@ -14,12 +14,20 @@ sealed interface CarFunctionState {
 }
 
 fun CarFunction.isLauncherAction(): Boolean = when (this) {
-    CarFunction.SEAT_MEMORY, CarFunction.NIGHT_MODE, CarFunction.ME_COOLED, CarFunction.ME_WARMED -> true
+    CarFunction.SEAT_MEMORY,
+    CarFunction.NIGHT_MODE,
+    CarFunction.ME_COOLED,
+    CarFunction.ME_WARMED,
+    CarFunction.VOLUME_SETTINGS,
+    CarFunction.MIRROR_SETTINGS -> true
     else -> false
 }
 
 fun CarFunction.opensExternalScreen(): Boolean = when (this) {
-    CarFunction.SEAT_MEMORY, CarFunction.NIGHT_MODE -> true
+    CarFunction.SEAT_MEMORY,
+    CarFunction.NIGHT_MODE,
+    CarFunction.VOLUME_SETTINGS,
+    CarFunction.MIRROR_SETTINGS -> true
     else -> false
 }
 

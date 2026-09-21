@@ -50,26 +50,6 @@ fun CarFunction.toggleSprite(): ToggleSprite? = when (this) {
             R.drawable.ic_fn_recirculation_off_14,
         ),
     )
-    CarFunction.FRONT_DEFROST -> ToggleSprite(
-        turnOn = listOf(
-            R.drawable.ic_fn_front_defrost_on_00,
-            R.drawable.ic_fn_front_defrost_on_01,
-            R.drawable.ic_fn_front_defrost_on_02,
-            R.drawable.ic_fn_front_defrost_on_03,
-            R.drawable.ic_fn_front_defrost_on_04,
-            R.drawable.ic_fn_front_defrost_on_05,
-            R.drawable.ic_fn_front_defrost_on_06,
-            R.drawable.ic_fn_front_defrost_on_07,
-            R.drawable.ic_fn_front_defrost_on_08,
-            R.drawable.ic_fn_front_defrost_on_09,
-            R.drawable.ic_fn_front_defrost_on_10,
-            R.drawable.ic_fn_front_defrost_on_11,
-            R.drawable.ic_fn_front_defrost_on_12,
-            R.drawable.ic_fn_front_defrost_on_13,
-            R.drawable.ic_fn_front_defrost_on_14,
-        ),
-        turnOff = listOf(iconRes),
-    )
     CarFunction.REAR_DEFROST -> ToggleSprite(
         turnOn = listOf(
             R.drawable.ic_fn_rear_defrost_on_00,

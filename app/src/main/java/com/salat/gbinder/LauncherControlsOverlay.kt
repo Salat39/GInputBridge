@@ -7,8 +7,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.provider.Settings
-import androidx.core.net.toUri
+import com.salat.gbinder.components.requireDisplayOverlay
 import com.salat.gbinder.features.launcher.LauncherOverlayService
 import timber.log.Timber
 
@@ -20,17 +19,7 @@ fun startLauncherOverlay(
     runCatching {
         if (LauncherOverlayService.isStarting || LauncherOverlayService.isAlive) return@runCatching
 
-        if (requireOverlayPermission &&
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
-            !Settings.canDrawOverlays(context)
-        ) {
-            val intent = Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                "package:${context.packageName}".toUri()
-            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(intent)
-            return@runCatching
-        }
+        if (requireOverlayPermission && !context.requireDisplayOverlay()) return@runCatching
 
         LauncherOverlayService.isStarting = true
         val serviceIntent = Intent(context, LauncherOverlayService::class.java)

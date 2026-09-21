@@ -6,8 +6,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.provider.Settings
-import androidx.core.net.toUri
+import com.salat.gbinder.components.requireDisplayOverlay
 import timber.log.Timber
 
 @SuppressLint("ObsoleteSdkInt")
@@ -22,19 +21,7 @@ fun <T : Service> startOverlay(
         // Ensure we don't start the same service twice
         if (!allowRestart && isServiceRunning(context, serviceClass)) return
 
-        // Check overlay permission if required
-        if (requireOverlayPermission &&
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
-            !Settings.canDrawOverlays(context)
-        ) {
-            // Redirect user to settings to grant overlay permission
-            val intent = Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                "package:${context.packageName}".toUri()
-            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(intent)
-            return
-        }
+        if (requireOverlayPermission && !context.requireDisplayOverlay()) return
 
         // Start the service (foreground on O+)
         val serviceIntent = Intent(context, serviceClass).apply(configure)

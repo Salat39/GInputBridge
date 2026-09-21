@@ -33,6 +33,8 @@ class CarFunctionController(
     private val climatePackage: String,
     private val isClimateVisible: () -> Boolean,
     private val resolveCarModel: () -> CarModel?,
+    private val showVolumeDialog: () -> Unit,
+    private val showMirrorDialog: () -> Unit,
     private val defaultHeatVentLevel: (CarFunction) -> Int = { CarFunction.DEFAULT_HEAT_VENT_LEVEL },
     private val climateTempStep: () -> Float = { CarFunction.DEFAULT_CLIMATE_TEMP_STEP },
     private val isIgnitionDriving: () -> Boolean = { true },
@@ -145,6 +147,8 @@ class CarFunctionController(
                         consumePadEcho = triggerKeyCode.isMediaPadKey()
                     }
                     CarFunction.SEAT_MEMORY -> openSeatMemory()
+                    CarFunction.VOLUME_SETTINGS -> showVolumeDialog()
+                    CarFunction.MIRROR_SETTINGS -> showMirrorDialog()
                     CarFunction.WHEEL_HEAT,
                     CarFunction.DRIVER_HEAT,
                     CarFunction.PASSENGER_HEAT,

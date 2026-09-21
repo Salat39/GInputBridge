@@ -165,6 +165,10 @@
     <string name="panel_calibrate_center">center</string>
     <string name="car_fn_climate_menu">Climate menu</string>
     <string name="car_fn_seat_memory">Seat memory</string>
+    <string name="car_fn_volume_settings">Volume settings</string>
+    <string name="car_fn_mirror_settings">Mirror adjustment</string>
+    <string name="car_fn_volume_settings_desc">Open the system volume panel</string>
+    <string name="car_fn_mirror_settings_desc">Open the system mirror adjustment panel</string>
     <string name="car_fn_wheel_heat">Steering wheel heat</string>
     <string name="car_fn_driver_heat">Driver seat heat</string>
     <string name="car_fn_passenger_heat">Passenger seat heat</string>
@@ -940,4 +944,5 @@ In response, the action com.salat.gbinder.ADB_COMMAND_RESULT is received<br>
     <string name="car_function_palette_teal">Teal</string>
     <string name="car_function_palette_emerald">Emerald</string>
     <string name="car_function_palette_violet">Violet</string>
+    <string name="grant_permission_hint">Find GInputBridge in the list and enable the permission</string>
 </resources>

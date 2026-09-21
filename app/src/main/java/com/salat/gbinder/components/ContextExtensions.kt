@@ -20,6 +20,7 @@ import android.view.Display
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import com.salat.gbinder.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -181,16 +182,20 @@ fun Context.requestNotificationServicePermission() {
     if (this !is Activity) {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
+    showGrantPermissionHint()
     startActivity(intent)
 }
 
 fun Context.openAccessibilitySettings() = try {
     val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    showGrantPermissionHint()
     startActivity(intent)
 } catch (e: Exception) {
     println(e)
 }
+
+private fun Context.showGrantPermissionHint() = toast(getString(R.string.grant_permission_hint))
 
 fun Context.openDeveloperSettings() = runCatching {
     startActivity(
@@ -268,7 +273,8 @@ fun Context.requireDisplayOverlay(): Boolean {
             val intent = Intent(
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 "package:${packageName}".toUri()
-            )
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            showGrantPermissionHint()
             startActivity(intent)
             return false
         } else return true

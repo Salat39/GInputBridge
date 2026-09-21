@@ -456,6 +456,12 @@ class App : Application(), ImageLoaderFactory {
             climatePackage = GEELY_AC_PACKAGE,
             isClimateVisible = { currentVisibleApp == GEELY_AC_PACKAGE },
             resolveCarModel = { carModel },
+            showVolumeDialog = {
+                OneOSApiManager.getInstance(this).controlBoardManager?.showVolumeDialog()
+            },
+            showMirrorDialog = {
+                OneOSApiManager.getInstance(this).controlBoardManager?.showMirrorDialog()
+            },
             defaultHeatVentLevel = { function ->
                 heatVentDefaultLevels[function] ?: CarFunction.DEFAULT_HEAT_VENT_LEVEL
             },
