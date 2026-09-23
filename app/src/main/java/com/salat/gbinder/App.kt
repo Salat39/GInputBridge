@@ -1394,14 +1394,20 @@ class App : Application(), ImageLoaderFactory {
 
     private suspend fun restartAccessibilityService() {
         val components = readSecureComponents(ACCESSIBILITY_SERVICES_KEY) ?: return
-        val otherServices = components.filter { it != ACCESSIBILITY_SERVICE_COMPONENT }
+        val ownService = ComponentName.unflattenFromString(ACCESSIBILITY_SERVICE_COMPONENT)
+        val otherServices = components.filter { ComponentName.unflattenFromString(it) != ownService }
 
         debugDeepLog("[AS] Restart AccessibilityService via shell")
-        adb.execute("settings delete secure $ACCESSIBILITY_SERVICES_KEY")
+        // Remove only the own service. The other enabled services keep working
+        if (otherServices.isEmpty()) {
+            adb.execute("settings delete secure $ACCESSIBILITY_SERVICES_KEY")
+        } else {
+            adb.execute("settings put secure $ACCESSIBILITY_SERVICES_KEY '${otherServices.joinToString(":")}'")
+        }
         delay(ACCESSIBILITY_RESTART_TOGGLE_DELAY_MS.milliseconds)
 
         val enabled = (otherServices + ACCESSIBILITY_SERVICE_COMPONENT).joinToString(":")
-        adb.execute("settings put secure $ACCESSIBILITY_SERVICES_KEY $enabled")
+        adb.execute("settings put secure $ACCESSIBILITY_SERVICES_KEY '$enabled'")
         adb.execute("settings put secure accessibility_enabled 1")
     }
 
