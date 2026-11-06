@@ -7166,9 +7166,9 @@ fun getAllProperty(): List<PropertyData> = listOf(
         possibleValues = emptyMap()
     ),
     PropertyData(
-        alias = "IHvac.HVAC_SHOW_STEERWHL_A",
+        alias = "IHvac.HVAC_FUNC_STEERING_WHEEL_HEAT_A",
         type = 2,
-        key = "HVAC_SHOW_STEERWHL_A",
+        key = "HVAC_FUNC_STEERING_WHEEL_HEAT_A",
         value = 269753600,
         possibleValues = emptyMap()
     ),

@@ -6,9 +6,6 @@ import com.salat.gbinder.entity.ToggleMediaControl
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 
-/**
- * Crutch shit
- */
 object GlobalState {
     val logState = MutableStateFlow<List<Pair<Long, String>>>(emptyList())
 
@@ -22,6 +19,7 @@ object GlobalState {
     val requestPhoneDisconnectFlow = MutableSharedFlow<Boolean>()
     val requestCarFunctionFlow = MutableSharedFlow<String>()
     val tempDisableMediaControlFlow = MutableSharedFlow<Int>()
+    val screenMode = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     val keyBindingMode = MutableStateFlow(false)
     val keyBindingFlow = MutableSharedFlow<KeyBindPattern>()

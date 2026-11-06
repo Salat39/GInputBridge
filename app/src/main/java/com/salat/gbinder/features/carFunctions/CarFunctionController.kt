@@ -12,12 +12,17 @@ import com.salat.gbinder.entity.CarFunction
 import com.salat.gbinder.entity.CarFunctionIds
 import com.salat.gbinder.entity.CarModel
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.abs
@@ -181,7 +186,11 @@ class CarFunctionController(
                         if (turnOn) applyMeHot() else applyMeCooled()
                     }
                     CarFunction.ME_COLD, CarFunction.ME_WARMED -> {
-                        val turnOn = if (explicit) function == CarFunction.ME_COLD else !meColdActive
+                        val turnOn = if (explicit) {
+                            function == CarFunction.ME_COLD
+                        } else {
+                            !isMeColdActive()
+                        }
                         if (turnOn) applyMeCold() else applyMeWarmed()
                     }
                     CarFunction.TRUNK -> toggleTrunk()
@@ -200,7 +209,8 @@ class CarFunctionController(
                 trigger(if (meHotActive) CarFunction.ME_COOLED else CarFunction.ME_HOT, explicit = true, silent = true)
             }
             function == CarFunction.ME_COLD -> {
-                trigger(if (meColdActive) CarFunction.ME_WARMED else CarFunction.ME_COLD, explicit = true, silent = true)
+                val coldActive = isMeColdActive()
+                trigger(if (coldActive) CarFunction.ME_WARMED else CarFunction.ME_COLD, explicit = true, silent = true)
             }
             levelSpec(function) == null -> trigger(function, silent = true)
             else -> runCatching {
@@ -252,7 +262,24 @@ class CarFunctionController(
 
     private suspend fun hideClimateMenu() {
         requestClimateClose()
+        if (carModel == CarModel.ATLAS) {
+            delay(ATLAS_CLIMATE_CLOSE)
+            launchXcapa()
+        }
         clearClimateSession()
+    }
+
+    private suspend fun launchXcapa() {
+        withContext(Dispatchers.Main) {
+            runCatching {
+                context.startActivity(
+                    Intent().apply {
+                        component = ComponentName(XCAPA_PACKAGE, XCAPA_ACTIVITY)
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    },
+                )
+            }.onFailure { Timber.e(it) }
+        }
     }
 
     private suspend fun clearClimateSession() {
@@ -273,7 +300,7 @@ class CarFunctionController(
             null,
             null,
         )?.use { cursor ->
-            cursor.moveToFirst() && cursor.getLong(0) == CLIMATE_VISIBLE
+            cursor.moveToFirst() && cursor.getLong(0) == 0L
         } ?: false
     }.getOrDefault(isClimateVisible())
 
@@ -336,7 +363,7 @@ class CarFunctionController(
         } else {
             defaultHeatVentLevel(function).coerceIn(1, levels.lastIndex)
         }
-        car.setPropertyIntValue(propertyId, areaId, levels[nextIndex])
+        setHeatVentLevel(function, propertyId, areaId, levels[nextIndex])
         toastLevel(function, nextIndex)
         return !isOn
     }
@@ -362,7 +389,7 @@ class CarFunctionController(
             if (index <= 0) levels.lastIndex else index - 1
         }
         val next = levels[nextIndex]
-        car.setPropertyIntValue(propertyId, areaId, next)
+        setHeatVentLevel(function, propertyId, areaId, next)
         if (function == CarFunction.LIGHT) {
             toastLight(next)
         } else {
@@ -375,9 +402,43 @@ class CarFunctionController(
         val (propertyId, areaId, levels) = levelSpec(function) ?: return false
         val off = levels.first()
         if (readLevel(function, propertyId, areaId) == off) return false
-        car.setPropertyIntValue(propertyId, areaId, off)
+        setHeatVentLevel(function, propertyId, areaId, off)
         if (function == CarFunction.LIGHT) toastLight(off) else toastLevel(function, 0)
         return true
+    }
+
+    private suspend fun isSteeringWheelAutoA(): Boolean =
+        car.getIntProperty(CarPropertyKey.HVAC_FUNC_STEERING_WHEEL_HEAT_A) == 1
+
+    private suspend fun waitSteeringWheelAutoAOff() = coroutineScope {
+        val waiter = async(start = CoroutineStart.UNDISPATCHED) {
+            while (isSteeringWheelAutoA()) {
+                car.functionChangedFlow.first {
+                    it.propertyId == CarPropertyKey.HVAC_FUNC_STEERING_WHEEL_HEAT_A
+                }
+            }
+        }
+        if (!isSteeringWheelAutoA()) {
+            waiter.cancel()
+            return@coroutineScope
+        }
+        waiter.await()
+    }
+
+    private suspend fun setHeatVentLevel(
+        function: CarFunction,
+        propertyId: Int,
+        areaId: Int,
+        value: Int,
+    ) {
+        if (function == CarFunction.WHEEL_HEAT && isSteeringWheelAutoA()) {
+            val mid = CarFunctionIds.STEERING_HEAT_L2
+            car.setPropertyIntValue(propertyId, areaId, mid)
+            waitSteeringWheelAutoAOff()
+            if (value == mid) return
+            if (value == 0) delay(1000)
+        }
+        car.setPropertyIntValue(propertyId, areaId, value)
     }
 
     private suspend fun readLevel(function: CarFunction, propertyId: Int, areaId: Int): Int =
@@ -640,6 +701,9 @@ class CarFunctionController(
         toast(R.string.car_fn_toast_me_cooled)
     }
 
+    private suspend fun isMeColdActive(): Boolean =
+        meColdActive || (car.readMeColdLevel() ?: false)
+
     private suspend fun applyMeCold() {
         car.setPropertyIntValue(
             CarPropertyKey.HVAC_FUNC_SEAT_HEATING,
@@ -661,7 +725,8 @@ class CarFunctionController(
             CarFunctionIds.ZONE_DRIVER,
             0
         )
-        car.setPropertyIntValue(
+        setHeatVentLevel(
+            CarFunction.WHEEL_HEAT,
             CarPropertyKey.HVAC_FUNC_STEERING_WHEEL_HEAT,
             Integer.MIN_VALUE,
             0
@@ -808,7 +873,9 @@ class CarFunctionController(
         private const val CLIMATE_QUERY_OPEN = "open"
         private const val CLIMATE_QUERY_CLOSE = "close"
         private const val CLIMATE_QUERY_GET_VISIBILITY = "getVisibility"
-        private const val CLIMATE_VISIBLE = 0L
+        private const val ATLAS_CLIMATE_CLOSE = 450L
+        private const val XCAPA_PACKAGE = "com.ecarx.xcapa"
+        private const val XCAPA_ACTIVITY = "com.ecarx.xcapa.MainApaActivity"
 
         private const val LEVEL_LOCK_SEC = 5
         private const val DEFAULT_TEMP_HI = 28f

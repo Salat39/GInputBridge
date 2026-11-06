@@ -51,6 +51,7 @@ import com.salat.gbinder.BuildConfig
 import com.salat.gbinder.DEFAULT_UI_SCALE
 import com.salat.gbinder.R
 import com.salat.gbinder.components.extractPackageName
+import com.salat.gbinder.components.queryCreateShortcutProviders
 import com.salat.gbinder.components.requireDisplayOverlay
 import com.salat.gbinder.isLauncherServiceRunning
 import com.salat.gbinder.statekeeper.domain.entity.LauncherActivitySignal
@@ -456,8 +457,25 @@ class LauncherEntryActivity : ComponentActivity() {
             stateKeeper.launcherOverlaySignalFlow.collect { signal ->
                 when (signal) {
                     LauncherOverlaySignal.CreateShortcut -> {
-                        val intent = Intent(Intent.ACTION_CREATE_SHORTCUT)
-                        pickShortcut.launch(intent)
+                        val providers = context.queryCreateShortcutProviders()
+                        when {
+                            providers.isEmpty() -> Unit
+                            providers.size == 1 ->
+                                pickShortcut.launch(providers.first().createIntent())
+                            else -> {
+                                val intents = providers.map { it.createIntent() }
+                                val chooser = Intent.createChooser(
+                                    intents.first(),
+                                    context.getString(R.string.shortcut)
+                                ).apply {
+                                    putExtra(
+                                        Intent.EXTRA_INITIAL_INTENTS,
+                                        intents.drop(1).toTypedArray()
+                                    )
+                                }
+                                pickShortcut.launch(chooser)
+                            }
+                        }
                     }
 
                     else -> Unit

@@ -280,6 +280,10 @@ class BackgroundTaskReceiver() : BroadcastReceiver() {
                 }
             }
 
+            "$BASE_PATH.SCREEN_MODE" -> scope.launch {
+                GlobalState.screenMode.emit(Unit)
+            }
+
             else -> Unit
         }
     }

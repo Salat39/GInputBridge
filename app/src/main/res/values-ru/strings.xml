@@ -138,8 +138,8 @@
     <string name="kbd_app_panel_mode_step_desc">Нажимайте кнопку активации, чтобы по очереди переключаться между приложениями. Остановитесь на нужном - оно откроется</string>
     <string name="kbd_navi_media_switch_title">Смена медиа/навигатор</string>
     <string name="kbd_navi_media_switch_desc">Переключение между медиа и навигатором. Если в этой сессии был GSplit — восстанавливает сплит</string>
-    <string name="kbd_fullscreen_to_split_title">Переход из полного экрана в сплит</string>
-    <string name="kbd_fullscreen_to_split_desc">Переключает последние навигатор + медиа в сплит</string>
+    <string name="kbd_fullscreen_to_split_title">Переход из полного экрана в сплит и обратно в полный экран</string>
+    <string name="kbd_fullscreen_to_split_desc">Переключает последние навигатор + медиа в сплит и обратно в полный экран</string>
     <string name="kbd_car_functions_title">Функции авто</string>
     <string name="kbd_car_functions_desc">Климат, подогревы и другие функции автомобиля</string>
     <string name="kbd_title_car_function">Функция авто</string>

@@ -146,8 +146,8 @@
     <string name="kbd_app_panel_mode_step_desc">Press the activation button to move between apps one by one. Stop on the one you need — it opens</string>
     <string name="kbd_navi_media_switch_title">Media / navigator switch</string>
     <string name="kbd_navi_media_switch_desc">Switch between media and navigator. If GSplit was seen this session, restores the split layout</string>
-    <string name="kbd_fullscreen_to_split_title">Fullscreen to split</string>
-    <string name="kbd_fullscreen_to_split_desc">Send last navigator and media packages to Zapuskator for split</string>
+    <string name="kbd_fullscreen_to_split_title">Fullscreen to split and back full screen</string>
+    <string name="kbd_fullscreen_to_split_desc">Send last navigator + media and back  full screen</string>
     <string name="kbd_car_functions_title">Car functions</string>
     <string name="kbd_car_functions_desc">Climate, heating, lights and other vehicle controls</string>
     <string name="kbd_title_car_function">Car function</string>

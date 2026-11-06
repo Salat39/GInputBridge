@@ -165,9 +165,9 @@ class App : Application(), ImageLoaderFactory {
         private const val CARPLAY_PACKAGE = "com.autolink.carplay.app"
         private const val CARPLAY_REQUEST_ACTION = "com.autolink.requestUI"
         private const val ZAPUSKATOR_PACKAGE = "ru.zapuskator"
-        private const val ZAPUSKATOR_TO_SPLIT_ACTION = "ru.zapuskator.toSPLIT"
-        private const val ZAPUSKATOR_EXTRA_NAVI_PACKAGE = "navi_package"
-        private const val ZAPUSKATOR_EXTRA_MEDIA_PACKAGE = "media_package"
+        private const val ZAPUSKATOR_TO_SPLIT = "ru.zapuskator.toSPLIT"
+        private const val ZAPUSKATOR_NAVI = "navi_package"
+        private const val ZAPUSKATOR_MEDIA = "media_package"
         private const val KARAOKE_FOCUS_ACTION = "com.audiocn.karaoke.action.KEY_BROADCAST_FOCUS"
         private const val KARAOKE_FOCUS_EXTRA = "KaraokeKeyFocus"
         private val NATIVE_SOURCE_SESSION_PACKAGES = setOf(
@@ -187,6 +187,9 @@ class App : Application(), ImageLoaderFactory {
         private const val GSPLIT_PACKAGE = "com.salat.gsplit"
         private const val GSPLIT_DEV_PACKAGE = "com.salat.gsplit.dev"
         private val GSPLIT_PKGS = setOf(GSPLIT_PACKAGE, GSPLIT_DEV_PACKAGE)
+        private const val GSPLIT_FULLSCREEN = "com.salat.gsplit.FULLSCREEN"
+        private const val GSPLIT_CUSTOM_LAUNCH = "com.salat.gsplit.CUSTOM_LAUNCH"
+        private const val SPLIT_ZAPUSKATOR = false
         private const val GEELY_RECENTS = "com.geely.recents/com.geely.recents.RecentsCsdActivity"
 
         private const val NOTIFICATION_WITH_DM_REMEMBER_DELAY = 1_000L
@@ -531,6 +534,7 @@ class App : Application(), ImageLoaderFactory {
             initPrefsCollector()
             initSetAudioSourceCollector()
             initMediaControlToggleCollector()
+            initScreenModeCollector()
             initRequestPlaybackInfoCollector()
             initDevicePackagesChangedCollector()
             initRequestPhoneCollector()
@@ -1566,30 +1570,12 @@ class App : Application(), ImageLoaderFactory {
             }
 
             if (targetName in GSPLIT_PKGS) {
-                gsplitSeenThisBoot = true
                 lastGsplitPackage = targetName
             }
 
             // Flag indicating whether the current media app is in the foreground
             currentMediaAppInForeground = targetName == currentMediaAppPackage
         }
-    }
-
-    private fun lastSeenGsplitPackage(): String? {
-        if (gsplitSeenThisBoot) return lastGsplitPackage
-        val current = currentVisibleApp
-        if (current in GSPLIT_PKGS) {
-            gsplitSeenThisBoot = true
-            lastGsplitPackage = current
-            return current
-        }
-        val fromHistory = stateKeeper.visibleAppsState.value.firstOrNull { it in GSPLIT_PKGS }
-        if (fromHistory != null) {
-            gsplitSeenThisBoot = true
-            lastGsplitPackage = fromHistory
-            return fromHistory
-        }
-        return null
     }
 
     private fun normalizeVisiblePackage(pkg: String): String = when (pkg.trim()) {
@@ -2646,7 +2632,8 @@ class App : Application(), ImageLoaderFactory {
 
     private fun KeyBindConfig.naviMediaSwitch() = appScope.launch(Dispatchers.IO) {
         runCatching {
-            lastSeenGsplitPackage()?.let { gsplit ->
+            if (gsplitSeenThisBoot) {
+                val gsplit = lastGsplitPackage.takeIf { it in GSPLIT_PKGS } ?: GSPLIT_PACKAGE
                 launchGsplitWithNaviMedia(gsplit)
                 return@runCatching
             }
@@ -2739,23 +2726,68 @@ class App : Application(), ImageLoaderFactory {
         }.onFailure { Timber.e(it) }
     }
 
-    private fun fullscreenToSplit() = appScope.launch(Dispatchers.Default) {
-        runCatching {
-            val navi = lastVisibleNavi
-                .takeIf { it.isNotEmpty() && it in NAVI_PKGS }
-                ?: "ru.yandex.yandexnavi"
-            val media = naviMediaSwitchMediaTarget()
-                .ifEmpty { YAM_PACKAGE }
-            val intent = Intent(ZAPUSKATOR_TO_SPLIT_ACTION).apply {
-                setPackage(ZAPUSKATOR_PACKAGE)
-                putExtra(ZAPUSKATOR_EXTRA_NAVI_PACKAGE, navi)
-                putExtra(ZAPUSKATOR_EXTRA_MEDIA_PACKAGE, media)
+    private fun CoroutineScope.initScreenModeCollector() = launch {
+        GlobalState.screenMode.collect {
+            appScope.launch(Dispatchers.Default) {
+                runCatching { toggleFullscreenToSplit() }.onFailure { Timber.e(it) }
             }
+        }
+    }
+
+    private suspend fun zapuskatorToSplit() {
+        val (navi, media) = splitNaviMediaPackages()
+        val intent = Intent(ZAPUSKATOR_TO_SPLIT).apply {
+            setPackage(ZAPUSKATOR_PACKAGE)
+            putExtra(ZAPUSKATOR_NAVI, navi)
+            putExtra(ZAPUSKATOR_MEDIA, media)
+        }
+        withContext(Dispatchers.Main) { sendBroadcast(intent) }
+        gsplitSeenThisBoot = true
+    }
+
+    private suspend fun sendGsplitCustomLaunch() {
+        val (navi, media) = splitNaviMediaPackages()
+        val gsplit = lastGsplitPackage.takeIf { it in GSPLIT_PKGS } ?: GSPLIT_PACKAGE
+        val intent = Intent(GSPLIT_CUSTOM_LAUNCH).apply {
+            setPackage(gsplit)
+            putExtra("first_package", navi)
+            putExtra("second_package", media)
+            putExtra("type", "1x1")
+            putExtra("dark_background", 1)
+        }
+        withContext(Dispatchers.Main) { sendBroadcast(intent) }
+        gsplitSeenThisBoot = true
+    }
+
+    private fun splitNaviMediaPackages(): Pair<String, String> {
+        val navi = lastVisibleNavi
+            .takeIf { it.isNotEmpty() && it in NAVI_PKGS }
+            ?: "ru.yandex.yandexnavi"
+        val media = naviMediaSwitchMediaTarget().ifEmpty { YAM_PACKAGE }
+        return navi to media
+    }
+
+    private suspend fun restoreSplitZapuskator() {
+        if (SPLIT_ZAPUSKATOR && systemApps.isPackageInstalled(ZAPUSKATOR_PACKAGE)) {
+            zapuskatorToSplit()
+        } else {
+            sendGsplitCustomLaunch()
+        }
+    }
+
+    private suspend fun toggleFullscreenToSplit() {
+        if (gsplitSeenThisBoot) {
+            val gsplit = lastGsplitPackage.takeIf { it in GSPLIT_PKGS } ?: GSPLIT_PACKAGE
+            val intent = Intent(GSPLIT_FULLSCREEN).setPackage(gsplit)
             withContext(Dispatchers.Main) { sendBroadcast(intent) }
-            debugDeepLog(
-                "[KEY_BIND] fullscreen to split: navi=$navi media=$media"
-            )
-        }.onFailure { Timber.e(it) }
+            gsplitSeenThisBoot = false
+            return
+        }
+        restoreSplitZapuskator()
+    }
+
+    private fun fullscreenToSplit() = appScope.launch(Dispatchers.Default) {
+        runCatching { toggleFullscreenToSplit() }.onFailure { Timber.e(it) }
     }
 
     private fun KeyBindConfig.carouselLampMode() = appScope.launch(Dispatchers.IO) {

@@ -68,7 +68,12 @@ class CarFunctionStateReader(
         }
         when (function) {
             CarFunction.ME_HOT -> return CarFunctionState.Toggle(isMeHotActive())
-            CarFunction.ME_COLD -> return CarFunctionState.Toggle(isMeColdActive())
+            CarFunction.ME_COLD -> {
+                val fromCar = car.readMeColdLevel()
+                return CarFunctionState.Toggle(
+                    isMeColdActive() || (fromCar ?: false)
+                )
+            }
             else -> Unit
         }
         if (function.isLauncherAction()) return CarFunctionState.Action

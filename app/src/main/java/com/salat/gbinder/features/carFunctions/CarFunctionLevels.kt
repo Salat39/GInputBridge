@@ -57,6 +57,14 @@ internal suspend fun CarRepository.readTempLimit(propertyId: Int): Float {
     return getFloatProperty(propertyId, CarFunctionIds.ZONE_DRIVER)
 }
 
+internal suspend fun CarRepository.readMeColdLevel(): Boolean? {
+    val seat = readLevelValue(CarPropertyKey.HVAC_FUNC_SEAT_HEATING, CarFunctionIds.ZONE_DRIVER)
+    val wheel = readLevelValue(CarPropertyKey.HVAC_FUNC_STEERING_WHEEL_HEAT, Integer.MIN_VALUE)
+    if (seat == -1 || wheel == -1) return null
+    return normalizeLevelValue(CarFunction.DRIVER_HEAT, seat) == CarFunctionIds.SEAT_HEAT_L3 &&
+        normalizeLevelValue(CarFunction.WHEEL_HEAT, wheel) == CarFunctionIds.STEERING_HEAT_L3
+}
+
 internal fun normalizeLevelValue(function: CarFunction, value: Int): Int = when (function) {
     CarFunction.WHEEL_HEAT -> when (value) {
         1 -> CarFunctionIds.STEERING_HEAT_L1

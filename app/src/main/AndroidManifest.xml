@@ -226,6 +226,7 @@
                 <action android:name="com.salat.gbinder.TOGGLE_LAUNCHER" />
                 <action android:name="com.salat.gbinder.CAR_FUNCTION" />
                 <action android:name="com.salat.gbinder.ADB_COMMAND" />
+                <action android:name="com.salat.gbinder.SCREEN_MODE" />
             </intent-filter>
         </receiver>
 
@@ -278,5 +279,9 @@
     <queries>
         <package android:name="com.estrongs.android.pop" />
         <package android:name="com.arlosoft.macrodroid" />
+        <intent>
+            <action android:name="android.intent.action.CREATE_SHORTCUT" />
+            <category android:name="android.intent.category.DEFAULT" />
+        </intent>
     </queries>
 </manifest>

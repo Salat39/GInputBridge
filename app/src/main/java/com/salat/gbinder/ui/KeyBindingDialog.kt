@@ -84,7 +84,9 @@ import com.salat.gbinder.GlobalState
 import com.salat.gbinder.R
 import com.salat.gbinder.car.data.CarPropertyValue
 import com.salat.gbinder.components.ObserveAsEvents
+import com.salat.gbinder.components.CreateShortcutProvider
 import com.salat.gbinder.components.extractPackageName
+import com.salat.gbinder.components.queryCreateShortcutProviders
 import com.salat.gbinder.components.inMainToast
 import com.salat.gbinder.components.onlyDigitsAndLeadingPlus
 import com.salat.gbinder.components.requireDisplayOverlay
@@ -151,6 +153,7 @@ private enum class KeyBindingDialogStep {
     SET_APP_CAROUSEL_AUTOPLAY,
     SET_NAVI_MEDIA_PICK,
     SET_CARPLAY_SCREEN,
+    SET_SHORTCUT_PROVIDER,
 }
 
 private enum class KeyBindingDialogActions {
@@ -243,9 +246,7 @@ fun KeyBindingDialog(
             add(KeyBindingDialogActions.APP_PANEL)
             add(KeyBindingDialogActions.APP_CAROUSEL)
             add(KeyBindingDialogActions.NAVI_MEDIA_SWITCH)
-            if (systemApps.isPackageInstalled("ru.zapuskator")) {
-                add(KeyBindingDialogActions.FULLSCREEN_TO_SPLIT)
-            }
+            add(KeyBindingDialogActions.FULLSCREEN_TO_SPLIT)
             if (systemApps.isPackageInstalled("com.geely.recents")) {
                 add(KeyBindingDialogActions.RECENTS)
             }
@@ -275,6 +276,7 @@ fun KeyBindingDialog(
     }
     var apps: List<DeviceAppInfo>? by remember { mutableStateOf(null) }
     var link: PickedLink? by remember { mutableStateOf(null) }
+    var shortcutProviders: List<CreateShortcutProvider>? by remember { mutableStateOf(null) }
     var dmToggleSelected by remember { mutableStateOf<DisplayDriveMode?>(null) }
     var carouselDriveModes by remember { mutableStateOf<List<DraggableDMItem>>(emptyList()) }
     var carouselLightModes by remember { mutableStateOf<List<DraggableLampItem>>(emptyList()) }
@@ -358,12 +360,10 @@ fun KeyBindingDialog(
                 step = KeyBindingDialogStep.SET_NAVI_MEDIA_PICK
             }
 
-            // Re-pick the shortcut, result lands on SET_LINK
-            KeyBindAction.LAUNCH_LINK -> runCatching {
-                paramsEntryStep = KeyBindingDialogStep.SET_LINK
-                pickShortcut.launch(
-                    Intent(Intent.ACTION_CREATE_SHORTCUT)
-                )
+            KeyBindAction.LAUNCH_LINK -> {
+                paramsEntryStep = KeyBindingDialogStep.SET_SHORTCUT_PROVIDER
+                shortcutProviders = null
+                step = KeyBindingDialogStep.SET_SHORTCUT_PROVIDER
             }
 
             KeyBindAction.TOGGLE_DM -> {
@@ -570,6 +570,14 @@ fun KeyBindingDialog(
         }
     }
 
+    LaunchedEffect(step) {
+        if (step != KeyBindingDialogStep.SET_SHORTCUT_PROVIDER) return@LaunchedEffect
+        if (shortcutProviders != null) return@LaunchedEffect
+        withContext(Dispatchers.IO) {
+            shortcutProviders = context.queryCreateShortcutProviders()
+        }
+    }
+
     LaunchedEffect(true) {
         withContext(Dispatchers.IO) {
             val installedApps = systemApps.getAllApps(APP_ICON_ROUND, false, APP_ICON_QUALITY)
@@ -657,7 +665,8 @@ fun KeyBindingDialog(
                 KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> step =
                     KeyBindingDialogStep.SET_APP_CAROUSEL_PICK
 
-                KeyBindingDialogStep.SET_LINK -> step = KeyBindingDialogStep.SET_ACTION
+                KeyBindingDialogStep.SET_LINK -> step = KeyBindingDialogStep.SET_SHORTCUT_PROVIDER
+                KeyBindingDialogStep.SET_SHORTCUT_PROVIDER -> step = KeyBindingDialogStep.SET_ACTION
                 KeyBindingDialogStep.DRIVE_MODE_WARNING -> step =
                     KeyBindingDialogStep.SET_ACTION
 
@@ -715,6 +724,7 @@ fun KeyBindingDialog(
                 KeyBindingDialogStep.SET_PANEL_SETTINGS -> stringResource(R.string.kbd_title_panel_settings)
                 KeyBindingDialogStep.SET_APP -> stringResource(R.string.kbd_title_app)
                 KeyBindingDialogStep.SET_LINK -> stringResource(R.string.selected_shortcut)
+                KeyBindingDialogStep.SET_SHORTCUT_PROVIDER -> stringResource(R.string.shortcut)
                 KeyBindingDialogStep.DRIVE_MODE_WARNING -> stringResource(R.string.attention)
                 KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD -> stringResource(R.string.driving_mode_switch_type)
                 KeyBindingDialogStep.SET_TOGGLE_DRIVE_MODE -> stringResource(R.string.switching)
@@ -757,6 +767,7 @@ fun KeyBindingDialog(
                     KeyBindingDialogStep.SET_PANEL_SETTINGS -> stringResource(R.string.kbd_desc_panel_settings)
                     KeyBindingDialogStep.SET_APP -> stringResource(R.string.kbd_desc_select_app)
                     KeyBindingDialogStep.SET_LINK -> stringResource(R.string.selected_shortcut_desc)
+                    KeyBindingDialogStep.SET_SHORTCUT_PROVIDER -> stringResource(R.string.shortcut_desc)
                     KeyBindingDialogStep.DRIVE_MODE_WARNING -> ""
                     KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD -> ""
                     KeyBindingDialogStep.SET_TOGGLE_DRIVE_MODE -> stringResource(R.string.switching_desc)
@@ -1066,9 +1077,9 @@ fun KeyBindingDialog(
                                         onDismiss()
                                     }
 
-                                    KeyBindingDialogActions.LINK_LAUNCH -> runCatching {
-                                        val intent = Intent(Intent.ACTION_CREATE_SHORTCUT)
-                                        pickShortcut.launch(intent)
+                                    KeyBindingDialogActions.LINK_LAUNCH -> {
+                                        shortcutProviders = null
+                                        step = KeyBindingDialogStep.SET_SHORTCUT_PROVIDER
                                     }
 
                                     KeyBindingDialogActions.APP_LAUNCHER -> scope.launch(Dispatchers.IO) {
@@ -1436,7 +1447,7 @@ fun KeyBindingDialog(
                             ) {
                                 Icon(
                                     painter = painterResource(
-                                        R.drawable.ic_arrow_right_circle_outline
+                                        R.drawable.ic_settings
                                     ),
                                     contentDescription = stringResource(
                                         if (function.hasConfigurableTempStep()) {
@@ -2114,6 +2125,78 @@ fun KeyBindingDialog(
                             )
 
                             Spacer(Modifier.width(12.dp))
+                        }
+                    }
+                }
+            }
+
+            KeyBindingDialogStep.SET_SHORTCUT_PROVIDER -> {
+                val providers = shortcutProviders
+                if (providers == null) {
+                    RenderScan()
+                } else if (providers.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.no_such_shortcut),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 32.dp),
+                        color = AppTheme.colors.contentPrimary.copy(.6f),
+                        style = AppTheme.typography.dialogSubtitle
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    ) {
+                        item(key = -1) {
+                            Spacer(Modifier.height(.8.dp))
+                        }
+                        itemsIndexed(
+                            items = providers,
+                            key = { _, item -> "${item.packageName}/${item.activityName}" }
+                        ) { _, item ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        runCatching { pickShortcut.launch(item.createIntent()) }
+                                    }
+                                    .padding(vertical = 8.dp)
+                                    .padding(end = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Spacer(Modifier.width(16.dp))
+
+                                item.icon?.let { icon ->
+                                    DrawableImage(
+                                        icon = icon,
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                    )
+                                    Spacer(Modifier.width(10.dp))
+                                }
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = item.label,
+                                        style = AppTheme.typography.dialogListTitle,
+                                        overflow = TextOverflow.Ellipsis,
+                                        maxLines = 1,
+                                        color = AppTheme.colors.contentPrimary
+                                    )
+                                    Text(
+                                        text = item.packageName,
+                                        style = AppTheme.typography.dialogSubtitle,
+                                        overflow = TextOverflow.Ellipsis,
+                                        maxLines = 1,
+                                        color = AppTheme.colors.contentPrimary.copy(.5f)
+                                    )
+                                }
+
+                                Spacer(Modifier.width(12.dp))
+                            }
                         }
                     }
                 }
@@ -3059,6 +3142,7 @@ fun KeyBindingDialog(
                         KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> R.string.back
                         KeyBindingDialogStep.SET_APP_CAROUSEL_AUTOPLAY -> R.string.back
                         KeyBindingDialogStep.SET_LINK -> R.string.back
+                        KeyBindingDialogStep.SET_SHORTCUT_PROVIDER -> R.string.back
                         KeyBindingDialogStep.DRIVE_MODE_WARNING -> R.string.back
                         KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD -> R.string.back
                         KeyBindingDialogStep.SET_TOGGLE_DRIVE_MODE -> R.string.back
@@ -3091,6 +3175,7 @@ fun KeyBindingDialog(
                         KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> carouselOrderedPackages.size >= if (appPanelMode) 1 else 2
                         KeyBindingDialogStep.SET_APP_CAROUSEL_AUTOPLAY -> carouselOrderedPackages.size >= 2
                         KeyBindingDialogStep.SET_LINK -> link != null
+                        KeyBindingDialogStep.SET_SHORTCUT_PROVIDER -> false
                         KeyBindingDialogStep.DRIVE_MODE_WARNING -> true
                         KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD -> false
                         KeyBindingDialogStep.SET_TOGGLE_DRIVE_MODE -> dmToggleSelected != null
@@ -3106,7 +3191,8 @@ fun KeyBindingDialog(
                     KeyBindingDialogStep.SET_ACTION,
                     KeyBindingDialogStep.SET_CAR_FUNCTION,
                     KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD,
-                    KeyBindingDialogStep.SET_APP_PANEL_MODE
+                    KeyBindingDialogStep.SET_APP_PANEL_MODE,
+                    KeyBindingDialogStep.SET_SHORTCUT_PROVIDER
                 )
             ) {
                 Text(
@@ -3333,6 +3419,8 @@ fun KeyBindingDialog(
                                     }
                                 }
 
+                                KeyBindingDialogStep.SET_SHORTCUT_PROVIDER -> Unit
+
                                 KeyBindingDialogStep.DRIVE_MODE_WARNING -> {
                                     step = KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD
                                 }
@@ -3484,6 +3572,7 @@ fun KeyBindingDialog(
                             KeyBindingDialogStep.SET_APP_CAROUSEL_ORDER -> R.string.next
                             KeyBindingDialogStep.SET_APP_CAROUSEL_AUTOPLAY -> android.R.string.ok
                             KeyBindingDialogStep.SET_LINK -> android.R.string.ok
+                            KeyBindingDialogStep.SET_SHORTCUT_PROVIDER -> R.string.next
                             KeyBindingDialogStep.DRIVE_MODE_WARNING -> android.R.string.ok
                             KeyBindingDialogStep.SET_DRIVE_MODE_CHOOSE_METHOD -> R.string.next
                             KeyBindingDialogStep.SET_TOGGLE_DRIVE_MODE -> android.R.string.ok
