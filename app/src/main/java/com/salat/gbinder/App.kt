@@ -126,8 +126,11 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
@@ -206,6 +209,10 @@ class App : Application(), ImageLoaderFactory {
         private const val NOTIFICATION_LISTENER_COMPONENT =
             "com.salat.gbinder/com.salat.gbinder.MediaNotificationListenerService"
         private const val PERMISSIONS_CHECK_DELAY_MS = 1_000
+
+        private const val DIM_PACKAGE = "com.autolink.diminteraction"
+        private const val DIM_STOP_WATCH_INTERVAL_MS = 5_000
+        private const val DIM_STOP_WATCH_CHECKS = 12
 
         private const val MINIMIZE_SYSTEM_DELAY = 360L
         private const val SILENT_START = 4 // in sec
@@ -342,6 +349,7 @@ class App : Application(), ImageLoaderFactory {
     private val toggleDriveModeTaskMutex = Mutex()
     private val carouselAudioSourceMutex = Mutex()
     private val appCarouselMutex = Mutex()
+    private val splitToggleMutex = Mutex()
 
     // Notify by drive mode changed
     private var canNotify = false
@@ -2223,13 +2231,25 @@ class App : Application(), ImageLoaderFactory {
 
             stopDimByLaunch?.cancel()
             stopDimByLaunch = if (enabled) launch {
-                dataStore.getValueFlow(GeneralPrefs.ADB_DIM_AUTO_STOP, false).collect { needStop ->
-                    if (needStop) {
-                        adb.forceStop("com.autolink.diminteraction")
-                        Timber.d("[ADB] force stop DIM")
+                combine(
+                    dataStore.getValueFlow(GeneralPrefs.ADB_DIM_AUTO_STOP, false),
+                    adb.connectionState.map { it is AdbConnectionState.Connected }
+                ) { needStop, connected -> needStop && connected }
+                    .distinctUntilChanged()
+                    .collectLatest { shouldStop ->
+                        if (shouldStop) stopDimWhenLaunched()
                     }
-                }
             } else null
+        }
+    }
+
+    private suspend fun stopDimWhenLaunched() {
+        repeat(DIM_STOP_WATCH_CHECKS) {
+            if (adb.isAppLaunched(DIM_PACKAGE)) {
+                debugLog("[ADB] force stop DIM: ${adb.forceStop(DIM_PACKAGE)}")
+                return
+            }
+            delay(DIM_STOP_WATCH_INTERVAL_MS.milliseconds)
         }
     }
 
@@ -2775,13 +2795,13 @@ class App : Application(), ImageLoaderFactory {
         }
     }
 
-    private suspend fun toggleFullscreenToSplit() {
+    private suspend fun toggleFullscreenToSplit() = splitToggleMutex.withLock {
         if (gsplitSeenThisBoot) {
             val gsplit = lastGsplitPackage.takeIf { it in GSPLIT_PKGS } ?: GSPLIT_PACKAGE
             val intent = Intent(GSPLIT_FULLSCREEN).setPackage(gsplit)
             withContext(Dispatchers.Main) { sendBroadcast(intent) }
             gsplitSeenThisBoot = false
-            return
+            return@withLock
         }
         restoreSplitZapuskator()
     }

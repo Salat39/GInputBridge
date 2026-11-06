@@ -16,13 +16,13 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.abs
@@ -410,19 +410,16 @@ class CarFunctionController(
     private suspend fun isSteeringWheelAutoA(): Boolean =
         car.getIntProperty(CarPropertyKey.HVAC_FUNC_STEERING_WHEEL_HEAT_A) == 1
 
-    private suspend fun waitSteeringWheelAutoAOff() = coroutineScope {
-        val waiter = async(start = CoroutineStart.UNDISPATCHED) {
-            while (isSteeringWheelAutoA()) {
+    private suspend fun waitSteeringWheelAutoAOff() {
+        withTimeoutOrNull(WHEEL_AUTO_OFF_TIMEOUT_MS) {
+            val waiter = async(start = CoroutineStart.UNDISPATCHED) {
                 car.functionChangedFlow.first {
-                    it.propertyId == CarPropertyKey.HVAC_FUNC_STEERING_WHEEL_HEAT_A
+                    it.propertyId == CarPropertyKey.HVAC_FUNC_STEERING_WHEEL_HEAT_A &&
+                        !isSteeringWheelAutoA()
                 }
             }
+            if (isSteeringWheelAutoA()) waiter.await() else waiter.cancel()
         }
-        if (!isSteeringWheelAutoA()) {
-            waiter.cancel()
-            return@coroutineScope
-        }
-        waiter.await()
     }
 
     private suspend fun setHeatVentLevel(
@@ -878,6 +875,7 @@ class CarFunctionController(
         private const val XCAPA_ACTIVITY = "com.ecarx.xcapa.MainApaActivity"
 
         private const val LEVEL_LOCK_SEC = 5
+        private const val WHEEL_AUTO_OFF_TIMEOUT_MS = 3_000L
         private const val DEFAULT_TEMP_HI = 28f
         private const val SEAT_MEMORY_PACKAGE = "com.geely.hvac"
         private const val SEAT_MEMORY_ACTIVITY =

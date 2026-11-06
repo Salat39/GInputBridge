@@ -63,9 +63,11 @@ import com.salat.gbinder.ui.BaseDialog
 import com.salat.gbinder.ui.clickableNoRipple
 import com.salat.gbinder.ui.theme.AppTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -457,25 +459,29 @@ class LauncherEntryActivity : ComponentActivity() {
             stateKeeper.launcherOverlaySignalFlow.collect { signal ->
                 when (signal) {
                     LauncherOverlaySignal.CreateShortcut -> {
-                        val providers = context.queryCreateShortcutProviders()
-                        when {
-                            providers.isEmpty() -> Unit
-                            providers.size == 1 ->
-                                pickShortcut.launch(providers.first().createIntent())
-                            else -> {
-                                val intents = providers.map { it.createIntent() }
-                                val chooser = Intent.createChooser(
-                                    intents.first(),
-                                    context.getString(R.string.shortcut)
-                                ).apply {
-                                    putExtra(
-                                        Intent.EXTRA_INITIAL_INTENTS,
-                                        intents.drop(1).toTypedArray()
-                                    )
-                                }
-                                pickShortcut.launch(chooser)
-                            }
+                        val providers = withContext(Dispatchers.IO) {
+                            context.queryCreateShortcutProviders()
                         }
+                        runCatching {
+                            when {
+                                providers.isEmpty() -> Unit
+                                providers.size == 1 ->
+                                    pickShortcut.launch(providers.first().createIntent())
+                                else -> {
+                                    val intents = providers.map { it.createIntent() }
+                                    val chooser = Intent.createChooser(
+                                        intents.first(),
+                                        context.getString(R.string.shortcut)
+                                    ).apply {
+                                        putExtra(
+                                            Intent.EXTRA_INITIAL_INTENTS,
+                                            intents.drop(1).toTypedArray()
+                                        )
+                                    }
+                                    pickShortcut.launch(chooser)
+                                }
+                            }
+                        }.onFailure { Timber.e(it) }
                     }
 
                     else -> Unit
